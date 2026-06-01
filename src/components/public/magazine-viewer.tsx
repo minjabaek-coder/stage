@@ -383,7 +383,7 @@ function MobilePrevFlipOverlay({
 }
 
 // ── TOC Thumbnail Strip ──
-function TocThumbnailStrip({
+export function TocThumbnailStrip({
   tocEntries,
   pages,
   currentPage,
@@ -452,7 +452,7 @@ function TocThumbnailStrip({
 }
 
 // ── TOC Panel (Desktop: side panel, Mobile: bottom carousel modal) ──
-function TocPanel({
+export function TocPanel({
   tocEntries,
   pages,
   currentPage,

@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { MagazineViewer } from "@/components/public/magazine-viewer";
+import { MagazineReader } from "@/components/public/magazine-reader";
 import { MagazineIssuePage } from "@/components/public/magazine-issue-page";
 import { ViewTracker } from "@/components/public/view-tracker";
 import type { Metadata } from "next";
@@ -68,7 +68,7 @@ export default async function MagazineViewerPage({ params }: Props) {
         </span>
       </header>
       <div className="relative flex-1 overflow-hidden">
-        <MagazineViewer pages={magazine.pages} tocEntries={magazine.tocEntries} />
+        <MagazineReader pages={magazine.pages} tocEntries={magazine.tocEntries} />
         <div className="absolute bottom-4 left-0 right-0 flex md:hidden items-center justify-center gap-3">
           <Link
             href="/"
