@@ -18,26 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { ACCEPTED_IMAGE_TYPES, MAX_FILE_SIZE } from "@/lib/constants";
-import { compressImage } from "@/lib/image-client";
-
-async function uploadImage(file: File): Promise<string> {
-  if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
-    throw new Error("지원하지 않는 파일 형식입니다");
-  }
-  if (file.size > MAX_FILE_SIZE) {
-    throw new Error("파일이 너무 큽니다 (최대 20MB)");
-  }
-  const compressed = await compressImage(file);
-  const formData = new FormData();
-  formData.append("file", compressed);
-  const res = await fetch("/api/admin/blog/upload", {
-    method: "POST",
-    body: formData,
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "업로드 실패");
-  return data.url;
-}
+import { uploadBlogImage as uploadImage } from "@/lib/upload-client";
 
 function ToolbarButton({
   onClick,
