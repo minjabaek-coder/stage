@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod/v4";
+import { deleteUploadedFile } from "@/lib/upload";
 
 const magazineSchema = z.object({
   issueNumber: z.coerce.number().int().positive("호수는 양수여야 합니다"),
@@ -139,9 +140,34 @@ export async function unpublishMagazine(id: string) {
 }
 
 export async function deleteMagazine(id: string) {
-  await prisma.magazine.delete({
+  // Collect all Storage-backed URLs before deletion. Cascade removes the DB
+  // rows (pages, articles) but NOT the Supabase Storage objects, so gather them
+  // up front and clean them after the DB delete to avoid orphaned files.
+  const magazine = await prisma.magazine.findUnique({
     where: { id },
+    select: {
+      coverImageUrl: true,
+      pages: { select: { imageUrl: true } },
+      articles: { select: { thumbnailUrl: true } },
+    },
   });
+
+  if (!magazine) {
+    return { error: "매거진을 찾을 수 없습니다" };
+  }
+
+  await prisma.magazine.delete({ where: { id } });
+
+  const urls = new Set<string>();
+  if (magazine.coverImageUrl) urls.add(magazine.coverImageUrl);
+  for (const page of magazine.pages) urls.add(page.imageUrl);
+  for (const article of magazine.articles) {
+    if (article.thumbnailUrl) urls.add(article.thumbnailUrl);
+  }
+
+  // Best-effort cleanup; failures are logged inside deleteUploadedFile and must
+  // not block the deletion that already succeeded in the DB.
+  await Promise.allSettled([...urls].map((url) => deleteUploadedFile(url)));
 
   revalidatePath("/admin/magazines");
   revalidatePath("/");

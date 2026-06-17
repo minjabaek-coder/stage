@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { saveBlogThumbnail } from "@/lib/upload";
-import { ACCEPTED_IMAGE_TYPES } from "@/lib/constants";
+import { ACCEPTED_IMAGE_TYPES, MAX_FILE_SIZE } from "@/lib/constants";
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,6 +17,13 @@ export async function POST(request: NextRequest) {
     if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
       return NextResponse.json(
         { error: "지원하지 않는 파일 형식입니다" },
+        { status: 400 }
+      );
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { error: "파일이 너무 큽니다 (최대 20MB)" },
         { status: 400 }
       );
     }

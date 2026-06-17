@@ -1,50 +1,11 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { useDropzone } from "react-dropzone";
+import { useDropzone, type FileRejection } from "react-dropzone";
 import { useRouter } from "next/navigation";
-import { ACCEPTED_IMAGE_TYPES } from "@/lib/constants";
+import { ACCEPTED_IMAGE_TYPES, MAX_FILE_SIZE } from "@/lib/constants";
+import { compressImage } from "@/lib/image-client";
 import { toast } from "sonner";
-
-const CLIENT_MAX_WIDTH = 2400;
-const CLIENT_QUALITY = 0.85;
-const CLIENT_MAX_SIZE = 4 * 1024 * 1024; // 4MB (Vercel Hobby limit is 4.5MB)
-
-async function compressImage(file: File): Promise<File> {
-  // If already small enough, skip compression
-  if (file.size <= CLIENT_MAX_SIZE) return file;
-
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      let { width, height } = img;
-
-      // Resize if wider than max
-      if (width > CLIENT_MAX_WIDTH) {
-        height = Math.round((height * CLIENT_MAX_WIDTH) / width);
-        width = CLIENT_MAX_WIDTH;
-      }
-
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) { resolve(file); return; }
-      ctx.drawImage(img, 0, 0, width, height);
-
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) { resolve(file); return; }
-          resolve(new File([blob], file.name, { type: "image/jpeg" }));
-        },
-        "image/jpeg",
-        CLIENT_QUALITY
-      );
-    };
-    img.onerror = () => reject(new Error("이미지 로드 실패"));
-    img.src = URL.createObjectURL(file);
-  });
-}
 
 export function PageUploadZone({ magazineId }: { magazineId: string }) {
   const [uploading, setUploading] = useState(false);
@@ -106,11 +67,24 @@ export function PageUploadZone({ magazineId }: { magazineId: string }) {
     [magazineId, router]
   );
 
+  const onDropRejected = useCallback((rejections: FileRejection[]) => {
+    for (const { file, errors } of rejections) {
+      const tooLarge = errors.some((e) => e.code === "file-too-large");
+      toast.error(
+        tooLarge
+          ? `${file.name}: 파일이 너무 큽니다 (최대 20MB)`
+          : `${file.name}: 지원하지 않는 파일 형식입니다`
+      );
+    }
+  }, []);
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
+    onDropRejected,
     accept: Object.fromEntries(
       ACCEPTED_IMAGE_TYPES.map((type) => [type, []])
     ),
+    maxSize: MAX_FILE_SIZE,
     disabled: uploading,
   });
 

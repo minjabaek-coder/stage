@@ -17,14 +17,19 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { ACCEPTED_IMAGE_TYPES } from "@/lib/constants";
+import { ACCEPTED_IMAGE_TYPES, MAX_FILE_SIZE } from "@/lib/constants";
+import { compressImage } from "@/lib/image-client";
 
 async function uploadImage(file: File): Promise<string> {
   if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
     throw new Error("지원하지 않는 파일 형식입니다");
   }
+  if (file.size > MAX_FILE_SIZE) {
+    throw new Error("파일이 너무 큽니다 (최대 20MB)");
+  }
+  const compressed = await compressImage(file);
   const formData = new FormData();
-  formData.append("file", file);
+  formData.append("file", compressed);
   const res = await fetch("/api/admin/blog/upload", {
     method: "POST",
     body: formData,
@@ -86,8 +91,19 @@ function ImageInsertDialog({
     onDrop: (files) => {
       if (files[0]) handleFile(files[0]);
     },
+    onDropRejected: (rejections) => {
+      const tooLarge = rejections[0]?.errors.some(
+        (e) => e.code === "file-too-large"
+      );
+      toast.error(
+        tooLarge
+          ? "파일이 너무 큽니다 (최대 20MB)"
+          : "지원하지 않는 파일 형식입니다"
+      );
+    },
     accept: Object.fromEntries(ACCEPTED_IMAGE_TYPES.map((t) => [t, []])),
     maxFiles: 1,
+    maxSize: MAX_FILE_SIZE,
     disabled: uploading,
   });
 
