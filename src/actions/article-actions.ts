@@ -114,6 +114,12 @@ export async function updateArticle(
   }
 
   const isCover = parsed.data.isCoverStory === "true";
+  const newThumbnail = parsed.data.thumbnailUrl || null;
+
+  const current = await prisma.magazineArticle.findUnique({
+    where: { id },
+    select: { thumbnailUrl: true },
+  });
 
   if (isCover) {
     await prisma.magazineArticle.updateMany({
@@ -130,13 +136,18 @@ export async function updateArticle(
       author: parsed.data.author || "",
       section: parsed.data.section || "",
       content: parsed.data.content || "",
-      thumbnailUrl: parsed.data.thumbnailUrl || null,
+      thumbnailUrl: newThumbnail,
       publishedAt: parsed.data.publishedAt
         ? new Date(parsed.data.publishedAt)
         : null,
       isCoverStory: isCover,
     },
   });
+
+  // Replaced thumbnail → remove the old Storage file (no-op for external URLs)
+  if (current?.thumbnailUrl && current.thumbnailUrl !== newThumbnail) {
+    await deleteUploadedFile(current.thumbnailUrl);
+  }
 
   if (isCover && parsed.data.thumbnailUrl) {
     await prisma.magazine.update({
@@ -186,6 +197,12 @@ export async function deleteArticle(id: string, magazineId: string) {
 
   if (article.thumbnailUrl) {
     await deleteUploadedFile(article.thumbnailUrl);
+    // If this article's thumbnail was the magazine cover, clear the now-dangling
+    // reference so the cover doesn't point at a deleted file.
+    await prisma.magazine.updateMany({
+      where: { id: magazineId, coverImageUrl: article.thumbnailUrl },
+      data: { coverImageUrl: null },
+    });
   }
 
   revalidateArticlePaths(magazineId);

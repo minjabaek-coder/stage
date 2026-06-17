@@ -100,8 +100,10 @@ export async function updateBlogPost(id: string, formData: FormData) {
 
   const currentPost = await prisma.blogPost.findUnique({
     where: { id },
-    select: { content: true, title: true, status: true },
+    select: { content: true, title: true, status: true, thumbnailUrl: true },
   });
+
+  const newThumbnail = parsed.data.thumbnailUrl || null;
 
   await prisma.blogPost.update({
     where: { id },
@@ -111,12 +113,17 @@ export async function updateBlogPost(id: string, formData: FormData) {
       author: parsed.data.author || "",
       tags: parseTags(parsed.data.tags),
       content: parsed.data.content || "",
-      thumbnailUrl: parsed.data.thumbnailUrl || null,
+      thumbnailUrl: newThumbnail,
       publishedAt: parsed.data.publishedAt
         ? new Date(parsed.data.publishedAt)
         : null,
     },
   });
+
+  // Replaced thumbnail → remove the old Storage file (no-op for external URLs)
+  if (currentPost?.thumbnailUrl && currentPost.thumbnailUrl !== newThumbnail) {
+    await deleteUploadedFile(currentPost.thumbnailUrl);
+  }
 
   revalidateBlogPaths(id, parsed.data.slug);
 

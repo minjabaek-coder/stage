@@ -1,14 +1,16 @@
 import path from "path";
 import sharp from "sharp";
-import { ACCEPTED_IMAGE_TYPES } from "./constants";
+import {
+  ACCEPTED_IMAGE_TYPES,
+  MAGAZINE_IMAGE_MAX_WIDTH,
+  BLOG_IMAGE_MAX_WIDTH,
+  WEBP_QUALITY,
+} from "./constants";
 import { getSupabase, STORAGE_BUCKET, getPublicUrl } from "./supabase";
 
-const OPTIMIZED_MAX_WIDTH = 1200;
-const WEBP_QUALITY = 85;
-
-async function optimizeImage(buffer: Buffer): Promise<Buffer> {
+async function optimizeImage(buffer: Buffer, maxWidth: number): Promise<Buffer> {
   return sharp(buffer)
-    .resize(OPTIMIZED_MAX_WIDTH, null, {
+    .resize(maxWidth, null, {
       withoutEnlargement: true,
       fit: "inside",
     })
@@ -46,7 +48,7 @@ export async function saveUploadedFile(
   const rawBuffer = Buffer.from(await file.arrayBuffer());
   let optimizedBuffer: Buffer;
   try {
-    optimizedBuffer = await optimizeImage(rawBuffer);
+    optimizedBuffer = await optimizeImage(rawBuffer, MAGAZINE_IMAGE_MAX_WIDTH);
   } catch {
     throw new Error("이미지 최적화에 실패했습니다. 다른 파일을 시도해주세요.");
   }
@@ -65,14 +67,21 @@ export async function saveUploadedFile(
 export async function saveBlogThumbnail(file: File): Promise<string> {
   validateImageType(file);
 
-  const filename = generateFilename(file);
+  const filename = generateFilename(file, ".webp");
   const storagePath = `blog/${filename}`;
 
-  const buffer = Buffer.from(await file.arrayBuffer());
+  const rawBuffer = Buffer.from(await file.arrayBuffer());
+  let optimizedBuffer: Buffer;
+  try {
+    optimizedBuffer = await optimizeImage(rawBuffer, BLOG_IMAGE_MAX_WIDTH);
+  } catch {
+    throw new Error("이미지 최적화에 실패했습니다. 다른 파일을 시도해주세요.");
+  }
+
   const { error } = await getSupabase().storage
     .from(STORAGE_BUCKET)
-    .upload(storagePath, buffer, {
-      contentType: file.type,
+    .upload(storagePath, optimizedBuffer, {
+      contentType: "image/webp",
     });
 
   if (error) throw new Error(`업로드 실패: ${error.message}`);
@@ -87,8 +96,14 @@ export async function deleteUploadedFile(imageUrl: string): Promise<void> {
     if (pathParts.length < 2) return;
 
     const storagePath = decodeURIComponent(pathParts[1]);
-    await getSupabase().storage.from(STORAGE_BUCKET).remove([storagePath]);
-  } catch {
-    // URL parsing failed or file not found, ignore
+    const { error } = await getSupabase()
+      .storage.from(STORAGE_BUCKET)
+      .remove([storagePath]);
+    if (error) {
+      console.error(`[upload] Failed to delete ${storagePath}:`, error.message);
+    }
+  } catch (err) {
+    // URL parsing failed; log so silent storage leaks are diagnosable
+    console.error("[upload] deleteUploadedFile error:", err);
   }
 }

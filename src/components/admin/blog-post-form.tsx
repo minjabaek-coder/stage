@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RichTextEditor } from "./rich-text-editor";
 import { toast } from "sonner";
-import { ACCEPTED_IMAGE_TYPES } from "@/lib/constants";
+import { ACCEPTED_IMAGE_TYPES, MAX_FILE_SIZE } from "@/lib/constants";
+import { uploadBlogImage } from "@/lib/upload-client";
 
 type FormState = { error?: string; success?: boolean } | undefined;
 
@@ -67,30 +68,31 @@ export function BlogPostForm({
 
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch("/api/admin/blog/upload", {
-        method: "POST",
-        body: formData,
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setThumbnailUrl(data.url);
-      } else {
-        toast.error(data.error || "업로드 실패");
-      }
-    } catch {
-      toast.error("업로드 중 오류가 발생했습니다");
+      const url = await uploadBlogImage(file);
+      setThumbnailUrl(url);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "업로드 중 오류가 발생했습니다");
     }
     setUploading(false);
   }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
+    onDropRejected: (rejections) => {
+      const tooLarge = rejections[0]?.errors.some(
+        (err) => err.code === "file-too-large"
+      );
+      toast.error(
+        tooLarge
+          ? "파일이 너무 큽니다 (최대 20MB)"
+          : "지원하지 않는 파일 형식입니다"
+      );
+    },
     accept: Object.fromEntries(
       ACCEPTED_IMAGE_TYPES.map((type) => [type, []])
     ),
     maxFiles: 1,
+    maxSize: MAX_FILE_SIZE,
   });
 
   function handleTitleChange(value: string) {
