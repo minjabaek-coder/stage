@@ -108,12 +108,21 @@ function extractStoragePath(imageUrl: string): string | null {
 }
 
 export async function renamePageFiles(magazineId: string) {
-  const pages = await prisma.magazinePage.findMany({
-    where: { magazineId },
-    orderBy: { sortOrder: "asc" },
-  });
+  const [pages, magazine] = await Promise.all([
+    prisma.magazinePage.findMany({
+      where: { magazineId },
+      orderBy: { sortOrder: "asc" },
+    }),
+    prisma.magazine.findUnique({
+      where: { id: magazineId },
+      select: { coverImageUrl: true },
+    }),
+  ]);
 
   let renamed = 0;
+  // The cover points at one page's original URL; capture its new URL and apply
+  // a single update after the loop instead of re-querying the magazine per page.
+  let newCoverUrl: string | null = null;
 
   for (const page of pages) {
     const oldPath = extractStoragePath(page.imageUrl);
@@ -140,15 +149,18 @@ export async function renamePageFiles(magazineId: string) {
       data: { imageUrl: newUrl },
     });
 
-    const magazine = await prisma.magazine.findUnique({ where: { id: magazineId } });
     if (magazine?.coverImageUrl === page.imageUrl) {
-      await prisma.magazine.update({
-        where: { id: magazineId },
-        data: { coverImageUrl: newUrl },
-      });
+      newCoverUrl = newUrl;
     }
 
     renamed++;
+  }
+
+  if (newCoverUrl) {
+    await prisma.magazine.update({
+      where: { id: magazineId },
+      data: { coverImageUrl: newCoverUrl },
+    });
   }
 
   revalidatePath(`/admin/magazines/${magazineId}/edit`);

@@ -6,6 +6,12 @@ import { redirect } from "next/navigation";
 import { z } from "zod/v4";
 import { deleteUploadedFile } from "@/lib/upload";
 
+function revalidateMagazinePaths(id?: string) {
+  if (id) revalidatePath(`/admin/magazines/${id}/edit`);
+  revalidatePath("/admin/magazines");
+  revalidatePath("/");
+}
+
 const magazineSchema = z.object({
   issueNumber: z.coerce.number().int().positive("호수는 양수여야 합니다"),
   title: z.string().min(1, "제목을 입력해주세요").max(200),
@@ -85,9 +91,7 @@ export async function updateMagazine(id: string, formData: FormData) {
     },
   });
 
-  revalidatePath(`/admin/magazines/${id}/edit`);
-  revalidatePath("/admin/magazines");
-  revalidatePath("/");
+  revalidateMagazinePaths(id);
   return { success: true };
 }
 
@@ -121,9 +125,7 @@ export async function publishMagazine(id: string) {
     },
   });
 
-  revalidatePath(`/admin/magazines/${id}/edit`);
-  revalidatePath("/admin/magazines");
-  revalidatePath("/");
+  revalidateMagazinePaths(id);
   return { success: true };
 }
 
@@ -133,9 +135,7 @@ export async function unpublishMagazine(id: string) {
     data: { status: "unpublished" },
   });
 
-  revalidatePath(`/admin/magazines/${id}/edit`);
-  revalidatePath("/admin/magazines");
-  revalidatePath("/");
+  revalidateMagazinePaths(id);
   return { success: true };
 }
 
@@ -169,7 +169,6 @@ export async function deleteMagazine(id: string) {
   // not block the deletion that already succeeded in the DB.
   await Promise.allSettled([...urls].map((url) => deleteUploadedFile(url)));
 
-  revalidatePath("/admin/magazines");
-  revalidatePath("/");
+  revalidateMagazinePaths();
   redirect("/admin/magazines");
 }
