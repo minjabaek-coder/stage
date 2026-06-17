@@ -42,7 +42,11 @@ function usePinchZoom(
   const didMoveRef = useRef(false);
   const wasPinchingRef = useRef(false);
   const callbacksRef = useRef(callbacks);
-  callbacksRef.current = callbacks;
+  // Keep the latest callbacks for the gesture handlers without re-subscribing;
+  // assign after commit (no deps = every render) instead of during render.
+  useEffect(() => {
+    callbacksRef.current = callbacks;
+  });
 
   const isZoomed = scale > 1.05;
 
@@ -761,8 +765,12 @@ export function MagazineViewer({
     }
   }, [currentPage, pages.length]);
 
-  flipPrevRef.current = flipPrev;
-  flipNextRef.current = flipNext;
+  // Keep the swipe handlers (in usePinchZoom) pointing at the latest callbacks
+  // without re-subscribing. Assign after commit, not during render.
+  useEffect(() => {
+    flipPrevRef.current = flipPrev;
+    flipNextRef.current = flipNext;
+  }, [flipPrev, flipNext]);
 
   const handleMobilePrevComplete = useCallback(() => {
     // Animation done — tell react-pageflip to go to prev page (instant, no animation)
@@ -822,6 +830,13 @@ export function MagazineViewer({
                 transition: zoomScale === 1 ? "transform 0.2s ease-out" : undefined,
               }}
             >
+            {/*
+              react-pageflip is client-only (cannot SSR) and lazy-loaded once via
+              useFlipBook; its value changes only null→component and is then stable,
+              and bookRef must forward to it to drive pageFlip(). The "static
+              components" rule is a false positive for this intentional pattern.
+            */}
+            {/* eslint-disable-next-line react-hooks/static-components */}
             <HTMLFlipBook
               ref={bookRef}
               width={dims.pageW}
