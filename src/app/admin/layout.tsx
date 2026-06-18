@@ -41,6 +41,12 @@ export default function AdminLayout({
                 블로그
               </Link>
               <Link
+                href="/admin/articles"
+                className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                기사
+              </Link>
+              <Link
                 href="/admin/api-logs"
                 className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
               >

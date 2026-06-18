@@ -3,10 +3,10 @@ export const dynamic = "force-dynamic";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { ArticleForm } from "@/components/admin/article-form";
-import { ArticleStatusActions } from "@/components/admin/article-status-actions";
+import { ArticleForm } from "@/components/admin/magazine-article-form";
+import { ArticleStatusActions } from "@/components/admin/magazine-article-status-actions";
 import { StatusBadge } from "@/components/admin/status-badge";
-import { updateArticle } from "@/actions/article-actions";
+import { updateArticle } from "@/actions/magazine-article-actions";
 
 export default async function EditArticlePage({
   params,

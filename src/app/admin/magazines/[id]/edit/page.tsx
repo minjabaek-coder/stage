@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { MagazineForm } from "@/components/admin/magazine-form";
 import { PageUploadZone } from "@/components/admin/page-upload-zone";
 import { PageListSortable } from "@/components/admin/page-list-sortable";
-import { ArticleListSortable } from "@/components/admin/article-list-sortable";
+import { ArticleListSortable } from "@/components/admin/magazine-article-list-sortable";
 import { StatusActions } from "@/components/admin/status-actions";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { TocEditor } from "@/components/admin/toc-editor";

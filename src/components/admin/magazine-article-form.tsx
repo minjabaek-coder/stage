@@ -14,6 +14,15 @@ import { uploadBlogImage } from "@/lib/upload-client";
 
 type FormState = { error?: string; success?: boolean } | undefined;
 
+const SECTIONS = [
+  "커버스토리",
+  "인터뷰",
+  "리뷰",
+  "스페셜",
+  "공연·티켓·교육",
+  "기획",
+];
+
 function slugify(text: string): string {
   const base = text
     .toLowerCase()
@@ -22,7 +31,6 @@ function slugify(text: string): string {
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
-
   return base || `article-${Date.now()}`;
 }
 
@@ -35,48 +43,42 @@ export function ArticleForm({
   defaultValues?: {
     title?: string;
     slug?: string;
-    excerpt?: string | null;
     author?: string;
-    category?: string;
-    tags?: string[];
+    section?: string;
     content?: string;
     thumbnailUrl?: string | null;
-    isFeatured?: boolean;
-    isPremium?: boolean;
-    aiIndexable?: boolean;
     publishedAt?: Date | null;
+    isCoverStory?: boolean;
   };
   formId?: string;
 }) {
   const router = useRouter();
-  const [state, formAction, isPending] = useActionState(action, undefined);
+  const [state, formAction] = useActionState(action, undefined);
   const [content, setContent] = useState(defaultValues?.content || "");
   const [thumbnailUrl, setThumbnailUrl] = useState(
     defaultValues?.thumbnailUrl || ""
   );
-  const [slug, setSlug] = useState(defaultValues?.slug || "");
   const [title, setTitle] = useState(defaultValues?.title || "");
+  const [slug, setSlug] = useState(defaultValues?.slug || "");
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (state?.success) {
       toast.success("저장되었습니다");
-      router.push("/admin/articles");
+      router.refresh();
+    } else if (state?.error) {
+      toast.error(state.error);
     }
   }, [state, router]);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
     if (!file) return;
-
     setUploading(true);
     try {
-      const url = await uploadBlogImage(file);
-      setThumbnailUrl(url);
+      setThumbnailUrl(await uploadBlogImage(file));
     } catch (e) {
-      toast.error(
-        e instanceof Error ? e.message : "업로드 중 오류가 발생했습니다"
-      );
+      toast.error(e instanceof Error ? e.message : "업로드 중 오류가 발생했습니다");
     }
     setUploading(false);
   }, []);
@@ -91,7 +93,7 @@ export function ArticleForm({
         tooLarge ? "파일이 너무 큽니다 (최대 20MB)" : "지원하지 않는 파일 형식입니다"
       );
     },
-    accept: Object.fromEntries(ACCEPTED_IMAGE_TYPES.map((type) => [type, []])),
+    accept: Object.fromEntries(ACCEPTED_IMAGE_TYPES.map((t) => [t, []])),
     maxFiles: 1,
     maxSize: MAX_FILE_SIZE,
   });
@@ -105,7 +107,7 @@ export function ArticleForm({
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>기사 정보</CardTitle>
+          <CardTitle>아티클 정보</CardTitle>
         </CardHeader>
         <CardContent>
           <form id={formId} action={formAction} className="space-y-4">
@@ -123,112 +125,72 @@ export function ArticleForm({
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="slug">슬러그</Label>
-              <Input
-                id="slug"
-                name="slug"
-                value={slug}
-                onChange={(e) => setSlug(e.target.value)}
-                placeholder="url-friendly-slug"
-                required
-              />
-              <p className="text-xs text-gray-500">
-                URL에 사용됩니다: /articles/{slug || "..."}
-              </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="slug">슬러그</Label>
+                <Input
+                  id="slug"
+                  name="slug"
+                  value={slug}
+                  onChange={(e) => setSlug(e.target.value)}
+                  placeholder="url-friendly-slug"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="section">섹션</Label>
+                <Input
+                  id="section"
+                  name="section"
+                  list="article-sections"
+                  defaultValue={defaultValues?.section}
+                  placeholder="커버스토리 / 인터뷰 …"
+                />
+                <datalist id="article-sections">
+                  {SECTIONS.map((s) => (
+                    <option key={s} value={s} />
+                  ))}
+                </datalist>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="excerpt">요약</Label>
-              <textarea
-                id="excerpt"
-                name="excerpt"
-                defaultValue={defaultValues?.excerpt || ""}
-                rows={2}
-                placeholder="목록·검색·OG에 쓰이는 짧은 요약"
-                className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="author">작성자</Label>
                 <Input
                   id="author"
                   name="author"
                   defaultValue={defaultValues?.author}
+                  placeholder="STAGE 편집부"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="category">카테고리</Label>
+                <Label htmlFor="publishedAt">작성날짜</Label>
                 <Input
-                  id="category"
-                  name="category"
-                  defaultValue={defaultValues?.category}
-                  placeholder="예: 리뷰, 인터뷰, 칼럼"
+                  id="publishedAt"
+                  name="publishedAt"
+                  type="date"
+                  defaultValue={
+                    defaultValues?.publishedAt
+                      ? new Date(defaultValues.publishedAt)
+                          .toISOString()
+                          .split("T")[0]
+                      : ""
+                  }
                 />
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="publishedAt">작성날짜</Label>
-              <Input
-                id="publishedAt"
-                name="publishedAt"
-                type="date"
-                defaultValue={
-                  defaultValues?.publishedAt
-                    ? new Date(defaultValues.publishedAt)
-                        .toISOString()
-                        .split("T")[0]
-                    : ""
-                }
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="isCoverStory"
+                value="true"
+                defaultChecked={defaultValues?.isCoverStory}
+                className="h-4 w-4"
               />
-              <p className="text-xs text-gray-500">
-                비워두면 발행 시 현재 날짜가 사용됩니다
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="tags">태그</Label>
-              <Input
-                id="tags"
-                name="tags"
-                defaultValue={defaultValues?.tags?.join(", ")}
-                placeholder="태그1, 태그2, 태그3"
-              />
-              <p className="text-xs text-gray-500">콤마로 구분해주세요</p>
-            </div>
-
-            <div className="flex flex-wrap gap-6 rounded-lg border border-gray-200 p-4">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  name="isFeatured"
-                  defaultChecked={defaultValues?.isFeatured ?? false}
-                  className="h-4 w-4 accent-[#1c1b1b]"
-                />
-                추천 기사
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  name="isPremium"
-                  defaultChecked={defaultValues?.isPremium ?? false}
-                  className="h-4 w-4 accent-[#6f5c24]"
-                />
-                프리미엄(등급 제한)
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  name="aiIndexable"
-                  defaultChecked={defaultValues?.aiIndexable ?? true}
-                  className="h-4 w-4 accent-[#1c1b1b]"
-                />
-                AI 학습 허용
-              </label>
-            </div>
+              커버스토리로 지정 (호당 1편 권장)
+            </label>
 
             <div className="space-y-2">
               <Label>썸네일</Label>
@@ -245,6 +207,7 @@ export function ArticleForm({
                   <p className="text-sm text-gray-500">업로드 중...</p>
                 ) : thumbnailUrl ? (
                   <div className="relative mx-auto aspect-video w-full max-w-xs overflow-hidden rounded">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={thumbnailUrl}
                       alt="썸네일 미리보기"
@@ -252,15 +215,9 @@ export function ArticleForm({
                     />
                   </div>
                 ) : (
-                  <div className="space-y-1">
-                    <p className="text-sm text-gray-500">
-                      클릭하거나 이미지를 드래그하세요
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      권장 사이즈: 1200 x 675px (16:9 비율)
-                    </p>
-                    <p className="text-xs text-gray-400">JPG, PNG, WebP</p>
-                  </div>
+                  <p className="text-sm text-gray-500">
+                    클릭하거나 이미지를 드래그하세요 (JPG/PNG/WebP)
+                  </p>
                 )}
               </div>
               {thumbnailUrl && (
@@ -274,17 +231,6 @@ export function ArticleForm({
                 </Button>
               )}
             </div>
-
-            {state?.error && (
-              <p className="text-sm text-red-600">{state.error}</p>
-            )}
-
-            {/* 생성 페이지(formId 없음)에서의 제출 버튼. 수정 페이지는 상단 상태액션의 "저장" 사용 */}
-            {!formId && (
-              <Button type="submit" disabled={isPending || uploading}>
-                {isPending ? "저장 중..." : "생성"}
-              </Button>
-            )}
           </form>
         </CardContent>
       </Card>

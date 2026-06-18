@@ -3,8 +3,8 @@ export const dynamic = "force-dynamic";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { ArticleForm } from "@/components/admin/article-form";
-import { createArticle } from "@/actions/article-actions";
+import { ArticleForm } from "@/components/admin/magazine-article-form";
+import { createArticle } from "@/actions/magazine-article-actions";
 
 export default async function NewArticlePage({
   params,

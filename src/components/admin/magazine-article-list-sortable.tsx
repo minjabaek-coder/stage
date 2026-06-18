@@ -20,7 +20,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { toast } from "sonner";
-import { reorderArticles } from "@/actions/article-actions";
+import { reorderArticles } from "@/actions/magazine-article-actions";
 import { StatusBadge } from "./status-badge";
 import type { MagazineArticle } from "@/types/magazine";
 
