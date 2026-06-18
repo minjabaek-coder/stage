@@ -8,9 +8,10 @@ import { DocentChatFAB } from "@/components/public/docent-chat";
 import { NewsletterForm } from "@/components/public/newsletter-form";
 import { HeaderAuth } from "@/components/public/header-auth";
 import { MaestroSection } from "@/components/public/maestro-section";
+import { ArticleCard } from "@/components/public/article-card";
 
 export default async function HomePage() {
-  const [publishedMagazines, allPosts] = await Promise.all([
+  const [publishedMagazines, allPosts, recentArticles] = await Promise.all([
     prisma.magazine.findMany({
       where: { status: "published" },
       orderBy: { issueNumber: "desc" },
@@ -19,6 +20,22 @@ export default async function HomePage() {
       where: { status: "published" },
       orderBy: { publishedAt: "desc" },
       take: 6,
+    }),
+    prisma.article.findMany({
+      where: { status: "published" },
+      orderBy: { publishedAt: "desc" },
+      take: 3,
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        excerpt: true,
+        author: true,
+        category: true,
+        publishedAt: true,
+        thumbnailUrl: true,
+        isPremium: true,
+      },
     }),
   ]);
 
@@ -164,6 +181,28 @@ export default async function HomePage() {
                 </p>
                 <NewsletterForm />
               </div>
+            </div>
+          </section>
+        )}
+
+        {/* 최신 기사 */}
+        {recentArticles.length > 0 && (
+          <section className="mt-32">
+            <div className="flex items-baseline justify-between border-b border-[#1c1b1b]/10 pb-4">
+              <h2 className="font-label text-sm font-black uppercase tracking-[0.2em]">
+                최신 기사
+              </h2>
+              <Link
+                href="/articles"
+                className="font-label text-[11px] uppercase tracking-wider text-[#6f5c24] hover:underline"
+              >
+                전체보기 →
+              </Link>
+            </div>
+            <div className="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+              {recentArticles.map((article) => (
+                <ArticleCard key={article.id} article={article} />
+              ))}
             </div>
           </section>
         )}
