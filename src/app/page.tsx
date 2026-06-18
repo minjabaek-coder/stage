@@ -5,6 +5,7 @@ import { Footer } from "@/components/public/footer";
 import { PastMagazines } from "@/components/public/past-magazines";
 import Link from "next/link";
 import { DocentChatFAB } from "@/components/public/docent-chat";
+import { NewsletterForm } from "@/components/public/newsletter-form";
 
 export default async function HomePage() {
   const [publishedMagazines, allPosts] = await Promise.all([
@@ -152,14 +153,7 @@ export default async function HomePage() {
                 <p className="font-label text-[11px] leading-relaxed mb-6 opacity-70">
                   매주 토요일 아침, 당신의 편지함으로 배달되는 STAGE의 이야기.
                 </p>
-                <input
-                  className="w-full bg-transparent border-b border-[#1c1b1b]/20 py-2 font-label text-xs mb-4 focus:outline-none focus:border-[#6f5c24] transition-colors placeholder:opacity-50"
-                  placeholder="이메일 주소"
-                  type="email"
-                />
-                <button className="w-full bg-[#1c1b1b] text-white py-3 font-label text-[10px] font-bold uppercase tracking-widest hover:bg-[#6f5c24] transition-colors">
-                  구독하기
-                </button>
+                <NewsletterForm />
               </div>
             </div>
           </section>
