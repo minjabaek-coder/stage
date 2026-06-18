@@ -19,6 +19,7 @@ interface Magazine {
   title: string;
   coverImageUrl: string | null;
   publishedAt: Date | null;
+  contentType: string;
 }
 
 interface MagazineGridProps {
@@ -32,6 +33,10 @@ const sortLabels: Record<SortOrder, string> = {
 
 export function MagazineGrid({ magazines }: MagazineGridProps) {
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+
+  const latestIssue = magazines.length
+    ? Math.max(...magazines.map((m) => m.issueNumber))
+    : 0;
 
   const sorted = useMemo(() => {
     return [...magazines].sort((a, b) =>
@@ -90,6 +95,18 @@ export function MagazineGrid({ magazines }: MagazineGridProps) {
                   </div>
                 )}
                 <div className="absolute inset-0 bg-black/0 transition-colors duration-300 group-hover:bg-black/10" />
+                <div className="absolute left-2 top-2 flex flex-col items-start gap-1">
+                  {magazine.issueNumber === latestIssue && (
+                    <span className="rounded bg-[#6f5c24] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow">
+                      NEW
+                    </span>
+                  )}
+                  {magazine.contentType === "web" && (
+                    <span className="rounded bg-white/90 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#6f5c24] shadow">
+                      인터랙티브
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="mt-3">
                 <p className="text-sm font-semibold line-clamp-1">
