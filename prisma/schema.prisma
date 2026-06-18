@@ -131,6 +131,17 @@ model BlogPostChunk {
   @@index([blogPostId])
 }
 
+// 뉴스레터 구독자 (기존 운영 테이블을 채택해 baseline)
+model NewsletterSubscriber {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  isActive  Boolean  @default(true)
+  source    String   @default("home")
+  createdAt DateTime @default(now())
+
+  @@index([isActive])
+}
+
 model ApiCallLog {
   id            String   @id @default(cuid())
   model         String
