@@ -75,6 +75,11 @@ export function AdminAdList({ initial }: { initial: Advertisement[] }) {
             <p className="mt-1 truncate text-sm text-gray-500">
               {ad.sponsor} · {ad.linkUrl}
             </p>
+            <p className="mt-1 text-xs text-gray-400">
+              노출 {ad.impressions.toLocaleString()} · 클릭{" "}
+              {ad.clicks.toLocaleString()}
+              {ad.placement.length > 0 && ` · 위치: ${ad.placement.join(", ")}`}
+            </p>
           </div>
           <div className="flex shrink-0 gap-2">
             <Button

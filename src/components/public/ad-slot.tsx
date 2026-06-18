@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { AdImpression } from "@/components/public/ad-impression";
 
 // 공개 광고 슬롯. placement·isActive·노출기간(start/end)에 맞는 활성 광고 1건을 렌더.
 // 매칭 광고가 없으면 아무것도 렌더하지 않는다. (노출/클릭 트래킹은 후속 단계)
@@ -26,8 +27,9 @@ export async function AdSlot({
 
   return (
     <aside className={className}>
+      <AdImpression id={ad.id} />
       <a
-        href={ad.linkUrl}
+        href={`/api/ads/${ad.id}/click`}
         target="_blank"
         rel="noopener noreferrer sponsored"
         className="group flex items-center gap-5 overflow-hidden rounded-2xl border border-[#1c1b1b]/10 bg-[#f6f3f2] p-4 transition-colors hover:border-[#6f5c24]/40"
