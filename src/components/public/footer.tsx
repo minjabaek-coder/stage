@@ -83,6 +83,7 @@ export function Footer() {
           <div>
             <FooterColHeading>문화예술</FooterColHeading>
             <FooterLink href="/culture-events">공연·전시·교육</FooterLink>
+            <FooterLink href="/tickets">회원 티켓 할인</FooterLink>
             <FooterSoon>AI 마에스트로</FooterSoon>
           </div>
 
