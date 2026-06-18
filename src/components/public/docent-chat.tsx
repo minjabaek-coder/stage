@@ -188,6 +188,13 @@ export function DocentChatFAB() {
   const [isOpen, setIsOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // 외부(예: 홈 마에스트로 섹션 CTA)에서 챗을 열 수 있도록 커스텀 이벤트 수신
+  useEffect(() => {
+    const open = () => setIsOpen(true);
+    window.addEventListener("stage:open-docent", open);
+    return () => window.removeEventListener("stage:open-docent", open);
+  }, []);
+
   // Lock body scroll when chat is open on mobile
   useEffect(() => {
     if (!isOpen) return;

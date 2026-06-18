@@ -7,6 +7,7 @@ import Link from "next/link";
 import { DocentChatFAB } from "@/components/public/docent-chat";
 import { NewsletterForm } from "@/components/public/newsletter-form";
 import { HeaderAuth } from "@/components/public/header-auth";
+import { MaestroSection } from "@/components/public/maestro-section";
 
 export default async function HomePage() {
   const [publishedMagazines, allPosts] = await Promise.all([
@@ -160,6 +161,9 @@ export default async function HomePage() {
             </div>
           </section>
         )}
+
+        {/* AI 마에스트로 소개 */}
+        <MaestroSection />
 
         {/* Previous Magazines Section */}
         {previousMagazines.length > 0 && (
