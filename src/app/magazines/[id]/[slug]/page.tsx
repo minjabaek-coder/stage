@@ -16,7 +16,14 @@ type Props = {
 
 const getArticle = cache(async (magazineId: string, slug: string) => {
   return prisma.magazineArticle.findFirst({
-    where: { magazineId, slug, status: "published" },
+    // Gate on the parent magazine too: a published article inside a draft/
+    // unpublished issue must not be reachable by direct URL.
+    where: {
+      magazineId,
+      slug,
+      status: "published",
+      magazine: { status: "published" },
+    },
     include: { magazine: true },
   });
 });
