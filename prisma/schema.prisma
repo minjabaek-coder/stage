@@ -166,9 +166,24 @@ model Article {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   bookmarks    Bookmark[]
+  chunks       ArticleChunk[]
 
   @@index([status, publishedAt(sort: Desc)])
   @@index([category])
+}
+
+// 단독 기사 RAG 임베딩 청크 (pgvector). aiIndexable=true인 발행 기사만 임베딩.
+model ArticleChunk {
+  id         String                       @id @default(dbgenerated("gen_random_uuid()::text"))
+  articleId  String
+  chunkIndex Int
+  title      String
+  content    String                       @db.Text
+  embedding  Unsupported("vector(1024)")?
+  createdAt  DateTime                     @default(now())
+  article    Article                      @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@index([articleId])
 }
 
 // 회원의 기사 북마크

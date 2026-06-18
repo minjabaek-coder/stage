@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod/v4";
 import { deleteUploadedFile } from "@/lib/upload";
+import { generateArticleEmbeddings } from "@/lib/rag";
 
 function parseTags(tags: string): string[] {
   return tags
@@ -102,7 +103,7 @@ export async function updateArticle(id: string, formData: FormData) {
 
   const current = await prisma.article.findUnique({
     where: { id },
-    select: { thumbnailUrl: true },
+    select: { thumbnailUrl: true, status: true },
   });
 
   const newThumbnail = parsed.data.thumbnailUrl || null;
@@ -132,6 +133,13 @@ export async function updateArticle(id: string, formData: FormData) {
     await deleteUploadedFile(current.thumbnailUrl);
   }
 
+  // 발행된 기사면 본문/색인 변경 반영을 위해 재임베딩(aiIndexable는 함수가 판단)
+  if (current?.status === "published") {
+    generateArticleEmbeddings(id).catch((err) =>
+      console.error("[RAG] Article embedding failed:", err)
+    );
+  }
+
   revalidateArticlePaths(id, parsed.data.slug);
   redirect("/admin/articles");
 }
@@ -150,6 +158,11 @@ export async function publishArticle(id: string) {
       publishedAt: article.publishedAt ?? new Date(),
     },
   });
+
+  // RAG: 발행 시 본문 임베딩(aiIndexable=true인 경우). best-effort.
+  generateArticleEmbeddings(id).catch((err) =>
+    console.error("[RAG] Article embedding failed:", err)
+  );
 
   revalidateArticlePaths(id, article.slug);
   return { success: true };
