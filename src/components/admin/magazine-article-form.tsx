@@ -60,6 +60,13 @@ export function ArticleForm({
   );
   const [title, setTitle] = useState(defaultValues?.title || "");
   const [slug, setSlug] = useState(defaultValues?.slug || "");
+  const [section, setSection] = useState(defaultValues?.section || "");
+  const [author, setAuthor] = useState(defaultValues?.author || "");
+  const [publishedAt, setPublishedAt] = useState(
+    defaultValues?.publishedAt
+      ? new Date(defaultValues.publishedAt).toISOString().split("T")[0]
+      : ""
+  );
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
@@ -143,7 +150,8 @@ export function ArticleForm({
                   id="section"
                   name="section"
                   list="article-sections"
-                  defaultValue={defaultValues?.section}
+                  value={section}
+                  onChange={(e) => setSection(e.target.value)}
                   placeholder="커버스토리 / 인터뷰 …"
                 />
                 <datalist id="article-sections">
@@ -160,7 +168,8 @@ export function ArticleForm({
                 <Input
                   id="author"
                   name="author"
-                  defaultValue={defaultValues?.author}
+                  value={author}
+                  onChange={(e) => setAuthor(e.target.value)}
                   placeholder="STAGE 편집부"
                 />
               </div>
@@ -170,13 +179,8 @@ export function ArticleForm({
                   id="publishedAt"
                   name="publishedAt"
                   type="date"
-                  defaultValue={
-                    defaultValues?.publishedAt
-                      ? new Date(defaultValues.publishedAt)
-                          .toISOString()
-                          .split("T")[0]
-                      : ""
-                  }
+                  value={publishedAt}
+                  onChange={(e) => setPublishedAt(e.target.value)}
                 />
               </div>
             </div>
