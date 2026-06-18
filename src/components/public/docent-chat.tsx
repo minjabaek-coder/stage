@@ -20,7 +20,7 @@ const WELCOME_MESSAGE: Message = {
     "안녕하세요! STAGE 도슨트입니다. 매거진이나 블로그에 대해 궁금한 것을 물어보세요.",
 };
 
-function ChatBody() {
+export function ChatBody() {
   const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
