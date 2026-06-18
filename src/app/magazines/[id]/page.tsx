@@ -9,6 +9,7 @@ import {
   MagazineEbookViewer,
   type EbookPage,
 } from "@/components/public/magazine-ebook-viewer";
+import { DocentChatFAB } from "@/components/public/docent-chat";
 import { ViewTracker } from "@/components/public/view-tracker";
 import type { Metadata } from "next";
 
@@ -97,6 +98,7 @@ export default async function MagazineViewerPage({ params }: Props) {
           }}
           pages={pages}
         />
+        <DocentChatFAB />
       </>
     );
   }

@@ -311,7 +311,7 @@ function PageView({
           )}
         </div>
         <p className="mt-6 font-label text-[10px] uppercase tracking-wider opacity-50">
-          ※ AI 마에스트로 연동 준비 중
+          우측 하단 버튼으로 AI 마에스트로에게 바로 물어보세요
         </p>
       </div>
     );
