@@ -5,7 +5,7 @@ import Link from "next/link";
 
 interface SourceRef {
   title: string;
-  slug: string;
+  href: string;
 }
 
 interface Message {
@@ -133,7 +133,7 @@ function ChatBody() {
                 {msg.sources.map((src, j) => (
                   <Link
                     key={j}
-                    href={`/blog/${src.slug}`}
+                    href={src.href}
                     target="_blank"
                     className="inline-flex items-center gap-1 px-2 py-1 bg-[#f6f3f2] rounded text-[10px] font-label text-[#6f5c24] hover:bg-[#ebe6e4] transition-colors"
                   >

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod/v4";
 import { deleteUploadedFile } from "@/lib/upload";
+import { generateArticleEmbeddings } from "@/lib/rag";
 
 function revalidateArticlePaths(magazineId: string) {
   revalidatePath(`/admin/magazines/${magazineId}/edit`);
@@ -171,6 +172,11 @@ export async function publishArticle(id: string) {
       publishedAt: article.publishedAt ?? new Date(),
     },
   });
+
+  // RAG: 발행 시 아티클 본문 임베딩 생성(마에스트로가 매거진 내용을 답하도록). best-effort.
+  generateArticleEmbeddings(id).catch((err) =>
+    console.error("[RAG] Magazine article embedding failed:", err)
+  );
 
   revalidateArticlePaths(article.magazineId);
   return { success: true };

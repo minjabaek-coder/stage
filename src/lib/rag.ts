@@ -4,16 +4,15 @@ import { embedDocuments, embedQuery } from "@/lib/voyage";
 
 export interface ChunkResult {
   id: string;
-  blogPostId: string;
   title: string;
   content: string;
   similarity: number;
-  slug: string;
+  href: string; // 출처 링크 (/blog/... 또는 /magazines/.../...)
 }
 
 export interface SourceReference {
   title: string;
-  slug: string;
+  href: string;
 }
 
 export async function generateEmbeddings(
@@ -93,6 +92,54 @@ export async function generateEmbeddings(
   }
 }
 
+// 매거진 아티클(MagazineArticle) 본문을 청크·임베딩하여 MagazineArticleChunk에 저장.
+// (MagazineArticle에는 embeddingStatus가 없어 상태 추적 없이 best-effort로 동작)
+export async function generateArticleEmbeddings(
+  articleId: string,
+): Promise<void> {
+  const article = await prisma.magazineArticle.findUnique({
+    where: { id: articleId },
+    select: { id: true, title: true, content: true },
+  });
+  if (!article || !article.content) return;
+
+  const chunks = chunkBlogContent(article.content, article.title);
+
+  await prisma.$queryRawUnsafe(
+    `DELETE FROM "MagazineArticleChunk" WHERE "articleId" = $1`,
+    articleId,
+  );
+
+  if (chunks.length > 0) {
+    const embeddings = await embedDocuments(chunks.map((c) => c.content));
+    for (let i = 0; i < chunks.length; i++) {
+      const vec = `[${embeddings[i].join(",")}]`;
+      await prisma.$queryRawUnsafe(
+        `INSERT INTO "MagazineArticleChunk" ("id", "articleId", "chunkIndex", "title", "content", "embedding")
+         VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5::vector)`,
+        articleId,
+        chunks[i].chunkIndex,
+        chunks[i].title,
+        chunks[i].content,
+        vec,
+      );
+    }
+  }
+
+  console.log(
+    `[RAG] Generated ${chunks.length} magazine chunks for "${article.title}"`,
+  );
+}
+
+type RawChunk = {
+  id: string;
+  title: string;
+  content: string;
+  similarity: number;
+  slug: string;
+  magazineId: string | null;
+};
+
 export async function searchChunks(
   query: string,
   topK: number = 5
@@ -102,21 +149,49 @@ export async function searchChunks(
   const queryEmbedding = await embedQuery(query);
   const vec = `[${queryEmbedding.join(",")}]`;
 
-  const results = await prisma.$queryRawUnsafe<ChunkResult[]>(
-    `SELECT c."id", c."blogPostId", c."title", c."content",
-            1 - (c."embedding" <=> $1::vector) AS similarity,
-            p."slug"
-     FROM "BlogPostChunk" c
-     JOIN "BlogPost" p ON p."id" = c."blogPostId"
-     WHERE p."status" = 'published'
-     ORDER BY c."embedding" <=> $1::vector
-     LIMIT $2`,
-    vec,
-    topK
-  );
+  // 블로그 + 매거진 아티클 청크를 각각 검색한 뒤 유사도로 합쳐 상위 topK 선택.
+  const [blog, magazine] = await Promise.all([
+    prisma.$queryRawUnsafe<RawChunk[]>(
+      `SELECT c."id", c."title", c."content",
+              1 - (c."embedding" <=> $1::vector) AS similarity,
+              p."slug", NULL AS "magazineId"
+       FROM "BlogPostChunk" c
+       JOIN "BlogPost" p ON p."id" = c."blogPostId"
+       WHERE p."status" = 'published'
+       ORDER BY c."embedding" <=> $1::vector
+       LIMIT $2`,
+      vec,
+      topK
+    ),
+    prisma.$queryRawUnsafe<RawChunk[]>(
+      `SELECT c."id", c."title", c."content",
+              1 - (c."embedding" <=> $1::vector) AS similarity,
+              a."slug", a."magazineId"
+       FROM "MagazineArticleChunk" c
+       JOIN "MagazineArticle" a ON a."id" = c."articleId"
+       JOIN "Magazine" m ON m."id" = a."magazineId"
+       WHERE a."status" = 'published' AND m."status" = 'published'
+       ORDER BY c."embedding" <=> $1::vector
+       LIMIT $2`,
+      vec,
+      topK
+    ),
+  ]);
 
-  // Filter by minimum similarity threshold
-  return results.filter((r) => r.similarity > 0.3);
+  const merged: ChunkResult[] = [...blog, ...magazine].map((r) => ({
+    id: r.id,
+    title: r.title,
+    content: r.content,
+    similarity: r.similarity,
+    href: r.magazineId
+      ? `/magazines/${r.magazineId}/${r.slug}`
+      : `/blog/${r.slug}`,
+  }));
+
+  return merged
+    .filter((r) => r.similarity > 0.3)
+    .sort((a, b) => b.similarity - a.similarity)
+    .slice(0, topK);
 }
 
 export function buildRagContext(chunks: ChunkResult[]): string {
@@ -126,16 +201,16 @@ export function buildRagContext(chunks: ChunkResult[]): string {
     (c) => `---\n출처: ${c.title}\n${c.content.replace(/^\[.*?\]\s*/, "")}`
   );
 
-  return `\n\n다음은 STAGE 블로그에서 검색된 관련 콘텐츠입니다. 이 정보를 바탕으로 답변해 주세요.\n\n${lines.join("\n\n")}`;
+  return `\n\n다음은 STAGE 매거진·블로그에서 검색된 관련 콘텐츠입니다. 이 정보를 바탕으로 답변해 주세요.\n\n${lines.join("\n\n")}`;
 }
 
 export function getSourceReferences(chunks: ChunkResult[]): SourceReference[] {
   const seen = new Set<string>();
   return chunks
     .filter((c) => {
-      if (seen.has(c.slug)) return false;
-      seen.add(c.slug);
+      if (seen.has(c.href)) return false;
+      seen.add(c.href);
       return true;
     })
-    .map((c) => ({ title: c.title, slug: c.slug }));
+    .map((c) => ({ title: c.title, href: c.href }));
 }

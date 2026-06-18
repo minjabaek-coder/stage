@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
   // RAG: retrieve relevant blog chunks for the latest user message
   const lastUserMsg = messages[messages.length - 1]?.content || "";
   let ragContext = "";
-  let sources: { title: string; slug: string }[] = [];
+  let sources: { title: string; href: string }[] = [];
   try {
     const chunks = await searchChunks(lastUserMsg, 5);
     ragContext = buildRagContext(chunks);

@@ -78,9 +78,24 @@ model MagazineArticle {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   magazine     Magazine       @relation(fields: [magazineId], references: [id], onDelete: Cascade)
+  chunks       MagazineArticleChunk[]
 
   @@unique([magazineId, slug])
   @@index([magazineId, sortOrder])
+}
+
+// 매거진 아티클 RAG 임베딩 청크 (pgvector). HNSW 인덱스는 마이그레이션 raw SQL로 생성(Prisma 미표현).
+model MagazineArticleChunk {
+  id         String                       @id @default(dbgenerated("gen_random_uuid()::text"))
+  articleId  String
+  chunkIndex Int
+  title      String
+  content    String                       @db.Text
+  embedding  Unsupported("vector(1024)")?
+  createdAt  DateTime                     @default(now())
+  article    MagazineArticle              @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@index([articleId])
 }
 
 enum BlogPostStatus {
