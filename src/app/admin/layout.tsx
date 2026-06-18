@@ -53,6 +53,12 @@ export default function AdminLayout({
                 문화예술
               </Link>
               <Link
+                href="/admin/contacts"
+                className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                문의
+              </Link>
+              <Link
                 href="/admin/api-logs"
                 className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
               >

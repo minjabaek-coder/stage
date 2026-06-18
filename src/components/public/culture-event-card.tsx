@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
 import type { CultureEvent } from "@/types/culture-event";
 
 type CardData = Pick<

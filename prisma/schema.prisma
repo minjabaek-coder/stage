@@ -202,6 +202,20 @@ model CultureEvent {
   @@index([type])
 }
 
+// 문의 (제휴·광고·일반). 어드민 수신함(status: new/done).
+model Contact {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  company   String?
+  type      String   @default("일반")
+  message   String   @db.Text
+  status    String   @default("new")
+  createdAt DateTime @default(now())
+
+  @@index([status, createdAt(sort: Desc)])
+}
+
 // 뉴스레터 구독자 (기존 운영 테이블을 채택해 baseline)
 model NewsletterSubscriber {
   id        String   @id @default(cuid())

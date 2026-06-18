@@ -13,17 +13,6 @@ function FooterLink({ href, children }: { href: string; children: ReactNode }) {
   );
 }
 
-function FooterMailto({ children }: { children: ReactNode }) {
-  return (
-    <a
-      href="mailto:voceverdiana@naver.com"
-      className="block py-1 text-sm text-gray-400 transition-colors hover:text-white"
-    >
-      {children}
-    </a>
-  );
-}
-
 // 아직 구현되지 않은 페이지는 죽은 링크 대신 '준비중' 표기 (페이지 생기면 링크로 교체)
 function FooterSoon({ children }: { children: ReactNode }) {
   return (
@@ -86,13 +75,14 @@ export function Footer() {
           <div>
             <FooterColHeading>매거진</FooterColHeading>
             <FooterLink href="/magazines">매거진 목록</FooterLink>
+            <FooterLink href="/articles">기사</FooterLink>
             <FooterLink href="/blog">블로그</FooterLink>
           </div>
 
           {/* 문화예술 */}
           <div>
             <FooterColHeading>문화예술</FooterColHeading>
-            <FooterSoon>공연·전시·교육</FooterSoon>
+            <FooterLink href="/culture-events">공연·전시·교육</FooterLink>
             <FooterSoon>AI 마에스트로</FooterSoon>
           </div>
 
@@ -102,7 +92,7 @@ export function Footer() {
             <FooterLink href="/about">STAGE 소개</FooterLink>
             <FooterSoon>광고 안내</FooterSoon>
             <FooterSoon>기사 제보</FooterSoon>
-            <FooterMailto>Contact</FooterMailto>
+            <FooterLink href="/contact">문의</FooterLink>
           </div>
         </div>
 
