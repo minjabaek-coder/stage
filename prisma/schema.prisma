@@ -216,6 +216,23 @@ model Contact {
   @@index([status, createdAt(sort: Desc)])
 }
 
+// 기사 제보(Tip). 어드민 수신함(status: new/done). attachments는 향후 확장용.
+model Tip {
+  id          String   @id @default(cuid())
+  name        String
+  email       String
+  phone       String?
+  category    String   @default("일반")
+  title       String
+  content     String   @db.Text
+  attachments String[]
+  status      String   @default("new")
+  adminNote   String?
+  createdAt   DateTime @default(now())
+
+  @@index([status, createdAt(sort: Desc)])
+}
+
 // 뉴스레터 구독자 (기존 운영 테이블을 채택해 baseline)
 model NewsletterSubscriber {
   id        String   @id @default(cuid())

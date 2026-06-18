@@ -91,7 +91,7 @@ export function Footer() {
             <FooterColHeading>정보</FooterColHeading>
             <FooterLink href="/about">STAGE 소개</FooterLink>
             <FooterSoon>광고 안내</FooterSoon>
-            <FooterSoon>기사 제보</FooterSoon>
+            <FooterLink href="/tip">기사 제보</FooterLink>
             <FooterLink href="/contact">문의</FooterLink>
           </div>
         </div>

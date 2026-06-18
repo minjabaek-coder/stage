@@ -59,6 +59,12 @@ export default function AdminLayout({
                 문의
               </Link>
               <Link
+                href="/admin/tips"
+                className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                제보
+              </Link>
+              <Link
                 href="/admin/api-logs"
                 className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
               >
