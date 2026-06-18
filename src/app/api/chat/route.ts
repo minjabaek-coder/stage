@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // RAG: retrieve relevant blog chunks for the latest user message
+  // RAG: retrieve relevant blog/magazine chunks for the latest user message
   const lastUserMsg = messages[messages.length - 1]?.content || "";
   let ragContext = "";
   let sources: { title: string; href: string }[] = [];
@@ -37,7 +37,25 @@ export async function POST(req: NextRequest) {
     console.error("[RAG] Search failed:", err);
   }
 
-  const systemInstruction = `${SYSTEM_PROMPT}${ragContext}`;
+  // 매거진 메타데이터 grounding — "최신호 몇 호?" 같은 사실 질문에 환각 방지
+  let magazineFacts = "";
+  try {
+    const [latest, count] = await Promise.all([
+      prisma.magazine.findFirst({
+        where: { status: "published" },
+        orderBy: { issueNumber: "desc" },
+        select: { issueNumber: true, title: true },
+      }),
+      prisma.magazine.count({ where: { status: "published" } }),
+    ]);
+    if (latest) {
+      magazineFacts = `\n\n[STAGE 사실 정보] 현재 발행된 매거진은 총 ${count}개 호이며, 가장 최신 발행 호는 ${latest.issueNumber}호("${latest.title}")입니다. 호수·발행 현황 질문에는 반드시 이 정보를 사용하고, 추측하지 마세요.`;
+    }
+  } catch (err) {
+    console.error("[chat] magazine facts failed:", err);
+  }
+
+  const systemInstruction = `${SYSTEM_PROMPT}${magazineFacts}${ragContext}`;
 
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   // Gemini roles: "user" | "model"
