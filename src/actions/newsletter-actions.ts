@@ -3,6 +3,8 @@
 import { prisma } from "@/lib/prisma";
 import { z } from "zod/v4";
 
+const ALLOWED_SOURCES = ["home", "footer", "pro-waitlist"];
+
 const schema = z.object({
   email: z.string().email("올바른 이메일을 입력해주세요"),
 });
@@ -13,9 +15,12 @@ export async function subscribeNewsletter(_prev: unknown, formData: FormData) {
     return { error: parsed.error.issues[0].message };
   }
 
+  const rawSource = (formData.get("source") ?? "home").toString();
+  const source = ALLOWED_SOURCES.includes(rawSource) ? rawSource : "home";
+
   try {
     await prisma.newsletterSubscriber.create({
-      data: { email: parsed.data.email, source: "home" },
+      data: { email: parsed.data.email, source },
     });
     return { success: true };
   } catch (e) {

@@ -81,6 +81,7 @@ export function Footer() {
           {/* 정보 */}
           <div>
             <FooterColHeading>정보</FooterColHeading>
+            <FooterLink href="/membership">STAGE Pro</FooterLink>
             <FooterLink href="/about">STAGE 소개</FooterLink>
             <FooterLink href="/stageos">StageOS</FooterLink>
             <FooterLink href="/advertise">광고 안내</FooterLink>
