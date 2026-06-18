@@ -2,11 +2,25 @@ export const dynamic = "force-dynamic";
 
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import sanitizeHtml from "sanitize-html";
 import { prisma } from "@/lib/prisma";
 import { MagazineReader } from "@/components/public/magazine-reader";
-import { MagazineIssuePage } from "@/components/public/magazine-issue-page";
+import {
+  MagazineEbookViewer,
+  type EbookPage,
+} from "@/components/public/magazine-ebook-viewer";
 import { ViewTracker } from "@/components/public/view-tracker";
 import type { Metadata } from "next";
+
+function sanitizeArticle(html: string): string {
+  return sanitizeHtml(html, {
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img", "h1", "h2"]),
+    allowedAttributes: {
+      ...sanitizeHtml.defaults.allowedAttributes,
+      img: ["src", "alt", "width", "height"],
+    },
+  });
+}
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -45,10 +59,45 @@ export default async function MagazineViewerPage({ params }: Props) {
     notFound();
   }
 
-  // Web-based magazine: show article listing page
+  // Web-based magazine (39호~): structured-text interactive eBook viewer
   if (magazine.contentType === "web") {
+    const pages: EbookPage[] = [
+      { kind: "cover" },
+      { kind: "toc" },
+      ...magazine.articles.map(
+        (a): EbookPage => ({
+          kind: "article",
+          slug: a.slug,
+          title: a.title,
+          section: a.section || null,
+          author: a.author || null,
+          thumbnailUrl: a.thumbnailUrl,
+          html: sanitizeArticle(a.content || ""),
+        })
+      ),
+      { kind: "maestro" },
+    ];
+
     return (
-      <MagazineIssuePage magazine={magazine} articles={magazine.articles} />
+      <>
+        <ViewTracker type="magazine" id={magazine.id} />
+        <MagazineEbookViewer
+          magazine={{
+            id: magazine.id,
+            title: magazine.title,
+            issueNumber: magazine.issueNumber,
+            description: magazine.description,
+            coverImageUrl: magazine.coverImageUrl,
+            publishedLabel: magazine.publishedAt
+              ? new Date(magazine.publishedAt).toLocaleDateString("ko-KR", {
+                  year: "numeric",
+                  month: "long",
+                })
+              : null,
+          }}
+          pages={pages}
+        />
+      </>
     );
   }
 
