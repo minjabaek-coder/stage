@@ -47,6 +47,12 @@ export default function AdminLayout({
                 기사
               </Link>
               <Link
+                href="/admin/culture-events"
+                className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                문화예술
+              </Link>
+              <Link
                 href="/admin/api-logs"
                 className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
               >
