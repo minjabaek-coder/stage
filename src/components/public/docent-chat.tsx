@@ -41,6 +41,11 @@ export function ChatBody({ seedQuestion }: { seedQuestion?: string }) {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // 이미 열린 채팅에서 다른 시드 질문(기사 위젯 칩)을 누르면 입력창을 갱신
+  useEffect(() => {
+    if (seedQuestion) setInput(seedQuestion);
+  }, [seedQuestion]);
+
   async function handleSend() {
     const text = input.trim();
     if (!text || isLoading) return;
@@ -290,7 +295,10 @@ export function DocentChatFAB() {
       {/* FAB 버튼 — 모바일 전체화면일 때 숨김 */}
       {!isOpen && (
         <button
-          onClick={() => setIsOpen(true)}
+          onClick={() => {
+            setSeed(undefined);
+            setIsOpen(true);
+          }}
           className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-[#1c1b1b] text-white flex items-center justify-center shadow-lg hover:bg-[#6f5c24] transition-colors"
         >
           <svg
