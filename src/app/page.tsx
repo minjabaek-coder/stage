@@ -6,6 +6,7 @@ import { PastMagazines } from "@/components/public/past-magazines";
 import Link from "next/link";
 import { DocentChatFAB } from "@/components/public/docent-chat";
 import { NewsletterForm } from "@/components/public/newsletter-form";
+import { HeaderAuth } from "@/components/public/header-auth";
 
 export default async function HomePage() {
   const [publishedMagazines, allPosts] = await Promise.all([
@@ -50,6 +51,7 @@ export default async function HomePage() {
             </Link>
           </nav>
         </div>
+        <HeaderAuth variant="editorial" />
       </header>
 
       <main className="pt-32 pb-24 max-w-[1440px] mx-auto px-6 md:px-12">

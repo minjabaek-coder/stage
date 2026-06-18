@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { HeaderAuth } from "@/components/public/header-auth";
 
 const navItems = [
   { href: "/", label: "홈" },
@@ -36,6 +37,7 @@ export function SiteHeader() {
               {item.label}
             </Link>
           ))}
+          <HeaderAuth variant="default" />
         </nav>
 
         {/* Mobile hamburger */}
@@ -65,6 +67,7 @@ export function SiteHeader() {
               {item.label}
             </Link>
           ))}
+          <HeaderAuth variant="default" mobile />
         </nav>
       )}
     </header>
