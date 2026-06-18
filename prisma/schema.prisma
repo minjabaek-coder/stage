@@ -131,6 +131,30 @@ model BlogPostChunk {
   @@index([blogPostId])
 }
 
+// 단독 기사 (매거진과 별개의 독립 아티클). 프리미엄 게이팅(isPremium + 등급).
+model Article {
+  id           String         @id @default(cuid())
+  title        String
+  slug         String         @unique
+  excerpt      String?
+  content      String         @default("") @db.Text
+  author       String         @default("")
+  category     String         @default("")
+  tags         String[]
+  thumbnailUrl String?
+  isFeatured   Boolean        @default(false)
+  isPremium    Boolean        @default(false)
+  aiIndexable  Boolean        @default(true)
+  viewCount    Int            @default(0)
+  status       BlogPostStatus @default(draft)
+  publishedAt  DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([status, publishedAt(sort: Desc)])
+  @@index([category])
+}
+
 // 뉴스레터 구독자 (기존 운영 테이블을 채택해 baseline)
 model NewsletterSubscriber {
   id        String   @id @default(cuid())
