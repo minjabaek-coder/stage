@@ -10,11 +10,6 @@ export interface ChunkResult {
   href: string; // 출처 링크 (/blog/... 또는 /magazines/.../...)
 }
 
-export interface SourceReference {
-  title: string;
-  href: string;
-}
-
 export async function generateEmbeddings(
   blogPostId: string,
   options?: { autoPublish?: boolean }
@@ -253,25 +248,4 @@ export async function searchChunks(
     .filter((r) => r.similarity > 0.3)
     .sort((a, b) => b.similarity - a.similarity)
     .slice(0, topK);
-}
-
-export function buildRagContext(chunks: ChunkResult[]): string {
-  if (chunks.length === 0) return "";
-
-  const lines = chunks.map(
-    (c) => `---\n출처: ${c.title}\n${c.content.replace(/^\[.*?\]\s*/, "")}`
-  );
-
-  return `\n\n다음은 STAGE 매거진·블로그에서 검색된 관련 콘텐츠입니다. 이 정보를 바탕으로 답변해 주세요.\n\n${lines.join("\n\n")}`;
-}
-
-export function getSourceReferences(chunks: ChunkResult[]): SourceReference[] {
-  const seen = new Set<string>();
-  return chunks
-    .filter((c) => {
-      if (seen.has(c.href)) return false;
-      seen.add(c.href);
-      return true;
-    })
-    .map((c) => ({ title: c.title, href: c.href }));
 }

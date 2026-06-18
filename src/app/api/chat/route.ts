@@ -1,8 +1,12 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, type Content, type Part } from "@google/genai";
 import { NextRequest, NextResponse } from "next/server";
-import { searchChunks, buildRagContext, getSourceReferences } from "@/lib/rag";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import {
+  MAESTRO_TOOLS,
+  executeMaestroTool,
+  type ToolSource,
+} from "@/lib/maestro-tools";
 
 // 등급별 일일(24h) AI 질문 한도. Pro는 무제한.
 const DAILY_LIMITS: Record<string, number> = {
@@ -30,16 +34,22 @@ function limitResponse(message: string): Response {
   });
 }
 
-// AI 마에스트로 엔진 — Gemini (무료). 모델은 GEMINI_MODEL 환경변수로 관리.
-// 기본값: gemini-3.1-flash-lite (무료 티어, 최신 세대, 가장 비용효율적).
+// AI 마에스트로 엔진 — Gemini. 모델은 GEMINI_MODEL 환경변수로 관리.
 const MODEL = process.env.GEMINI_MODEL ?? "gemini-3.1-flash-lite";
 const MAX_OUTPUT_TOKENS = 500;
+const MAX_TOOL_ROUNDS = 4;
 
-const SYSTEM_PROMPT = `당신은 STAGE 매거진의 도슨트(AI 마에스트로)입니다. STAGE는 한국어 디지털 매거진 및 블로그 플랫폼입니다.
-방문자들이 매거진이나 블로그 콘텐츠에 대해 궁금한 것을 물어보면 친절하고 간결하게 답변해 주세요.
-검색된 콘텐츠가 제공된 경우, 해당 내용을 바탕으로 정확하게 답변하세요. 출처를 언급할 수 있습니다.
-검색된 콘텐츠에 관련 정보가 없는 경우, 솔직히 모른다고 말하고 일반적인 안내를 제공하세요.
-항상 한국어로 답변하세요. 답변은 2-3문장으로 간결하게 해주세요.`;
+const SYSTEM_PROMPT = `당신은 STAGE(한국어 문화예술 디지털 매거진)의 AI 도슨트 "마에스트로"입니다.
+사용자 질문에 답하기 위해 제공된 도구를 적극적으로 사용하세요:
+- 매거진·단독 기사·블로그의 '글 내용'에 대한 질문 → search_content
+- 발행 호수·발행 현황 등 사실 질문(예: "최신호 몇 호") → get_magazine_facts
+- 공연·전시·교육 이벤트 질문 → get_culture_events
+도구 결과에 근거해 정확히 답하고, 결과에 정보가 없으면 솔직히 모른다고 안내하세요. 추측하지 마세요.
+항상 한국어로, 2-3문장으로 간결하게 답변하세요.`;
+
+function* chunkText(s: string, size = 40): Generator<string> {
+  for (let i = 0; i < s.length; i += size) yield s.slice(i, i + size);
+}
 
 export async function POST(req: NextRequest) {
   const { messages, sessionId } = await req.json();
@@ -76,44 +86,15 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // RAG: retrieve relevant blog/magazine chunks for the latest user message
   const lastUserMsg = messages[messages.length - 1]?.content || "";
-  let ragContext = "";
-  let sources: { title: string; href: string }[] = [];
-  try {
-    const chunks = await searchChunks(lastUserMsg, 5);
-    ragContext = buildRagContext(chunks);
-    sources = getSourceReferences(chunks);
-  } catch (err) {
-    console.error("[RAG] Search failed:", err);
-  }
-
-  // 매거진 메타데이터 grounding — "최신호 몇 호?" 같은 사실 질문에 환각 방지
-  let magazineFacts = "";
-  try {
-    const [latest, count] = await Promise.all([
-      prisma.magazine.findFirst({
-        where: { status: "published" },
-        orderBy: { issueNumber: "desc" },
-        select: { issueNumber: true, title: true },
-      }),
-      prisma.magazine.count({ where: { status: "published" } }),
-    ]);
-    if (latest) {
-      magazineFacts = `\n\n[STAGE 사실 정보] 현재 발행된 매거진은 총 ${count}개 호이며, 가장 최신 발행 호는 ${latest.issueNumber}호("${latest.title}")입니다. 호수·발행 현황 질문에는 반드시 이 정보를 사용하고, 추측하지 마세요.`;
-    }
-  } catch (err) {
-    console.error("[chat] magazine facts failed:", err);
-  }
-
-  const systemInstruction = `${SYSTEM_PROMPT}${magazineFacts}${ragContext}`;
 
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-  // Gemini roles: "user" | "model"
-  const contents = messages.map((m: { role: string; content: string }) => ({
-    role: m.role === "ai" || m.role === "assistant" ? "model" : "user",
-    parts: [{ text: m.content }],
-  }));
+  const contents: Content[] = messages.map(
+    (m: { role: string; content: string }) => ({
+      role: m.role === "ai" || m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }],
+    })
+  );
 
   const encoder = new TextEncoder();
   let fullResponse = "";
@@ -130,6 +111,8 @@ export async function POST(req: NextRequest) {
         }
       };
 
+      const sourceMap = new Map<string, ToolSource>();
+
       async function logCall(status: "success" | "error", error?: string) {
         try {
           await prisma.apiCallLog.create({
@@ -137,7 +120,7 @@ export async function POST(req: NextRequest) {
               model: MODEL,
               userMessage: lastUserMsg,
               response: fullResponse,
-              sourceCount: sources.length,
+              sourceCount: sourceMap.size,
               tokensIn,
               tokensOut,
               durationMs: Date.now() - startTime,
@@ -150,32 +133,73 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Sources first (special event), matching the existing client contract
-      if (sources.length > 0) {
-        controller.enqueue(
-          encoder.encode(`data: ${JSON.stringify({ sources })}\n\n`)
-        );
-      }
-
       try {
-        const stream = await ai.models.generateContentStream({
-          model: MODEL,
-          contents,
-          config: { systemInstruction, maxOutputTokens: MAX_OUTPUT_TOKENS },
-        });
+        // 에이전틱 루프: 모델이 도구를 호출하면 실행→결과 반환을 반복, 최종 텍스트 생성
+        let finalText = "";
+        for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+          const resp = await ai.models.generateContent({
+            model: MODEL,
+            contents,
+            config: {
+              systemInstruction: SYSTEM_PROMPT,
+              tools: MAESTRO_TOOLS,
+              maxOutputTokens: MAX_OUTPUT_TOKENS,
+            },
+          });
 
-        for await (const chunk of stream) {
-          const text = chunk.text;
-          if (text) {
-            fullResponse += text;
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify(text)}\n\n`)
+          if (resp.usageMetadata) {
+            tokensIn += resp.usageMetadata.promptTokenCount ?? 0;
+            tokensOut += resp.usageMetadata.candidatesTokenCount ?? 0;
+          }
+
+          const fcs = resp.functionCalls;
+          if (!fcs || fcs.length === 0) {
+            finalText = resp.text ?? "";
+            break;
+          }
+
+          // 모델의 도구 호출 턴을 그대로 대화에 추가(Gemini 3의 thoughtSignature 보존 필수)
+          const modelContent = resp.candidates?.[0]?.content;
+          if (modelContent) {
+            contents.push(modelContent);
+          } else {
+            contents.push({
+              role: "model",
+              parts: fcs.map((fc) => ({
+                functionCall: { name: fc.name, args: fc.args },
+              })),
+            });
+          }
+
+          // 각 도구 실행 후 결과를 functionResponse로 반환
+          const responseParts: Part[] = [];
+          for (const fc of fcs) {
+            const { result, sources } = await executeMaestroTool(
+              fc.name ?? "",
+              (fc.args ?? {}) as Record<string, unknown>
             );
+            for (const s of sources) sourceMap.set(s.href, s);
+            responseParts.push({
+              functionResponse: { name: fc.name ?? "", response: { result } },
+            });
           }
-          if (chunk.usageMetadata) {
-            tokensIn = chunk.usageMetadata.promptTokenCount ?? tokensIn;
-            tokensOut = chunk.usageMetadata.candidatesTokenCount ?? tokensOut;
-          }
+          contents.push({ role: "user", parts: responseParts });
+        }
+
+        if (!finalText) {
+          finalText = "죄송합니다, 지금은 답변을 생성하지 못했습니다.";
+        }
+        fullResponse = finalText;
+
+        // 출처 먼저(클라이언트 계약), 이어서 답변을 청크로 스트리밍
+        const sources = [...sourceMap.values()];
+        if (sources.length > 0) {
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ sources })}\n\n`)
+          );
+        }
+        for (const piece of chunkText(finalText)) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(piece)}\n\n`));
         }
 
         if (!closed) controller.enqueue(encoder.encode("data: [DONE]\n\n"));
@@ -190,7 +214,7 @@ export async function POST(req: NextRequest) {
               sessionId: sessionId ?? null,
               question: lastUserMsg,
               answer: fullResponse,
-              sourceCount: sources.length,
+              sourceCount: sourceMap.size,
               provider: "gemini",
             },
           });
