@@ -11,6 +11,8 @@ import { Footer } from "@/components/public/footer";
 import { Badge } from "@/components/ui/badge";
 import { getCurrentUser } from "@/lib/auth";
 import { BookmarkButton } from "@/components/public/bookmark-button";
+import { ArticleMaestroWidget } from "@/components/public/article-maestro-widget";
+import { DocentChatFAB } from "@/components/public/docent-chat";
 
 // 본문(content)은 절대 포함하지 않는다 — 프리미엄 잠김 시 content가 서버 컴포넌트
 // 스코프/ RSC 페이로드에 존재하지 못하게(누수 방지) 메타 필드만 조회.
@@ -210,6 +212,8 @@ export default async function ArticlePage({
           />
         )}
 
+        <ArticleMaestroWidget title={article.title} />
+
         <div className="mt-12 border-t border-gray-100 pt-6">
           <Link
             href="/articles"
@@ -221,6 +225,7 @@ export default async function ArticlePage({
       </main>
 
       <Footer />
+      <DocentChatFAB />
     </div>
   );
 }

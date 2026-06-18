@@ -31,9 +31,9 @@ function getSessionId(): string {
   return id;
 }
 
-export function ChatBody() {
+export function ChatBody({ seedQuestion }: { seedQuestion?: string }) {
   const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(seedQuestion ?? "");
   const [isLoading, setIsLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -200,11 +200,17 @@ export function ChatBody() {
 /** FAB + 팝업 채팅 (모든 뷰포트) */
 export function DocentChatFAB() {
   const [isOpen, setIsOpen] = useState(false);
+  const [seed, setSeed] = useState<string | undefined>(undefined);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // 외부(예: 홈 마에스트로 섹션 CTA)에서 챗을 열 수 있도록 커스텀 이벤트 수신
+  // 외부(홈 CTA·기사 위젯 등)에서 챗을 열 수 있도록 커스텀 이벤트 수신.
+  // detail.question이 있으면 입력창을 미리 채운다(기사 내 AI 위젯 등).
   useEffect(() => {
-    const open = () => setIsOpen(true);
+    const open = (e: Event) => {
+      const q = (e as CustomEvent).detail?.question;
+      setSeed(typeof q === "string" ? q : undefined);
+      setIsOpen(true);
+    };
     window.addEventListener("stage:open-docent", open);
     return () => window.removeEventListener("stage:open-docent", open);
   }, []);
@@ -276,7 +282,7 @@ export function DocentChatFAB() {
             </button>
           </div>
           <div className="flex-1 min-h-0">
-            <ChatBody />
+            <ChatBody seedQuestion={seed} />
           </div>
         </div>
       )}
