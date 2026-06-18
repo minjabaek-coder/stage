@@ -20,6 +20,17 @@ const WELCOME_MESSAGE: Message = {
     "안녕하세요! STAGE 도슨트입니다. 매거진이나 블로그에 대해 궁금한 것을 물어보세요.",
 };
 
+// 게스트(미로그인) 사용량 식별용 sessionId. localStorage에 영속.
+function getSessionId(): string {
+  if (typeof window === "undefined") return "";
+  let id = localStorage.getItem("stage_session_id");
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem("stage_session_id", id);
+  }
+  return id;
+}
+
 export function ChatBody() {
   const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
   const [input, setInput] = useState("");
@@ -47,7 +58,10 @@ export function ChatBody() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: updatedMessages }),
+        body: JSON.stringify({
+          messages: updatedMessages,
+          sessionId: getSessionId(),
+        }),
       });
 
       const reader = res.body?.getReader();

@@ -2,6 +2,33 @@ import { GoogleGenAI } from "@google/genai";
 import { NextRequest, NextResponse } from "next/server";
 import { searchChunks, buildRagContext, getSourceReferences } from "@/lib/rag";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
+
+// 등급별 일일(24h) AI 질문 한도. Pro는 무제한.
+const DAILY_LIMITS: Record<string, number> = {
+  guest: 5,
+  member: 30,
+  pro: Infinity,
+};
+
+// 한도 초과 시 안내 메시지를 SSE로 스트리밍하고 종료
+function limitResponse(message: string): Response {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify(message)}\n\n`));
+      controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+      controller.close();
+    },
+  });
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  });
+}
 
 // AI 마에스트로 엔진 — Gemini (무료). 모델은 GEMINI_MODEL 환경변수로 관리.
 // 기본값: gemini-3.1-flash-lite (무료 티어, 최신 세대, 가장 비용효율적).
@@ -15,7 +42,7 @@ const SYSTEM_PROMPT = `당신은 STAGE 매거진의 도슨트(AI 마에스트로
 항상 한국어로 답변하세요. 답변은 2-3문장으로 간결하게 해주세요.`;
 
 export async function POST(req: NextRequest) {
-  const { messages } = await req.json();
+  const { messages, sessionId } = await req.json();
   const startTime = Date.now();
 
   if (!process.env.GEMINI_API_KEY) {
@@ -23,6 +50,30 @@ export async function POST(req: NextRequest) {
       { error: "API key가 설정되지 않았습니다." },
       { status: 500 }
     );
+  }
+
+  // 등급별 사용량 제한 (Pro 무제한). 게스트는 sessionId, 회원은 userId 기준 24h 카운트.
+  const user = await getCurrentUser();
+  const tier = user?.tier ?? "guest";
+  const limit = DAILY_LIMITS[tier] ?? DAILY_LIMITS.guest;
+  if (limit !== Infinity) {
+    try {
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const used = await prisma.aiInteraction.count({
+        where: user
+          ? { userId: user.id, createdAt: { gte: since } }
+          : { userId: null, sessionId: sessionId ?? "", createdAt: { gte: since } },
+      });
+      if (used >= limit) {
+        return limitResponse(
+          user
+            ? "오늘 이용 가능한 질문 횟수를 모두 사용하셨습니다. 24시간 후 다시 이용하실 수 있어요."
+            : "무료 질문 횟수를 모두 사용하셨습니다. 회원가입하시면 더 많은 질문을 이용하실 수 있어요."
+        );
+      }
+    } catch (err) {
+      console.error("[chat] rate limit check failed:", err);
+    }
   }
 
   // RAG: retrieve relevant blog/magazine chunks for the latest user message
@@ -130,6 +181,22 @@ export async function POST(req: NextRequest) {
         if (!closed) controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         safeClose();
         await logCall("success");
+
+        // 사용량 기록(등급 제한 카운터 + 상호작용 로그)
+        try {
+          await prisma.aiInteraction.create({
+            data: {
+              userId: user?.id ?? null,
+              sessionId: sessionId ?? null,
+              question: lastUserMsg,
+              answer: fullResponse,
+              sourceCount: sources.length,
+              provider: "gemini",
+            },
+          });
+        } catch (e) {
+          console.error("[chat] AiInteraction log failed:", e);
+        }
       } catch (err) {
         if (!closed) {
           controller.enqueue(
