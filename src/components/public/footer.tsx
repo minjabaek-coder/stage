@@ -82,6 +82,7 @@ export function Footer() {
           <div>
             <FooterColHeading>정보</FooterColHeading>
             <FooterLink href="/about">STAGE 소개</FooterLink>
+            <FooterLink href="/stageos">StageOS</FooterLink>
             <FooterLink href="/advertise">광고 안내</FooterLink>
             <FooterLink href="/tip">기사 제보</FooterLink>
             <FooterLink href="/contact">문의</FooterLink>

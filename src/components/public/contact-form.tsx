@@ -6,7 +6,7 @@ import { submitContact } from "@/actions/contact-actions";
 
 type State = { error?: string; success?: boolean } | undefined;
 
-const TYPES = ["일반", "제휴", "광고", "기타"];
+const TYPES = ["일반", "제휴", "광고", "StageOS 도입", "기타"];
 
 const fieldClass =
   "mt-1 w-full border-b border-[#1c1b1b]/20 bg-transparent py-2 text-sm focus:border-[#6f5c24] focus:outline-none";
