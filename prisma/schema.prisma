@@ -170,6 +170,38 @@ model Bookmark {
   @@index([articleId])
 }
 
+// 문화예술 이벤트 (공연/전시/교육). type으로 구분, 교육 전용 필드 포함.
+// 발행 게이팅은 다른 콘텐츠와 동일(status draft/published), 행사 시기는 날짜에서 파생.
+model CultureEvent {
+  id              String         @id @default(cuid())
+  title           String
+  slug            String         @unique
+  type            String         @default("공연")
+  genre           String[]
+  venue           String         @default("")
+  address         String?
+  artists         String[]
+  description     String?        @db.Text
+  thumbnailUrl    String?
+  startDate       DateTime
+  endDate         DateTime?
+  ticketUrl       String?
+  ticketPrice     String?
+  memberDiscount  Int            @default(0)
+  eduInstructor   String?
+  eduSchedule     String?
+  maxParticipants Int?
+  applyUrl        String?
+  isFeatured      Boolean        @default(false)
+  status          BlogPostStatus @default(draft)
+  publishedAt     DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([status, startDate])
+  @@index([type])
+}
+
 // 뉴스레터 구독자 (기존 운영 테이블을 채택해 baseline)
 model NewsletterSubscriber {
   id        String   @id @default(cuid())
