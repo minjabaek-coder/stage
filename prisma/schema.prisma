@@ -248,6 +248,28 @@ model Tip {
   @@index([status, createdAt(sort: Desc)])
 }
 
+// 광고 (스폰서/배너). 지금은 어드민 CMS만, 실제 노출·노출/클릭 트래킹은 후속(Full).
+model Advertisement {
+  id          String    @id @default(cuid())
+  sponsor     String
+  title       String
+  description String?
+  imageUrl    String?
+  linkUrl     String
+  type        String    @default("배너")
+  placement   String[]
+  targetGenre String[]
+  isActive    Boolean   @default(true)
+  impressions Int       @default(0)
+  clicks      Int       @default(0)
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([isActive])
+}
+
 // 뉴스레터 구독자 (기존 운영 테이블을 채택해 baseline)
 model NewsletterSubscriber {
   id        String   @id @default(cuid())

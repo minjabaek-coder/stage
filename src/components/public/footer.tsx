@@ -13,15 +13,6 @@ function FooterLink({ href, children }: { href: string; children: ReactNode }) {
   );
 }
 
-// 아직 구현되지 않은 페이지는 죽은 링크 대신 '준비중' 표기 (페이지 생기면 링크로 교체)
-function FooterSoon({ children }: { children: ReactNode }) {
-  return (
-    <span className="block py-1 text-sm text-gray-600">
-      {children} <span className="text-[10px] align-middle">(준비중)</span>
-    </span>
-  );
-}
-
 function FooterColHeading({ children }: { children: ReactNode }) {
   return (
     <h3 className="mb-2 font-label text-[11px] font-semibold uppercase tracking-wider text-gray-500">
@@ -91,7 +82,7 @@ export function Footer() {
           <div>
             <FooterColHeading>정보</FooterColHeading>
             <FooterLink href="/about">STAGE 소개</FooterLink>
-            <FooterSoon>광고 안내</FooterSoon>
+            <FooterLink href="/advertise">광고 안내</FooterLink>
             <FooterLink href="/tip">기사 제보</FooterLink>
             <FooterLink href="/contact">문의</FooterLink>
           </div>
