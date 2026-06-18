@@ -356,6 +356,29 @@ export default async function HomePage() {
             </div>
           </section>
         )}
+
+        {/* StageOS 소개 밴드 (B2B 티저) */}
+        <section className="mt-32">
+          <div className="rounded-3xl bg-[#1c1b1b] px-8 py-16 text-center text-[#fcf9f8] md:px-16">
+            <span className="font-label text-[11px] font-bold uppercase tracking-[0.3em] text-[#bda86a]">
+              StageOS
+            </span>
+            <h2 className="font-headline mt-4 text-3xl leading-tight md:text-4xl">
+              문화·이벤트를 위한 AI 경험 OS
+            </h2>
+            <p className="mx-auto mt-5 max-w-xl leading-relaxed text-[#c4c7c7]">
+              STAGE를 만든 카이로스팀이 공연·전시·축제 주최사를 위해 만든
+              멀티테넌트 SaaS. 정보를 한 번 입력하면 모바일 브로셔·작품 해설·다국어
+              음성 가이드·관객 분석까지 자동으로.
+            </p>
+            <Link
+              href="/stageos"
+              className="mt-8 inline-block border border-[#fcf9f8]/30 px-8 py-3 font-label text-[10px] font-bold uppercase tracking-widest transition-colors hover:bg-[#fcf9f8] hover:text-[#1c1b1b]"
+            >
+              StageOS 보기 →
+            </Link>
+          </div>
+        </section>
       </main>
 
       <DocentChatFAB />
