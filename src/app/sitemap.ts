@@ -6,7 +6,7 @@ import { SITE_URL } from "@/lib/seo";
 export const dynamic = "force-dynamic";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [magazines, blogPosts, articles] = await Promise.all([
+  const [magazines, blogPosts, articles, cultureEvents] = await Promise.all([
     prisma.magazine.findMany({
       where: { status: "published" },
       select: {
@@ -23,6 +23,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       select: { slug: true, updatedAt: true },
     }),
     prisma.article.findMany({
+      where: { status: "published" },
+      select: { slug: true, updatedAt: true },
+    }),
+    prisma.cultureEvent.findMany({
       where: { status: "published" },
       select: { slug: true, updatedAt: true },
     }),
@@ -46,6 +50,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
     {
       url: `${SITE_URL}/articles`,
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.8,
+    },
+    {
+      url: `${SITE_URL}/culture-events`,
       lastModified: now,
       changeFrequency: "weekly",
       priority: 0.8,
@@ -87,10 +97,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.6,
   }));
 
+  const cultureEventRoutes: MetadataRoute.Sitemap = cultureEvents.map((e) => ({
+    url: `${SITE_URL}/culture-events/${e.slug}`,
+    lastModified: e.updatedAt,
+    changeFrequency: "weekly",
+    priority: 0.6,
+  }));
+
   return [
     ...staticRoutes,
     ...magazineRoutes,
     ...blogRoutes,
     ...articleRoutes,
+    ...cultureEventRoutes,
   ];
 }

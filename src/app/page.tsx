@@ -68,6 +68,12 @@ export default async function HomePage() {
               기사
             </Link>
             <Link
+              href="/culture-events"
+              className="font-label uppercase tracking-[0.05em] text-xs font-semibold opacity-70 hover:text-[#6f5c24] transition-colors duration-300"
+            >
+              문화예술
+            </Link>
+            <Link
               href="/blog"
               className="font-label uppercase tracking-[0.05em] text-xs font-semibold opacity-70 hover:text-[#6f5c24] transition-colors duration-300"
             >
