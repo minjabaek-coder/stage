@@ -37,7 +37,10 @@ export default async function EditArticlePage({
       </div>
 
       <div className="mx-auto max-w-3xl">
+        {/* updatedAt를 key로: 발행 등 revalidate로 새 데이터가 오면 폼을 remount해
+            uncontrolled 입력의 defaultValue 변경(Base UI 경고)을 방지 */}
         <ArticleForm
+          key={String(article.updatedAt)}
           action={action}
           defaultValues={{
             title: article.title,

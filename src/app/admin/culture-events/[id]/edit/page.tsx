@@ -38,6 +38,7 @@ export default async function EditCultureEventPage({
 
       <div className="mx-auto max-w-3xl">
         <CultureEventForm
+          key={String(event.updatedAt)}
           action={action}
           defaultValues={{
             title: event.title,
