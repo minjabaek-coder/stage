@@ -142,6 +142,48 @@ model NewsletterSubscriber {
   @@index([isActive])
 }
 
+enum UserTier {
+  guest
+  member
+  pro
+}
+
+// 회원 (Supabase Auth와 authId로 연결)
+model User {
+  id              String          @id @default(cuid())
+  authId          String?         @unique
+  email           String          @unique
+  name            String          @default("")
+  avatarUrl       String?
+  snsProvider     String?
+  tier            UserTier        @default(member)
+  interests       String[]
+  proExpiresAt    DateTime?
+  newsletterOptIn Boolean         @default(false)
+  eventAlertOptIn Boolean         @default(false)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  aiInteractions  AiInteraction[]
+}
+
+// AI 마에스트로 상호작용 로그 (회원/세션 단위)
+model AiInteraction {
+  id          String   @id @default(cuid())
+  userId      String?
+  sessionId   String?
+  question    String
+  answer      String
+  magazineId  String?
+  articleId   String?
+  sourceCount Int      @default(0)
+  provider    String   @default("gemini")
+  createdAt   DateTime @default(now())
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([sessionId])
+}
+
 model ApiCallLog {
   id            String   @id @default(cuid())
   model         String
