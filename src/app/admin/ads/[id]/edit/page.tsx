@@ -33,6 +33,7 @@ export default async function EditAdPage({
           imageUrl: ad.imageUrl,
           linkUrl: ad.linkUrl,
           type: ad.type,
+          placement: ad.placement,
           isActive: ad.isActive,
           startDate: ad.startDate,
           endDate: ad.endDate,

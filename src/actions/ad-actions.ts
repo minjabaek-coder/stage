@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod/v4";
 import { deleteUploadedFile } from "@/lib/upload";
+import { AD_PLACEMENT_VALUES } from "@/lib/ad-placements";
 
 const adSchema = z.object({
   sponsor: z.string().min(1, "스폰서를 입력해주세요").max(120),
@@ -13,6 +14,7 @@ const adSchema = z.object({
   imageUrl: z.string().optional().default(""),
   linkUrl: z.string().url("올바른 링크 URL을 입력해주세요"),
   type: z.string().default("배너"),
+  placement: z.array(z.string()).optional().default([]),
   isActive: z.boolean().optional().default(true),
   startDate: z.string().optional().default(""),
   endDate: z.string().optional().default(""),
@@ -27,6 +29,10 @@ function readForm(formData: FormData) {
     imageUrl: s("imageUrl"),
     linkUrl: s("linkUrl"),
     type: s("type") || "배너",
+    placement: formData
+      .getAll("placement")
+      .map(String)
+      .filter((p) => AD_PLACEMENT_VALUES.includes(p)),
     isActive: formData.get("isActive") === "on",
     startDate: s("startDate"),
     endDate: s("endDate"),
@@ -41,6 +47,7 @@ function toData(d: z.infer<typeof adSchema>) {
     imageUrl: d.imageUrl || null,
     linkUrl: d.linkUrl,
     type: d.type || "배너",
+    placement: d.placement,
     isActive: d.isActive,
     startDate: d.startDate ? new Date(d.startDate) : null,
     endDate: d.endDate ? new Date(d.endDate) : null,

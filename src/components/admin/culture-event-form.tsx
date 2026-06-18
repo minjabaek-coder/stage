@@ -33,8 +33,9 @@ function toLocalInput(d?: Date | null): string {
   return local.toISOString().slice(0, 16);
 }
 
+// display:flex를 네이티브 <select>에 주면 옵션 팝업이 비정상 렌더되므로 block 사용
 const fieldClass =
-  "flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+  "block w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
 export function CultureEventForm({
   action,
