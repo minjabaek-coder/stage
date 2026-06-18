@@ -109,8 +109,26 @@ model BlogPost {
   publishedAt     DateTime?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
+  chunks          BlogPostChunk[]
 
   @@index([status, publishedAt(sort: Desc)])
+}
+
+/// RAG 임베딩 청크 (pgvector). 실제 테이블은 raw SQL 마이그레이션으로 생성됨.
+/// 임베딩 검색/삽입은 src/lib/rag.ts에서 raw SQL로 처리(embedding은 Unsupported).
+/// 주의: HNSW 벡터 인덱스(BlogPostChunk_embedding_idx)는 Prisma로 표현 불가 →
+/// 스키마엔 없지만 DB/마이그레이션엔 존재하므로 수기 마이그레이션 시 건드리지 말 것.
+model BlogPostChunk {
+  id         String                       @id @default(dbgenerated("gen_random_uuid()::text"))
+  blogPostId String
+  chunkIndex Int
+  title      String
+  content    String                       @db.Text
+  embedding  Unsupported("vector(1024)")?
+  createdAt  DateTime                     @default(now())
+  blogPost   BlogPost                     @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
+
+  @@index([blogPostId])
 }
 
 model ApiCallLog {
