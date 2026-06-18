@@ -27,11 +27,15 @@ type Props = {
   params: Promise<{ id: string }>;
 };
 
+// 비프로덕션(preview·로컬)에서는 미발행(draft) 매거진/아티클도 열람 허용 — 39호 등
+// 작업본을 preview에서 미리보기 위함. 프로덕션(bon-stage.com)에서는 발행본만 노출.
+const ALLOW_DRAFT = process.env.VERCEL_ENV !== "production";
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const magazine = await prisma.magazine.findUnique({ where: { id } });
 
-  if (!magazine || magazine.status !== "published") {
+  if (!magazine || (magazine.status !== "published" && !ALLOW_DRAFT)) {
     return { title: "Not Found" };
   }
 
@@ -50,13 +54,13 @@ export default async function MagazineViewerPage({ params }: Props) {
       pages: { orderBy: { sortOrder: "asc" } },
       tocEntries: { orderBy: { sortOrder: "asc" } },
       articles: {
-        where: { status: "published" },
+        where: ALLOW_DRAFT ? undefined : { status: "published" },
         orderBy: { sortOrder: "asc" },
       },
     },
   });
 
-  if (!magazine || magazine.status !== "published") {
+  if (!magazine || (magazine.status !== "published" && !ALLOW_DRAFT)) {
     notFound();
   }
 
