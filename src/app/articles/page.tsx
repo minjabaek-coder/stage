@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { SiteHeader } from "@/components/public/site-header";
 import { Footer } from "@/components/public/footer";
 import { ArticleCard } from "@/components/public/article-card";
+import { AdSlot } from "@/components/public/ad-slot";
 
 export const metadata: Metadata = {
   title: "기사 | STAGE",
@@ -47,6 +48,8 @@ export default async function ArticlesPage() {
             ))}
           </div>
         )}
+
+        <AdSlot placement="articles" className="mt-12 block" />
       </main>
 
       <Footer />

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { SiteHeader } from "@/components/public/site-header";
 import { Footer } from "@/components/public/footer";
 import { MagazineGrid } from "@/components/public/magazine-grid";
+import { AdSlot } from "@/components/public/ad-slot";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -26,6 +27,8 @@ export default async function MagazinesPage() {
         <p className="mt-2 text-gray-500">총 {magazines.length}호 발행</p>
 
         <MagazineGrid magazines={magazines} />
+
+        <AdSlot placement="magazines" className="mt-12 block" />
       </main>
 
       <Footer />
