@@ -8,6 +8,7 @@ import { HeaderAuth } from "@/components/public/header-auth";
 const navItems = [
   { href: "/", label: "홈" },
   { href: "/magazines", label: "매거진" },
+  { href: "/articles", label: "기사" },
   { href: "/blog", label: "블로그" },
 ];
 

@@ -45,6 +45,12 @@ export default async function HomePage() {
               매거진
             </Link>
             <Link
+              href="/articles"
+              className="font-label uppercase tracking-[0.05em] text-xs font-semibold opacity-70 hover:text-[#6f5c24] transition-colors duration-300"
+            >
+              기사
+            </Link>
+            <Link
               href="/blog"
               className="font-label uppercase tracking-[0.05em] text-xs font-semibold opacity-70 hover:text-[#6f5c24] transition-colors duration-300"
             >
