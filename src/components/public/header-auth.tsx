@@ -46,12 +46,15 @@ export function HeaderAuth({
     if (user) {
       return (
         <div className="border-t border-gray-100">
-          <div className="flex items-center gap-2 px-6 py-3">
+          <Link
+            href="/mypage"
+            className="flex items-center gap-2 px-6 py-3 hover:bg-gray-50"
+          >
             <TierBadge tier={user.tier} />
             <span className="max-w-[200px] truncate text-sm text-gray-700">
               {user.name || user.email}
             </span>
-          </div>
+          </Link>
           <form action={signOut}>
             <button
               type="submit"
@@ -89,16 +92,18 @@ export function HeaderAuth({
           editorial ? "" : "border-l border-gray-200 pl-4"
         }`}
       >
-        <TierBadge tier={user.tier} />
-        <span
-          className={`max-w-[140px] truncate ${
-            editorial
-              ? "font-label text-xs font-semibold uppercase tracking-[0.05em] opacity-70"
-              : "text-sm text-gray-700"
-          }`}
-        >
-          {user.name || user.email}
-        </span>
+        <Link href="/mypage" className="flex items-center gap-2">
+          <TierBadge tier={user.tier} />
+          <span
+            className={`max-w-[140px] truncate ${
+              editorial
+                ? "font-label text-xs font-semibold uppercase tracking-[0.05em] opacity-70 transition-colors hover:text-[#6f5c24]"
+                : "text-sm text-gray-700 hover:text-gray-900"
+            }`}
+          >
+            {user.name || user.email}
+          </span>
+        </Link>
         <form action={signOut}>
           <button
             type="submit"
