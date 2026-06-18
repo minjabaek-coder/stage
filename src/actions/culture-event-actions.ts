@@ -138,7 +138,7 @@ export async function updateCultureEvent(id: string, formData: FormData) {
   }
 
   revalidate(id, parsed.data.slug);
-  return { success: true };
+  redirect("/admin/culture-events");
 }
 
 export async function publishCultureEvent(id: string) {

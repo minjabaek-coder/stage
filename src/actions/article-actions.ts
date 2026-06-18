@@ -133,7 +133,7 @@ export async function updateArticle(id: string, formData: FormData) {
   }
 
   revalidateArticlePaths(id, parsed.data.slug);
-  return { success: true };
+  redirect("/admin/articles");
 }
 
 export async function publishArticle(id: string) {
