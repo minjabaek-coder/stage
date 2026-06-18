@@ -112,7 +112,7 @@ export function MagazineEbookViewer({ magazine, pages }: Props) {
           {current + 1} / {total}
         </span>
         <div
-          className="absolute bottom-0 left-0 h-0.5 bg-[#6f5c24] transition-all duration-300"
+          className="absolute bottom-0 left-0 h-0.5 bg-[#6f5c24] transition-all duration-300 motion-reduce:transition-none"
           style={{ width: `${progress}%` }}
         />
       </header>
@@ -143,11 +143,15 @@ export function MagazineEbookViewer({ magazine, pages }: Props) {
 
         {/* Sliding track */}
         <div
-          className="flex h-full transition-transform duration-500 ease-out"
+          className="flex h-full transition-transform duration-500 ease-out motion-reduce:transition-none"
           style={{ transform: `translateX(-${current * 100}%)` }}
         >
           {pages.map((p, i) => (
-            <div key={i} className="h-full w-full flex-shrink-0 overflow-y-auto">
+            <div
+              key={i}
+              inert={i !== current}
+              className="h-full w-full flex-shrink-0 overflow-y-auto"
+            >
               <PageView page={p} magazine={magazine} active={i === current} />
             </div>
           ))}
@@ -188,10 +192,10 @@ export function MagazineEbookViewer({ magazine, pages }: Props) {
         onClick={() => setTocOpen((v) => !v)}
         className="flex-shrink-0 border-t border-[#1c1b1b]/10 bg-[#f3eeec] py-1.5 text-center font-label text-[10px] uppercase tracking-[0.2em] opacity-70"
       >
-        {pageLabel(page, current)} ▴
+        {pageLabel(page, current)} {tocOpen ? "▾" : "▴"}
       </button>
       <div
-        className={`flex-shrink-0 overflow-x-auto border-t border-[#1c1b1b]/10 bg-[#f3eeec] transition-all duration-300 ${
+        className={`flex-shrink-0 overflow-x-auto border-t border-[#1c1b1b]/10 bg-[#f3eeec] transition-all duration-300 motion-reduce:transition-none ${
           tocOpen ? "max-h-44 py-3" : "max-h-0 py-0"
         }`}
       >
@@ -200,10 +204,7 @@ export function MagazineEbookViewer({ magazine, pages }: Props) {
             <button
               key={i}
               type="button"
-              onClick={() => {
-                goTo(i);
-                setTocOpen(false);
-              }}
+              onClick={() => goTo(i)}
               className={`w-32 flex-shrink-0 rounded border p-2 text-left transition-colors ${
                 i === current
                   ? "border-[#6f5c24] bg-white"
