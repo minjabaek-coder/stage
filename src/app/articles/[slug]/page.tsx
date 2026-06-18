@@ -10,6 +10,7 @@ import { SiteHeader } from "@/components/public/site-header";
 import { Footer } from "@/components/public/footer";
 import { Badge } from "@/components/ui/badge";
 import { getCurrentUser } from "@/lib/auth";
+import { BookmarkButton } from "@/components/public/bookmark-button";
 
 // 본문(content)은 절대 포함하지 않는다 — 프리미엄 잠김 시 content가 서버 컴포넌트
 // 스코프/ RSC 페이로드에 존재하지 못하게(누수 방지) 메타 필드만 조회.
@@ -101,6 +102,14 @@ export default async function ArticlePage({
     ? null
     : sanitizeArticle(await getArticleContent(article.id));
 
+  const bookmarked = user
+    ? !!(await prisma.bookmark.findUnique({
+        where: {
+          userId_articleId: { userId: user.id, articleId: article.id },
+        },
+      }))
+    : false;
+
   return (
     <div className="min-h-screen bg-white">
       <SiteHeader />
@@ -154,6 +163,15 @@ export default async function ArticlePage({
                 {tag}
               </Badge>
             ))}
+          </div>
+        )}
+
+        {user && (
+          <div className="mt-6">
+            <BookmarkButton
+              articleId={article.id}
+              initialBookmarked={bookmarked}
+            />
           </div>
         )}
 

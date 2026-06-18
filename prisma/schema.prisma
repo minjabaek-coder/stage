@@ -150,9 +150,24 @@ model Article {
   publishedAt  DateTime?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
+  bookmarks    Bookmark[]
 
   @@index([status, publishedAt(sort: Desc)])
   @@index([category])
+}
+
+// 회원의 기사 북마크
+model Bookmark {
+  id        String   @id @default(cuid())
+  userId    String
+  articleId String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, articleId])
+  @@index([userId])
+  @@index([articleId])
 }
 
 // 뉴스레터 구독자 (기존 운영 테이블을 채택해 baseline)
@@ -188,6 +203,7 @@ model User {
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
   aiInteractions  AiInteraction[]
+  bookmarks       Bookmark[]
 }
 
 // AI 마에스트로 상호작용 로그 (회원/세션 단위)
