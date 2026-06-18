@@ -73,7 +73,7 @@ export default async function HomePage() {
                     <img
                       src={latestMagazine.coverImageUrl}
                       alt={latestMagazine.title}
-                      className="w-full aspect-[3/4] object-contain grayscale hover:grayscale-0 transition-all duration-700"
+                      className="w-full aspect-[3/4] object-contain"
                     />
                   ) : (
                     <div className="w-full aspect-[3/4] bg-[#eae7e7] flex items-center justify-center">
