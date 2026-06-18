@@ -16,7 +16,14 @@ type Props = {
 
 const getArticle = cache(async (magazineId: string, slug: string) => {
   return prisma.magazineArticle.findFirst({
-    where: { magazineId, slug, status: "published" },
+    // Gate on the parent magazine too: a published article inside a draft/
+    // unpublished issue must not be reachable by direct URL.
+    where: {
+      magazineId,
+      slug,
+      status: "published",
+      magazine: { status: "published" },
+    },
     include: { magazine: true },
   });
 });
@@ -43,9 +50,27 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   if (!article) return { title: "Not Found" };
 
+  const description = article.content.replace(/<[^>]+>/g, "").slice(0, 160);
+  const image = article.thumbnailUrl || article.magazine.coverImageUrl;
+
   return {
     title: `${article.title} | ${article.magazine.title} | STAGE`,
-    description: article.content.replace(/<[^>]+>/g, "").slice(0, 160),
+    description,
+    alternates: { canonical: `/magazines/${id}/${slug}` },
+    openGraph: {
+      type: "article",
+      title: article.title,
+      description,
+      url: `/magazines/${id}/${slug}`,
+      publishedTime: article.publishedAt?.toISOString(),
+      authors: article.author ? [article.author] : undefined,
+      images: image ? [{ url: image }] : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: article.title,
+      description,
+    },
   };
 }
 

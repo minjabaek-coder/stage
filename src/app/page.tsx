@@ -5,9 +5,16 @@ import { Footer } from "@/components/public/footer";
 import { PastMagazines } from "@/components/public/past-magazines";
 import Link from "next/link";
 import { DocentChatFAB } from "@/components/public/docent-chat";
+import { NewsletterForm } from "@/components/public/newsletter-form";
+import { HeaderAuth } from "@/components/public/header-auth";
+import { MaestroSection } from "@/components/public/maestro-section";
+import { ArticleCard } from "@/components/public/article-card";
+import { CultureEventCard } from "@/components/public/culture-event-card";
+import { AdSlot } from "@/components/public/ad-slot";
 
 export default async function HomePage() {
-  const [publishedMagazines, allPosts] = await Promise.all([
+  const [publishedMagazines, allPosts, recentArticles, recentEvents] =
+    await Promise.all([
     prisma.magazine.findMany({
       where: { status: "published" },
       orderBy: { issueNumber: "desc" },
@@ -16,6 +23,39 @@ export default async function HomePage() {
       where: { status: "published" },
       orderBy: { publishedAt: "desc" },
       take: 6,
+    }),
+    prisma.article.findMany({
+      where: { status: "published" },
+      orderBy: { publishedAt: "desc" },
+      take: 3,
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        excerpt: true,
+        author: true,
+        category: true,
+        publishedAt: true,
+        thumbnailUrl: true,
+        isPremium: true,
+      },
+    }),
+    prisma.cultureEvent.findMany({
+      where: { status: "published" },
+      orderBy: { startDate: "desc" },
+      take: 3,
+      select: {
+        id: true,
+        slug: true,
+        type: true,
+        genre: true,
+        title: true,
+        venue: true,
+        startDate: true,
+        endDate: true,
+        thumbnailUrl: true,
+        memberDiscount: true,
+      },
     }),
   ]);
 
@@ -42,6 +82,18 @@ export default async function HomePage() {
               매거진
             </Link>
             <Link
+              href="/articles"
+              className="font-label uppercase tracking-[0.05em] text-xs font-semibold opacity-70 hover:text-[#6f5c24] transition-colors duration-300"
+            >
+              기사
+            </Link>
+            <Link
+              href="/culture-events"
+              className="font-label uppercase tracking-[0.05em] text-xs font-semibold opacity-70 hover:text-[#6f5c24] transition-colors duration-300"
+            >
+              문화예술
+            </Link>
+            <Link
               href="/blog"
               className="font-label uppercase tracking-[0.05em] text-xs font-semibold opacity-70 hover:text-[#6f5c24] transition-colors duration-300"
             >
@@ -49,6 +101,7 @@ export default async function HomePage() {
             </Link>
           </nav>
         </div>
+        <HeaderAuth variant="editorial" />
       </header>
 
       <main className="pt-32 pb-24 max-w-[1440px] mx-auto px-6 md:px-12">
@@ -70,7 +123,7 @@ export default async function HomePage() {
                     <img
                       src={latestMagazine.coverImageUrl}
                       alt={latestMagazine.title}
-                      className="w-full aspect-[3/4] object-contain grayscale hover:grayscale-0 transition-all duration-700"
+                      className="w-full aspect-[3/4] object-contain"
                     />
                   ) : (
                     <div className="w-full aspect-[3/4] bg-[#eae7e7] flex items-center justify-center">
@@ -152,18 +205,61 @@ export default async function HomePage() {
                 <p className="font-label text-[11px] leading-relaxed mb-6 opacity-70">
                   매주 토요일 아침, 당신의 편지함으로 배달되는 STAGE의 이야기.
                 </p>
-                <input
-                  className="w-full bg-transparent border-b border-[#1c1b1b]/20 py-2 font-label text-xs mb-4 focus:outline-none focus:border-[#6f5c24] transition-colors placeholder:opacity-50"
-                  placeholder="이메일 주소"
-                  type="email"
-                />
-                <button className="w-full bg-[#1c1b1b] text-white py-3 font-label text-[10px] font-bold uppercase tracking-widest hover:bg-[#6f5c24] transition-colors">
-                  구독하기
-                </button>
+                <NewsletterForm />
               </div>
             </div>
           </section>
         )}
+
+        {/* 최신 기사 */}
+        {recentArticles.length > 0 && (
+          <section className="mt-32">
+            <div className="flex items-baseline justify-between border-b border-[#1c1b1b]/10 pb-4">
+              <h2 className="font-label text-sm font-black uppercase tracking-[0.2em]">
+                최신 기사
+              </h2>
+              <Link
+                href="/articles"
+                className="font-label text-[11px] uppercase tracking-wider text-[#6f5c24] hover:underline"
+              >
+                전체보기 →
+              </Link>
+            </div>
+            <div className="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+              {recentArticles.map((article) => (
+                <ArticleCard key={article.id} article={article} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* 문화예술 (공연·전시·교육) */}
+        {recentEvents.length > 0 && (
+          <section className="mt-32">
+            <div className="flex items-baseline justify-between border-b border-[#1c1b1b]/10 pb-4">
+              <h2 className="font-label text-sm font-black uppercase tracking-[0.2em]">
+                문화예술
+              </h2>
+              <Link
+                href="/culture-events"
+                className="font-label text-[11px] uppercase tracking-wider text-[#6f5c24] hover:underline"
+              >
+                전체보기 →
+              </Link>
+            </div>
+            <div className="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+              {recentEvents.map((event) => (
+                <CultureEventCard key={event.id} event={event} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* 광고 슬롯 (홈) */}
+        <AdSlot placement="home" className="mt-24 block" />
+
+        {/* AI 마에스트로 소개 */}
+        <MaestroSection />
 
         {/* Previous Magazines Section */}
         {previousMagazines.length > 0 && (
@@ -260,6 +356,29 @@ export default async function HomePage() {
             </div>
           </section>
         )}
+
+        {/* StageOS 소개 밴드 (B2B 티저) */}
+        <section className="mt-32">
+          <div className="rounded-3xl bg-[#1c1b1b] px-8 py-16 text-center text-[#fcf9f8] md:px-16">
+            <span className="font-label text-[11px] font-bold uppercase tracking-[0.3em] text-[#bda86a]">
+              StageOS
+            </span>
+            <h2 className="font-headline mt-4 text-3xl leading-tight md:text-4xl">
+              문화·이벤트를 위한 AI 경험 OS
+            </h2>
+            <p className="mx-auto mt-5 max-w-xl leading-relaxed text-[#c4c7c7]">
+              STAGE를 만든 카이로스팀이 공연·전시·축제 주최사를 위해 만든
+              멀티테넌트 SaaS. 정보를 한 번 입력하면 모바일 브로셔·작품 해설·다국어
+              음성 가이드·관객 분석까지 자동으로.
+            </p>
+            <Link
+              href="/stageos"
+              className="mt-8 inline-block border border-[#fcf9f8]/30 px-8 py-3 font-label text-[10px] font-bold uppercase tracking-widest transition-colors hover:bg-[#fcf9f8] hover:text-[#1c1b1b]"
+            >
+              StageOS 보기 →
+            </Link>
+          </div>
+        </section>
       </main>
 
       <DocentChatFAB />

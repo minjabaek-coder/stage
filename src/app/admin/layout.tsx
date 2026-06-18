@@ -41,6 +41,36 @@ export default function AdminLayout({
                 블로그
               </Link>
               <Link
+                href="/admin/articles"
+                className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                기사
+              </Link>
+              <Link
+                href="/admin/culture-events"
+                className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                문화예술
+              </Link>
+              <Link
+                href="/admin/contacts"
+                className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                문의
+              </Link>
+              <Link
+                href="/admin/tips"
+                className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                제보
+              </Link>
+              <Link
+                href="/admin/ads"
+                className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                광고
+              </Link>
+              <Link
                 href="/admin/api-logs"
                 className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
               >

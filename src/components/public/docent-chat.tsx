@@ -5,7 +5,7 @@ import Link from "next/link";
 
 interface SourceRef {
   title: string;
-  slug: string;
+  href: string;
 }
 
 interface Message {
@@ -20,15 +20,31 @@ const WELCOME_MESSAGE: Message = {
     "안녕하세요! STAGE 도슨트입니다. 매거진이나 블로그에 대해 궁금한 것을 물어보세요.",
 };
 
-function ChatBody() {
+// 게스트(미로그인) 사용량 식별용 sessionId. localStorage에 영속.
+function getSessionId(): string {
+  if (typeof window === "undefined") return "";
+  let id = localStorage.getItem("stage_session_id");
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem("stage_session_id", id);
+  }
+  return id;
+}
+
+export function ChatBody({ seedQuestion }: { seedQuestion?: string }) {
   const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(seedQuestion ?? "");
   const [isLoading, setIsLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // 이미 열린 채팅에서 다른 시드 질문(기사 위젯 칩)을 누르면 입력창을 갱신
+  useEffect(() => {
+    if (seedQuestion) setInput(seedQuestion);
+  }, [seedQuestion]);
 
   async function handleSend() {
     const text = input.trim();
@@ -47,7 +63,10 @@ function ChatBody() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: updatedMessages }),
+        body: JSON.stringify({
+          messages: updatedMessages,
+          sessionId: getSessionId(),
+        }),
       });
 
       const reader = res.body?.getReader();
@@ -133,7 +152,7 @@ function ChatBody() {
                 {msg.sources.map((src, j) => (
                   <Link
                     key={j}
-                    href={`/blog/${src.slug}`}
+                    href={src.href}
                     target="_blank"
                     className="inline-flex items-center gap-1 px-2 py-1 bg-[#f6f3f2] rounded text-[10px] font-label text-[#6f5c24] hover:bg-[#ebe6e4] transition-colors"
                   >
@@ -186,7 +205,20 @@ function ChatBody() {
 /** FAB + 팝업 채팅 (모든 뷰포트) */
 export function DocentChatFAB() {
   const [isOpen, setIsOpen] = useState(false);
+  const [seed, setSeed] = useState<string | undefined>(undefined);
   const panelRef = useRef<HTMLDivElement>(null);
+
+  // 외부(홈 CTA·기사 위젯 등)에서 챗을 열 수 있도록 커스텀 이벤트 수신.
+  // detail.question이 있으면 입력창을 미리 채운다(기사 내 AI 위젯 등).
+  useEffect(() => {
+    const open = (e: Event) => {
+      const q = (e as CustomEvent).detail?.question;
+      setSeed(typeof q === "string" ? q : undefined);
+      setIsOpen(true);
+    };
+    window.addEventListener("stage:open-docent", open);
+    return () => window.removeEventListener("stage:open-docent", open);
+  }, []);
 
   // Lock body scroll when chat is open on mobile
   useEffect(() => {
@@ -255,7 +287,7 @@ export function DocentChatFAB() {
             </button>
           </div>
           <div className="flex-1 min-h-0">
-            <ChatBody />
+            <ChatBody seedQuestion={seed} />
           </div>
         </div>
       )}
@@ -263,7 +295,10 @@ export function DocentChatFAB() {
       {/* FAB 버튼 — 모바일 전체화면일 때 숨김 */}
       {!isOpen && (
         <button
-          onClick={() => setIsOpen(true)}
+          onClick={() => {
+            setSeed(undefined);
+            setIsOpen(true);
+          }}
           className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-[#1c1b1b] text-white flex items-center justify-center shadow-lg hover:bg-[#6f5c24] transition-colors"
         >
           <svg

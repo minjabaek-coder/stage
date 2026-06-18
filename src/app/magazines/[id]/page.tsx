@@ -2,27 +2,65 @@ export const dynamic = "force-dynamic";
 
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import sanitizeHtml from "sanitize-html";
 import { prisma } from "@/lib/prisma";
 import { MagazineReader } from "@/components/public/magazine-reader";
-import { MagazineIssuePage } from "@/components/public/magazine-issue-page";
+import {
+  MagazineEbookViewer,
+  type EbookPage,
+} from "@/components/public/magazine-ebook-viewer";
+import { DocentChatFAB } from "@/components/public/docent-chat";
 import { ViewTracker } from "@/components/public/view-tracker";
 import type { Metadata } from "next";
+
+function sanitizeArticle(html: string): string {
+  return sanitizeHtml(html, {
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img", "h1", "h2"]),
+    allowedAttributes: {
+      ...sanitizeHtml.defaults.allowedAttributes,
+      img: ["src", "alt", "width", "height"],
+    },
+  });
+}
 
 type Props = {
   params: Promise<{ id: string }>;
 };
 
+// 비프로덕션(preview·로컬)에서는 미발행(draft) 매거진/아티클도 열람 허용 — 39호 등
+// 작업본을 preview에서 미리보기 위함. 프로덕션(bon-stage.com)에서는 발행본만 노출.
+const ALLOW_DRAFT = process.env.VERCEL_ENV !== "production";
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const magazine = await prisma.magazine.findUnique({ where: { id } });
 
-  if (!magazine || magazine.status !== "published") {
+  if (!magazine || (magazine.status !== "published" && !ALLOW_DRAFT)) {
     return { title: "Not Found" };
   }
 
+  const description =
+    magazine.description ||
+    `STAGE ${magazine.issueNumber}호 — ${magazine.title}`;
+
   return {
     title: `${magazine.title} | STAGE`,
-    description: `STAGE Magazine: ${magazine.title}`,
+    description,
+    alternates: { canonical: `/magazines/${magazine.id}` },
+    openGraph: {
+      type: "article",
+      title: magazine.title,
+      description,
+      url: `/magazines/${magazine.id}`,
+      images: magazine.coverImageUrl
+        ? [{ url: magazine.coverImageUrl }]
+        : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: magazine.title,
+      description,
+    },
   };
 }
 
@@ -35,20 +73,56 @@ export default async function MagazineViewerPage({ params }: Props) {
       pages: { orderBy: { sortOrder: "asc" } },
       tocEntries: { orderBy: { sortOrder: "asc" } },
       articles: {
-        where: { status: "published" },
+        where: ALLOW_DRAFT ? undefined : { status: "published" },
         orderBy: { sortOrder: "asc" },
       },
     },
   });
 
-  if (!magazine || magazine.status !== "published") {
+  if (!magazine || (magazine.status !== "published" && !ALLOW_DRAFT)) {
     notFound();
   }
 
-  // Web-based magazine: show article listing page
+  // Web-based magazine (39호~): structured-text interactive eBook viewer
   if (magazine.contentType === "web") {
+    const pages: EbookPage[] = [
+      { kind: "cover" },
+      { kind: "toc" },
+      ...magazine.articles.map(
+        (a): EbookPage => ({
+          kind: "article",
+          slug: a.slug,
+          title: a.title,
+          section: a.section || null,
+          author: a.author || null,
+          thumbnailUrl: a.thumbnailUrl,
+          html: sanitizeArticle(a.content || ""),
+        })
+      ),
+      { kind: "maestro" },
+    ];
+
     return (
-      <MagazineIssuePage magazine={magazine} articles={magazine.articles} />
+      <>
+        <ViewTracker type="magazine" id={magazine.id} />
+        <MagazineEbookViewer
+          magazine={{
+            id: magazine.id,
+            title: magazine.title,
+            issueNumber: magazine.issueNumber,
+            description: magazine.description,
+            coverImageUrl: magazine.coverImageUrl,
+            publishedLabel: magazine.publishedAt
+              ? new Date(magazine.publishedAt).toLocaleDateString("ko-KR", {
+                  year: "numeric",
+                  month: "long",
+                })
+              : null,
+          }}
+          pages={pages}
+        />
+        <DocentChatFAB />
+      </>
     );
   }
 

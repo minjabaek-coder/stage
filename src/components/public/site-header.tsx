@@ -3,10 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { HeaderAuth } from "@/components/public/header-auth";
 
 const navItems = [
   { href: "/", label: "홈" },
   { href: "/magazines", label: "매거진" },
+  { href: "/articles", label: "기사" },
+  { href: "/culture-events", label: "문화예술" },
   { href: "/blog", label: "블로그" },
 ];
 
@@ -36,6 +39,7 @@ export function SiteHeader() {
               {item.label}
             </Link>
           ))}
+          <HeaderAuth variant="default" />
         </nav>
 
         {/* Mobile hamburger */}
@@ -65,6 +69,7 @@ export function SiteHeader() {
               {item.label}
             </Link>
           ))}
+          <HeaderAuth variant="default" mobile />
         </nav>
       )}
     </header>

@@ -78,9 +78,24 @@ model MagazineArticle {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   magazine     Magazine       @relation(fields: [magazineId], references: [id], onDelete: Cascade)
+  chunks       MagazineArticleChunk[]
 
   @@unique([magazineId, slug])
   @@index([magazineId, sortOrder])
+}
+
+// 매거진 아티클 RAG 임베딩 청크 (pgvector). HNSW 인덱스는 마이그레이션 raw SQL로 생성(Prisma 미표현).
+model MagazineArticleChunk {
+  id         String                       @id @default(dbgenerated("gen_random_uuid()::text"))
+  articleId  String
+  chunkIndex Int
+  title      String
+  content    String                       @db.Text
+  embedding  Unsupported("vector(1024)")?
+  createdAt  DateTime                     @default(now())
+  article    MagazineArticle              @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@index([articleId])
 }
 
 enum BlogPostStatus {
@@ -109,8 +124,219 @@ model BlogPost {
   publishedAt     DateTime?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
+  chunks          BlogPostChunk[]
 
   @@index([status, publishedAt(sort: Desc)])
+}
+
+/// RAG 임베딩 청크 (pgvector). 실제 테이블은 raw SQL 마이그레이션으로 생성됨.
+/// 임베딩 검색/삽입은 src/lib/rag.ts에서 raw SQL로 처리(embedding은 Unsupported).
+/// 주의: HNSW 벡터 인덱스(BlogPostChunk_embedding_idx)는 Prisma로 표현 불가 →
+/// 스키마엔 없지만 DB/마이그레이션엔 존재하므로 수기 마이그레이션 시 건드리지 말 것.
+model BlogPostChunk {
+  id         String                       @id @default(dbgenerated("gen_random_uuid()::text"))
+  blogPostId String
+  chunkIndex Int
+  title      String
+  content    String                       @db.Text
+  embedding  Unsupported("vector(1024)")?
+  createdAt  DateTime                     @default(now())
+  blogPost   BlogPost                     @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
+
+  @@index([blogPostId])
+}
+
+// 단독 기사 (매거진과 별개의 독립 아티클). 프리미엄 게이팅(isPremium + 등급).
+model Article {
+  id           String         @id @default(cuid())
+  title        String
+  slug         String         @unique
+  excerpt      String?
+  content      String         @default("") @db.Text
+  author       String         @default("")
+  category     String         @default("")
+  tags         String[]
+  thumbnailUrl String?
+  isFeatured   Boolean        @default(false)
+  isPremium    Boolean        @default(false)
+  aiIndexable  Boolean        @default(true)
+  viewCount    Int            @default(0)
+  status       BlogPostStatus @default(draft)
+  publishedAt  DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  bookmarks    Bookmark[]
+  chunks       ArticleChunk[]
+
+  @@index([status, publishedAt(sort: Desc)])
+  @@index([category])
+}
+
+// 단독 기사 RAG 임베딩 청크 (pgvector). aiIndexable=true인 발행 기사만 임베딩.
+model ArticleChunk {
+  id         String                       @id @default(dbgenerated("gen_random_uuid()::text"))
+  articleId  String
+  chunkIndex Int
+  title      String
+  content    String                       @db.Text
+  embedding  Unsupported("vector(1024)")?
+  createdAt  DateTime                     @default(now())
+  article    Article                      @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@index([articleId])
+}
+
+// 회원의 기사 북마크
+model Bookmark {
+  id        String   @id @default(cuid())
+  userId    String
+  articleId String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, articleId])
+  @@index([userId])
+  @@index([articleId])
+}
+
+// 문화예술 이벤트 (공연/전시/교육). type으로 구분, 교육 전용 필드 포함.
+// 발행 게이팅은 다른 콘텐츠와 동일(status draft/published), 행사 시기는 날짜에서 파생.
+model CultureEvent {
+  id              String         @id @default(cuid())
+  title           String
+  slug            String         @unique
+  type            String         @default("공연")
+  genre           String[]
+  venue           String         @default("")
+  address         String?
+  artists         String[]
+  description     String?        @db.Text
+  thumbnailUrl    String?
+  startDate       DateTime
+  endDate         DateTime?
+  ticketUrl       String?
+  ticketPrice     String?
+  memberDiscount  Int            @default(0)
+  eduInstructor   String?
+  eduSchedule     String?
+  maxParticipants Int?
+  applyUrl        String?
+  isFeatured      Boolean        @default(false)
+  status          BlogPostStatus @default(draft)
+  publishedAt     DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([status, startDate])
+  @@index([type])
+}
+
+// 문의 (제휴·광고·일반). 어드민 수신함(status: new/done).
+model Contact {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  company   String?
+  type      String   @default("일반")
+  message   String   @db.Text
+  status    String   @default("new")
+  createdAt DateTime @default(now())
+
+  @@index([status, createdAt(sort: Desc)])
+}
+
+// 기사 제보(Tip). 어드민 수신함(status: new/done). attachments는 향후 확장용.
+model Tip {
+  id          String   @id @default(cuid())
+  name        String
+  email       String
+  phone       String?
+  category    String   @default("일반")
+  title       String
+  content     String   @db.Text
+  attachments String[]
+  status      String   @default("new")
+  adminNote   String?
+  createdAt   DateTime @default(now())
+
+  @@index([status, createdAt(sort: Desc)])
+}
+
+// 광고 (스폰서/배너). 지금은 어드민 CMS만, 실제 노출·노출/클릭 트래킹은 후속(Full).
+model Advertisement {
+  id          String    @id @default(cuid())
+  sponsor     String
+  title       String
+  description String?
+  imageUrl    String?
+  linkUrl     String
+  type        String    @default("배너")
+  placement   String[]
+  targetGenre String[]
+  isActive    Boolean   @default(true)
+  impressions Int       @default(0)
+  clicks      Int       @default(0)
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([isActive])
+}
+
+// 뉴스레터 구독자 (기존 운영 테이블을 채택해 baseline)
+model NewsletterSubscriber {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  isActive  Boolean  @default(true)
+  source    String   @default("home")
+  createdAt DateTime @default(now())
+
+  @@index([isActive])
+}
+
+enum UserTier {
+  guest
+  member
+  pro
+}
+
+// 회원 (Supabase Auth와 authId로 연결)
+model User {
+  id              String          @id @default(cuid())
+  authId          String?         @unique
+  email           String          @unique
+  name            String          @default("")
+  avatarUrl       String?
+  snsProvider     String?
+  tier            UserTier        @default(member)
+  interests       String[]
+  proExpiresAt    DateTime?
+  newsletterOptIn Boolean         @default(false)
+  eventAlertOptIn Boolean         @default(false)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  aiInteractions  AiInteraction[]
+  bookmarks       Bookmark[]
+}
+
+// AI 마에스트로 상호작용 로그 (회원/세션 단위)
+model AiInteraction {
+  id          String   @id @default(cuid())
+  userId      String?
+  sessionId   String?
+  question    String
+  answer      String
+  magazineId  String?
+  articleId   String?
+  sourceCount Int      @default(0)
+  provider    String   @default("gemini")
+  createdAt   DateTime @default(now())
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([sessionId])
 }
 
 model ApiCallLog {

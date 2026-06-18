@@ -19,6 +19,7 @@ interface Magazine {
   title: string;
   coverImageUrl: string | null;
   publishedAt: Date | null;
+  contentType: string;
 }
 
 interface MagazineGridProps {
@@ -32,6 +33,11 @@ const sortLabels: Record<SortOrder, string> = {
 
 export function MagazineGrid({ magazines }: MagazineGridProps) {
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+  const [query, setQuery] = useState("");
+
+  const latestIssue = magazines.length
+    ? Math.max(...magazines.map((m) => m.issueNumber))
+    : 0;
 
   const sorted = useMemo(() => {
     return [...magazines].sort((a, b) =>
@@ -41,9 +47,27 @@ export function MagazineGrid({ magazines }: MagazineGridProps) {
     );
   }, [magazines, sortOrder]);
 
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return sorted;
+    return sorted.filter(
+      (m) =>
+        m.title.toLowerCase().includes(q) ||
+        String(m.issueNumber).includes(q)
+    );
+  }, [sorted, query]);
+
   return (
     <>
-      <div className="mt-8 flex justify-end">
+      <div className="mt-8 flex items-center justify-between gap-3">
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="호수 또는 제목 검색"
+          aria-label="매거진 검색"
+          className="w-full max-w-xs rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 placeholder:text-gray-400 focus:border-gray-400 focus:outline-none"
+        />
         <DropdownMenu>
           <DropdownMenuTrigger className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
             {sortLabels[sortOrder]}
@@ -65,13 +89,17 @@ export function MagazineGrid({ magazines }: MagazineGridProps) {
         </DropdownMenu>
       </div>
 
-      {sorted.length === 0 ? (
+      {magazines.length === 0 ? (
         <div className="mt-24 text-center text-gray-400">
-          No published magazines yet.
+          아직 발행된 매거진이 없습니다.
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="mt-24 text-center text-gray-400">
+          검색 결과가 없습니다.
         </div>
       ) : (
         <div className="mt-4 grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-          {sorted.map((magazine) => (
+          {filtered.map((magazine) => (
             <Link
               key={magazine.id}
               href={`/magazines/${magazine.id}`}
@@ -90,6 +118,18 @@ export function MagazineGrid({ magazines }: MagazineGridProps) {
                   </div>
                 )}
                 <div className="absolute inset-0 bg-black/0 transition-colors duration-300 group-hover:bg-black/10" />
+                <div className="absolute left-2 top-2 flex flex-col items-start gap-1">
+                  {magazine.issueNumber === latestIssue && (
+                    <span className="rounded bg-[#6f5c24] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow">
+                      NEW
+                    </span>
+                  )}
+                  {magazine.contentType === "web" && (
+                    <span className="rounded bg-white/90 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#6f5c24] shadow">
+                      인터랙티브
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="mt-3">
                 <p className="text-sm font-semibold line-clamp-1">

@@ -25,14 +25,11 @@ interface ApiLog {
   createdAt: Date;
 }
 
+// locale·런타임 비의존 결정적 KST 포맷(하이드레이션 불일치 방지). "06.18 22:58:56"
 function formatDate(date: Date) {
-  return new Date(date).toLocaleString("ko-KR", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
+  const k = new Date(new Date(date).getTime() + 9 * 60 * 60 * 1000);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(k.getUTCMonth() + 1)}.${p(k.getUTCDate())} ${p(k.getUTCHours())}:${p(k.getUTCMinutes())}:${p(k.getUTCSeconds())}`;
 }
 
 function truncate(str: string, len: number) {
