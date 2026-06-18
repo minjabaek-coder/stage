@@ -27,9 +27,27 @@ export async function generateMetadata({
 
   if (!post) return { title: "Not Found" };
 
+  const description = post.content.replace(/<[^>]+>/g, "").slice(0, 160);
+
   return {
     title: `${post.title} | STAGE Blog`,
-    description: post.content.replace(/<[^>]+>/g, "").slice(0, 160),
+    description,
+    alternates: { canonical: `/blog/${post.slug}` },
+    openGraph: {
+      type: "article",
+      title: post.title,
+      description,
+      url: `/blog/${post.slug}`,
+      publishedTime: post.publishedAt?.toISOString(),
+      authors: post.author ? [post.author] : undefined,
+      tags: post.tags,
+      images: post.thumbnailUrl ? [{ url: post.thumbnailUrl }] : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: post.title,
+      description,
+    },
   };
 }
 

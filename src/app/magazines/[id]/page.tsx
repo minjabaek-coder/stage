@@ -39,9 +39,28 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: "Not Found" };
   }
 
+  const description =
+    magazine.description ||
+    `STAGE ${magazine.issueNumber}호 — ${magazine.title}`;
+
   return {
     title: `${magazine.title} | STAGE`,
-    description: `STAGE Magazine: ${magazine.title}`,
+    description,
+    alternates: { canonical: `/magazines/${magazine.id}` },
+    openGraph: {
+      type: "article",
+      title: magazine.title,
+      description,
+      url: `/magazines/${magazine.id}`,
+      images: magazine.coverImageUrl
+        ? [{ url: magazine.coverImageUrl }]
+        : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: magazine.title,
+      description,
+    },
   };
 }
 
