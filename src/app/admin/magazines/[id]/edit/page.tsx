@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { MagazineForm } from "@/components/admin/magazine-form";
 import { PageUploadZone } from "@/components/admin/page-upload-zone";
 import { PageListSortable } from "@/components/admin/page-list-sortable";
+import { ArticleListSortable } from "@/components/admin/article-list-sortable";
 import { StatusActions } from "@/components/admin/status-actions";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { TocEditor } from "@/components/admin/toc-editor";
@@ -101,36 +102,16 @@ export default async function EditMagazinePage({
                   아직 아티클이 없습니다. 위 버튼으로 추가하세요.
                 </p>
               ) : (
-                <ul className="divide-y">
-                  {magazine.articles.map((a, i) => (
-                    <li key={a.id}>
-                      <Link
-                        href={`/admin/magazines/${magazine.id}/articles/${a.id}/edit`}
-                        className="flex items-center gap-3 py-3 transition-colors hover:bg-muted/50"
-                      >
-                        <span className="w-6 shrink-0 text-center text-xs tabular-nums text-muted-foreground">
-                          {i + 1}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            {a.section && (
-                              <span className="shrink-0 text-xs font-medium text-[#6f5c24]">
-                                {a.section}
-                              </span>
-                            )}
-                            {a.isCoverStory && (
-                              <span className="shrink-0 rounded bg-[#6f5c24]/10 px-1.5 py-0.5 text-[10px] text-[#6f5c24]">
-                                커버스토리
-                              </span>
-                            )}
-                          </div>
-                          <div className="truncate font-medium">{a.title}</div>
-                        </div>
-                        <StatusBadge status={a.status} />
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
+                <>
+                  <p className="mb-2 text-xs text-muted-foreground">
+                    ⠿ 드래그(모바일은 ↑↓)로 순서를 변경하면 뷰어 페이지 순서에
+                    반영됩니다.
+                  </p>
+                  <ArticleListSortable
+                    articles={magazine.articles}
+                    magazineId={magazine.id}
+                  />
+                </>
               )}
             </CardContent>
           </Card>
