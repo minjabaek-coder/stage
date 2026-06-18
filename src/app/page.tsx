@@ -10,6 +10,7 @@ import { HeaderAuth } from "@/components/public/header-auth";
 import { MaestroSection } from "@/components/public/maestro-section";
 import { ArticleCard } from "@/components/public/article-card";
 import { CultureEventCard } from "@/components/public/culture-event-card";
+import { AdSlot } from "@/components/public/ad-slot";
 
 export default async function HomePage() {
   const [publishedMagazines, allPosts, recentArticles, recentEvents] =
@@ -253,6 +254,9 @@ export default async function HomePage() {
             </div>
           </section>
         )}
+
+        {/* 광고 슬롯 (홈) */}
+        <AdSlot placement="home" className="mt-24 block" />
 
         {/* AI 마에스트로 소개 */}
         <MaestroSection />
