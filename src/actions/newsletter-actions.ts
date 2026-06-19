@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { z } from "zod/v4";
 
-const ALLOWED_SOURCES = ["home", "footer", "pro-waitlist"];
+const ALLOWED_SOURCES = ["home", "footer", "pro-waitlist", "sidebar"];
 
 const schema = z.object({
   email: z.string().email("올바른 이메일을 입력해주세요"),
