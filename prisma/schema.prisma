@@ -71,6 +71,9 @@ model MagazineArticle {
   author       String         @default("")
   section      String         @default("")
   thumbnailUrl String?
+  // 배경 이미지 오버레이 모드 등 페이지 표시 설정(JSONB). null = 기본(텍스트) 레이아웃.
+  // { bgMode, bgImageUrl, bgDarkness(0~90), titleColor, bodyColor, labelColor }
+  layoutOptions Json?
   sortOrder    Int
   isCoverStory Boolean        @default(false)
   status       BlogPostStatus @default(draft)

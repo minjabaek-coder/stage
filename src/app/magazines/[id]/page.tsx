@@ -8,6 +8,7 @@ import { MagazineReader } from "@/components/public/magazine-reader";
 import {
   MagazineEbookViewer,
   type EbookPage,
+  type ArticleLayout,
 } from "@/components/public/magazine-ebook-viewer";
 import { DocentChatFAB } from "@/components/public/docent-chat";
 import { ViewTracker } from "@/components/public/view-tracker";
@@ -97,6 +98,7 @@ export default async function MagazineViewerPage({ params }: Props) {
           author: a.author || null,
           thumbnailUrl: a.thumbnailUrl,
           html: sanitizeArticle(a.content || ""),
+          layout: (a.layoutOptions as ArticleLayout | null) ?? null,
         })
       ),
       { kind: "maestro" },

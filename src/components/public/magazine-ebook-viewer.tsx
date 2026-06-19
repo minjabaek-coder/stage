@@ -3,6 +3,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
+// 배경 이미지 오버레이 모드 설정 (MagazineArticle.layoutOptions JSONB).
+export type ArticleLayout = {
+  bgMode?: boolean;
+  bgImageUrl?: string;
+  bgDarkness?: number; // 0~90
+  titleColor?: string;
+  bodyColor?: string;
+  labelColor?: string;
+};
+
 // ── Page model (built on the server from MagazineArticle rows) ──
 export type EbookPage =
   | { kind: "cover" }
@@ -15,6 +25,7 @@ export type EbookPage =
       author: string | null;
       thumbnailUrl: string | null;
       html: string; // server-sanitized
+      layout?: ArticleLayout | null;
     }
   | { kind: "maestro" };
 
@@ -318,7 +329,76 @@ function PageView({
     );
   }
 
-  // article
+  // article — 배경 이미지 오버레이 모드
+  const layout = page.layout;
+  if (layout?.bgMode && layout.bgImageUrl) {
+    const darkness = Math.max(0, Math.min(90, layout.bgDarkness ?? 60)) / 100;
+    const titleColor = layout.titleColor || "#c4a35a";
+    const bodyColor = layout.bodyColor || "#ffffff";
+    const labelColor = layout.labelColor || "#ffffff";
+    const proseStyle = {
+      color: bodyColor,
+      "--tw-prose-body": bodyColor,
+      "--tw-prose-headings": titleColor,
+      "--tw-prose-bold": bodyColor,
+      "--tw-prose-links": titleColor,
+      "--tw-prose-quotes": bodyColor,
+      "--tw-prose-quote-borders": titleColor,
+    } as React.CSSProperties;
+    return (
+      <article className="relative min-h-full w-full">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={layout.bgImageUrl}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        <div
+          className="absolute inset-0"
+          style={{ backgroundColor: `rgba(0,0,0,${darkness})` }}
+        />
+        <div className="relative mx-auto max-w-2xl px-8 py-12">
+          <span
+            className="font-label text-[11px] font-semibold uppercase tracking-[0.2em]"
+            style={{ color: labelColor }}
+          >
+            {page.section || "Article"}
+          </span>
+          <h2
+            className="font-headline mt-3 text-3xl leading-tight tracking-tight md:text-4xl"
+            style={{ color: titleColor }}
+          >
+            {page.title}
+          </h2>
+          {page.author && (
+            <div
+              className="mt-3 font-label text-xs font-semibold uppercase tracking-wider"
+              style={{ color: labelColor }}
+            >
+              {page.author}
+            </div>
+          )}
+          <div
+            className="prose mt-8 max-w-none"
+            style={proseStyle}
+            dangerouslySetInnerHTML={{ __html: page.html }}
+          />
+          <div className="mt-10">
+            <Link
+              href={`/magazines/${magazine.id}/${page.slug}`}
+              className="font-label text-xs uppercase tracking-wider hover:underline"
+              style={{ color: labelColor }}
+              tabIndex={active ? 0 : -1}
+            >
+              전체 화면으로 읽기 →
+            </Link>
+          </div>
+        </div>
+      </article>
+    );
+  }
+
+  // article — 기본 텍스트 레이아웃
   return (
     <article className="mx-auto max-w-2xl px-8 py-12">
       <span className="font-label text-[11px] font-semibold uppercase tracking-[0.2em] text-[#6f5c24]">

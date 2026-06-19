@@ -1,11 +1,39 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@/generated/prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod/v4";
 import { deleteUploadedFile } from "@/lib/upload";
 import { generateMagazineArticleEmbeddings } from "@/lib/rag";
+
+// 폼에서 온 layoutOptions(JSON 문자열)을 검증해 저장 형태로 변환.
+// 배경 모드가 켜진 경우에만 객체로 저장하고, 그 외엔 DB NULL(기본 레이아웃).
+function parseLayoutOptions(
+  raw: string
+): Prisma.InputJsonValue | typeof Prisma.DbNull {
+  if (!raw) return Prisma.DbNull;
+  try {
+    const obj = JSON.parse(raw);
+    if (!obj || typeof obj !== "object" || obj.bgMode !== true) {
+      return Prisma.DbNull;
+    }
+    const out: Record<string, unknown> = { bgMode: true };
+    if (typeof obj.bgImageUrl === "string" && obj.bgImageUrl) {
+      out.bgImageUrl = obj.bgImageUrl;
+    }
+    if (typeof obj.bgDarkness === "number") {
+      out.bgDarkness = Math.max(0, Math.min(90, Math.round(obj.bgDarkness)));
+    }
+    for (const key of ["titleColor", "bodyColor", "labelColor"] as const) {
+      if (typeof obj[key] === "string" && obj[key]) out[key] = obj[key];
+    }
+    return out as Prisma.InputJsonValue;
+  } catch {
+    return Prisma.DbNull;
+  }
+}
 
 function revalidateArticlePaths(magazineId: string) {
   revalidatePath(`/admin/magazines/${magazineId}/edit`);
@@ -26,6 +54,7 @@ const articleSchema = z.object({
   thumbnailUrl: z.string().optional().default(""),
   publishedAt: z.string().optional().default(""),
   isCoverStory: z.string().optional().default(""),
+  layoutOptions: z.string().optional().default(""),
 });
 
 export async function createArticle(
@@ -42,6 +71,7 @@ export async function createArticle(
     thumbnailUrl: formData.get("thumbnailUrl"),
     publishedAt: formData.get("publishedAt"),
     isCoverStory: formData.get("isCoverStory"),
+    layoutOptions: formData.get("layoutOptions"),
   });
 
   if (!parsed.success) {
@@ -74,6 +104,7 @@ export async function createArticle(
         ? new Date(parsed.data.publishedAt)
         : null,
       isCoverStory: parsed.data.isCoverStory === "true",
+      layoutOptions: parseLayoutOptions(parsed.data.layoutOptions),
       sortOrder: (maxOrder._max.sortOrder ?? -1) + 1,
     },
   });
@@ -96,6 +127,7 @@ export async function updateArticle(
     thumbnailUrl: formData.get("thumbnailUrl"),
     publishedAt: formData.get("publishedAt"),
     isCoverStory: formData.get("isCoverStory"),
+    layoutOptions: formData.get("layoutOptions"),
   });
 
   if (!parsed.success) {
@@ -142,6 +174,7 @@ export async function updateArticle(
         ? new Date(parsed.data.publishedAt)
         : null,
       isCoverStory: isCover,
+      layoutOptions: parseLayoutOptions(parsed.data.layoutOptions),
     },
   });
 

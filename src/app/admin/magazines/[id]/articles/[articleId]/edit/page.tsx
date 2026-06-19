@@ -58,6 +58,15 @@ export default async function EditArticlePage({
           thumbnailUrl: article.thumbnailUrl,
           publishedAt: article.publishedAt,
           isCoverStory: article.isCoverStory,
+          layoutOptions:
+            (article.layoutOptions as {
+              bgMode?: boolean;
+              bgImageUrl?: string;
+              bgDarkness?: number;
+              titleColor?: string;
+              bodyColor?: string;
+              labelColor?: string;
+            } | null) ?? null,
         }}
       />
     </div>
