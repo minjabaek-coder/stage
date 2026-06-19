@@ -14,29 +14,36 @@ type Props = {
   params: Promise<{ id: string; slug: string }>;
 };
 
+// 비프로덕션(preview·로컬)에서는 미발행(draft) 호/아티클의 전체화면 읽기도 허용 —
+// eBook 뷰어(magazines/[id]/page.tsx)와 동일 정책. 프로덕션에서는 발행본만.
+const ALLOW_DRAFT = process.env.VERCEL_ENV !== "production";
+
 const getArticle = cache(async (magazineId: string, slug: string) => {
   return prisma.magazineArticle.findFirst({
-    // Gate on the parent magazine too: a published article inside a draft/
-    // unpublished issue must not be reachable by direct URL.
-    where: {
-      magazineId,
-      slug,
-      status: "published",
-      magazine: { status: "published" },
-    },
+    // Gate on the parent magazine too: 프로덕션에서는 draft/미발행 호 안의
+    // 아티클이 직접 URL로 도달되지 않도록 발행 상태를 함께 확인한다.
+    where: ALLOW_DRAFT
+      ? { magazineId, slug }
+      : {
+          magazineId,
+          slug,
+          status: "published",
+          magazine: { status: "published" },
+        },
     include: { magazine: true },
   });
 });
 
 const getSiblings = cache(async (magazineId: string, sortOrder: number) => {
+  const statusFilter = ALLOW_DRAFT ? {} : { status: "published" as const };
   const [prev, next] = await Promise.all([
     prisma.magazineArticle.findFirst({
-      where: { magazineId, status: "published", sortOrder: { lt: sortOrder } },
+      where: { magazineId, ...statusFilter, sortOrder: { lt: sortOrder } },
       orderBy: { sortOrder: "desc" },
       select: { slug: true, title: true },
     }),
     prisma.magazineArticle.findFirst({
-      where: { magazineId, status: "published", sortOrder: { gt: sortOrder } },
+      where: { magazineId, ...statusFilter, sortOrder: { gt: sortOrder } },
       orderBy: { sortOrder: "asc" },
       select: { slug: true, title: true },
     }),
