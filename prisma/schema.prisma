@@ -226,6 +226,8 @@ model CultureEvent {
   maxParticipants Int?
   applyUrl        String?
   isFeatured      Boolean        @default(false)
+  // 홈 우측 사이드바 "티켓 할인" 위젯에 노출할지(어드민 큐레이션)
+  sidebarFeatured Boolean        @default(false)
   status          BlogPostStatus @default(draft)
   publishedAt     DateTime?
   createdAt       DateTime       @default(now())

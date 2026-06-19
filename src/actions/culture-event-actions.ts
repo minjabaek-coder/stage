@@ -44,6 +44,7 @@ const schema = z.object({
   maxParticipants: z.string().optional().default(""),
   applyUrl: z.string().optional().default(""),
   isFeatured: z.boolean().optional().default(false),
+  sidebarFeatured: z.boolean().optional().default(false),
   publishedAt: z.string().optional().default(""),
 });
 
@@ -70,6 +71,7 @@ function readForm(formData: FormData) {
     maxParticipants: s("maxParticipants"),
     applyUrl: s("applyUrl"),
     isFeatured: formData.get("isFeatured") === "on",
+    sidebarFeatured: formData.get("sidebarFeatured") === "on",
     publishedAt: s("publishedAt"),
   });
 }
@@ -95,6 +97,7 @@ function toData(d: z.infer<typeof schema>) {
     maxParticipants: d.maxParticipants ? parseInt(d.maxParticipants, 10) : null,
     applyUrl: d.applyUrl || null,
     isFeatured: d.isFeatured,
+    sidebarFeatured: d.sidebarFeatured,
     publishedAt: d.publishedAt ? new Date(d.publishedAt) : null,
   };
 }

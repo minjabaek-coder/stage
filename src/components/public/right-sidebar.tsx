@@ -27,10 +27,10 @@ export async function RightSidebar() {
     prisma.cultureEvent.findMany({
       where: {
         status: "published",
-        memberDiscount: { gt: 0 },
         startDate: { gte: now },
+        OR: [{ sidebarFeatured: true }, { memberDiscount: { gt: 0 } }],
       },
-      orderBy: { startDate: "asc" },
+      orderBy: [{ sidebarFeatured: "desc" }, { startDate: "asc" }],
       take: 3,
       select: {
         id: true,
@@ -59,7 +59,7 @@ export async function RightSidebar() {
 
         {/* ② 티켓 할인 */}
         {tickets.length > 0 && (
-          <Widget title="🎟 이달의 티켓 할인">
+          <Widget title="🎟 추천 티켓">
             <ul className="space-y-3">
               {tickets.map((t) => (
                 <li key={t.id}>
@@ -84,15 +84,16 @@ export async function RightSidebar() {
                       <p className="mt-0.5 text-[11px] text-gray-500">
                         {formatKSTDate(t.startDate)}
                       </p>
-                      {isMember ? (
-                        <span className="mt-0.5 inline-block font-label text-[10px] font-bold text-[#b5431a]">
-                          회원 {t.memberDiscount}% 할인
-                        </span>
-                      ) : (
-                        <span className="mt-0.5 inline-block font-label text-[10px] text-gray-400">
-                          로그인 시 할인가
-                        </span>
-                      )}
+                      {t.memberDiscount > 0 &&
+                        (isMember ? (
+                          <span className="mt-0.5 inline-block font-label text-[10px] font-bold text-[#b5431a]">
+                            회원 {t.memberDiscount}% 할인
+                          </span>
+                        ) : (
+                          <span className="mt-0.5 inline-block font-label text-[10px] text-gray-400">
+                            로그인 시 할인가
+                          </span>
+                        ))}
                     </div>
                   </Link>
                 </li>
