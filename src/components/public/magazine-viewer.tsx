@@ -248,7 +248,7 @@ const FlipPage = forwardRef<
       className="relative h-full w-full overflow-hidden bg-neutral-900"
     >
       <img
-        src={page.imageUrl}
+        src={page.imageUrl ?? ""}
         alt={`Page ${page.pageNumber}`}
         className="absolute inset-0 h-full w-full object-contain"
         draggable={false}
@@ -345,7 +345,7 @@ function MobilePrevFlipOverlay({
       {/* Current page visible underneath */}
       <div className="absolute inset-0 overflow-hidden bg-neutral-900">
         <img
-          src={currentPage.imageUrl}
+          src={currentPage.imageUrl ?? ""}
           alt={`Page ${currentPage.pageNumber}`}
           className="absolute inset-0 h-full w-full object-contain"
           draggable={false}
@@ -363,7 +363,7 @@ function MobilePrevFlipOverlay({
         }}
       >
         <img
-          src={prevPage.imageUrl}
+          src={prevPage.imageUrl ?? ""}
           alt={`Page ${prevPage.pageNumber}`}
           className="absolute inset-0 h-full w-full object-contain"
           draggable={false}
@@ -440,7 +440,7 @@ export function TocThumbnailStrip({
               }`}
             >
               <img
-                src={page.imageUrl}
+                src={page.imageUrl ?? ""}
                 alt={entry.title}
                 className="absolute inset-0 h-full w-full object-cover"
               />
@@ -526,7 +526,7 @@ export function TocPanel({
                 >
                   <div className="relative h-32 w-full bg-neutral-800">
                     <img
-                      src={page.imageUrl}
+                      src={page.imageUrl ?? ""}
                       alt={entry.title}
                       className="absolute inset-0 h-full w-full object-cover"
                     />
@@ -578,7 +578,7 @@ export function TocPanel({
               {page && (
                 <div className="relative h-14 w-10 flex-shrink-0 overflow-hidden rounded">
                   <img
-                    src={page.imageUrl}
+                    src={page.imageUrl ?? ""}
                     alt={entry.title}
                     className="absolute inset-0 h-full w-full object-cover"
                   />
@@ -695,7 +695,7 @@ export function MagazineViewer({
       img.onerror = () => {
         if (!cancelled) computeDims();
       };
-      img.src = pages[0].imageUrl;
+      img.src = pages[0].imageUrl ?? "";
     } else {
       computeDims();
     }

@@ -56,7 +56,7 @@ export async function deletePage(pageId: string, magazineId: string) {
   });
 
   if (page) {
-    await deleteUploadedFile(page.imageUrl);
+    if (page.imageUrl) await deleteUploadedFile(page.imageUrl);
     await prisma.magazinePage.delete({ where: { id: pageId } });
 
     // Reorder remaining pages (two-pass for unique constraint)
@@ -125,7 +125,7 @@ export async function renamePageFiles(magazineId: string) {
   let newCoverUrl: string | null = null;
 
   for (const page of pages) {
-    const oldPath = extractStoragePath(page.imageUrl);
+    const oldPath = extractStoragePath(page.imageUrl ?? "");
     if (!oldPath) continue;
 
     const ext = oldPath.split(".").pop() || "webp";
@@ -176,7 +176,7 @@ export async function renamePageFile(
   const page = await prisma.magazinePage.findUnique({ where: { id: pageId } });
   if (!page) return { error: "페이지를 찾을 수 없습니다" };
 
-  const oldPath = extractStoragePath(page.imageUrl);
+  const oldPath = extractStoragePath(page.imageUrl ?? "");
   if (!oldPath) return { error: "파일 경로를 찾을 수 없습니다" };
 
   const ext = oldPath.split(".").pop() || "webp";

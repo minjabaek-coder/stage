@@ -59,7 +59,7 @@ export function PagedMagazineViewer({
   useEffect(() => {
     [index - 1, index + 1].forEach((i) => {
       const p = pages[i];
-      if (p) {
+      if (p && p.imageUrl) {
         const im = new window.Image();
         im.src = p.imageUrl;
       }
@@ -82,7 +82,7 @@ export function PagedMagazineViewer({
         {/* 현재 페이지 이미지 */}
         <img
           key={current.id}
-          src={current.imageUrl}
+          src={current.imageUrl ?? ""}
           alt={`Page ${current.pageNumber}`}
           className="max-h-full max-w-full object-contain select-none"
           draggable={false}

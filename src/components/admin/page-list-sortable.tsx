@@ -57,6 +57,7 @@ function useFileSizes(pages: MagazinePage[]) {
       const results: Record<string, number> = {};
       await Promise.all(
         pages.map(async (page) => {
+          if (!page.imageUrl) return;
           try {
             const res = await fetch(page.imageUrl, { method: "HEAD" });
             const len = res.headers.get("content-length");
@@ -85,7 +86,7 @@ function SortablePageItem({
   onDelete: (id: string) => void;
   fileSize?: number;
 }) {
-  const filename = getFilenameFromUrl(page.imageUrl);
+  const filename = getFilenameFromUrl(page.imageUrl ?? "");
   const baseName = getFilenameWithoutExt(filename);
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(baseName);
@@ -137,7 +138,7 @@ function SortablePageItem({
       >
         <div className="relative aspect-[3/4] overflow-hidden rounded">
           <img
-            src={page.imageUrl}
+            src={page.imageUrl ?? ""}
             alt={`Page ${page.pageNumber}`}
             className="absolute inset-0 h-full w-full object-cover"
           />
@@ -351,7 +352,7 @@ export function PageListSortable({
           >
             <div className="relative h-20 w-16 flex-shrink-0 overflow-hidden rounded">
               <img
-                src={page.imageUrl}
+                src={page.imageUrl ?? ""}
                 alt={`Page ${page.pageNumber}`}
                 className="absolute inset-0 h-full w-full object-cover"
               />
@@ -362,7 +363,7 @@ export function PageListSortable({
                 <span className="ml-1 text-xs text-gray-400">({formatFileSize(fileSizes[page.id])})</span>
               )}
               <p className="truncate text-[10px] text-gray-400">
-                {getFilenameFromUrl(page.imageUrl)}
+                {getFilenameFromUrl(page.imageUrl ?? "")}
               </p>
             </div>
             <div className="ml-auto flex gap-1">

@@ -160,7 +160,7 @@ export async function deleteMagazine(id: string) {
 
   const urls = new Set<string>();
   if (magazine.coverImageUrl) urls.add(magazine.coverImageUrl);
-  for (const page of magazine.pages) urls.add(page.imageUrl);
+  for (const page of magazine.pages) if (page.imageUrl) urls.add(page.imageUrl);
   for (const article of magazine.articles) {
     if (article.thumbnailUrl) urls.add(article.thumbnailUrl);
   }
