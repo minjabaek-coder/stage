@@ -11,9 +11,17 @@ export const metadata: Metadata = {
   description: "STAGE의 단독 기사 — 리뷰·인터뷰·칼럼.",
 };
 
-export default async function ArticlesPage() {
+export default async function ArticlesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ genre?: string }>;
+}) {
+  const { genre } = await searchParams;
   const articles = await prisma.article.findMany({
-    where: { status: "published" },
+    where: {
+      status: "published",
+      ...(genre ? { tags: { has: genre } } : {}),
+    },
     orderBy: { publishedAt: "desc" },
     select: {
       id: true,
@@ -31,11 +39,16 @@ export default async function ArticlesPage() {
   return (
     <MainLayout>
       <h1 className="text-3xl font-bold tracking-tight">기사</h1>
-      <p className="mt-2 text-gray-500">{articles.length}개의 기사</p>
+      <p className="mt-2 text-gray-500">
+        {genre ? `${genre} · ` : ""}
+        {articles.length}개의 기사
+      </p>
 
       {articles.length === 0 ? (
         <div className="mt-24 text-center text-gray-400">
-          아직 발행된 기사가 없습니다.
+          {genre
+            ? `'${genre}' 장르의 기사가 없습니다.`
+            : "아직 발행된 기사가 없습니다."}
         </div>
       ) : (
         <div className="mt-10 grid grid-cols-1 gap-8 sm:grid-cols-2 xl:grid-cols-3">

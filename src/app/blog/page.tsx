@@ -30,7 +30,7 @@ export default async function BlogPage() {
   });
 
   return (
-    <MainLayout>
+    <MainLayout showGenreNav={false}>
       <h1 className="text-3xl font-bold tracking-tight">Blog</h1>
       <p className="mt-2 text-gray-500">{posts.length}개의 글</p>
 

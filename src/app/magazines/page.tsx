@@ -18,7 +18,7 @@ export default async function MagazinesPage() {
   });
 
   return (
-    <MainLayout>
+    <MainLayout showGenreNav={false}>
       <h1 className="text-3xl font-bold tracking-tight">전체 매거진</h1>
       <p className="mt-2 text-gray-500">총 {magazines.length}호 발행</p>
 
