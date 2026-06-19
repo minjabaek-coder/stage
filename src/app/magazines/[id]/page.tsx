@@ -26,6 +26,7 @@ function sanitizeArticle(html: string): string {
 
 type Props = {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ article?: string }>;
 };
 
 // 비프로덕션(preview·로컬)에서는 미발행(draft) 매거진/아티클도 열람 허용 — 39호 등
@@ -65,8 +66,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function MagazineViewerPage({ params }: Props) {
+export default async function MagazineViewerPage({
+  params,
+  searchParams,
+}: Props) {
   const { id } = await params;
+  const { article: articleSlug } = (await searchParams) ?? {};
 
   const magazine = await prisma.magazine.findUnique({
     where: { id },
@@ -104,10 +109,21 @@ export default async function MagazineViewerPage({ params }: Props) {
       { kind: "maestro" },
     ];
 
+    // ?article=slug 로 진입 시 해당 아티클 페이지에서 시작(전체화면 → 목차로 돌아가기 연속성)
+    const initialIndex = articleSlug
+      ? Math.max(
+          0,
+          pages.findIndex(
+            (p) => p.kind === "article" && p.slug === articleSlug
+          )
+        )
+      : 0;
+
     return (
       <>
         <ViewTracker type="magazine" id={magazine.id} />
         <MagazineEbookViewer
+          initialIndex={initialIndex}
           magazine={{
             id: magazine.id,
             title: magazine.title,

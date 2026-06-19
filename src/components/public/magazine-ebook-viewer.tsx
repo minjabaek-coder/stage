@@ -41,6 +41,7 @@ export interface EbookMagazine {
 interface Props {
   magazine: EbookMagazine;
   pages: EbookPage[];
+  initialIndex?: number;
 }
 
 function pageLabel(page: EbookPage, index: number): string {
@@ -58,8 +59,12 @@ function pageLabel(page: EbookPage, index: number): string {
   }
 }
 
-export function MagazineEbookViewer({ magazine, pages }: Props) {
-  const [current, setCurrent] = useState(0);
+export function MagazineEbookViewer({
+  magazine,
+  pages,
+  initialIndex = 0,
+}: Props) {
+  const [current, setCurrent] = useState(initialIndex);
   const [tocOpen, setTocOpen] = useState(false);
   const total = pages.length;
 

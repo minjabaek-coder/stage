@@ -191,10 +191,10 @@ export default async function ArticlePage({ params }: Props) {
 
           <div className="mt-8">
             <Link
-              href={`/magazines/${id}`}
+              href={`/magazines/${id}?article=${slug}`}
               className="font-label text-sm hover:text-[#6f5c24] transition-colors"
             >
-              ← 목차로 돌아가기
+              ← 매거진으로 돌아가기
             </Link>
           </div>
         </div>
