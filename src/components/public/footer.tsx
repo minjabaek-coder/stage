@@ -56,7 +56,7 @@ export function Footer() {
                 </a>
               </div>
               <div className="text-gray-500">
-                대표발행인 박경준 · 발행기획 아트컴퍼니본 · AI 기술 (주)카이로스
+                대표발행인 박경준 · 발행기획 아트컴퍼니본 · AI 기술 (주)카이로스팀
               </div>
               <div className="text-gray-600">사업자등록번호 116-81-95607</div>
             </div>

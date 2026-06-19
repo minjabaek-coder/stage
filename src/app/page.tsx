@@ -367,9 +367,9 @@ export default async function HomePage() {
               문화·이벤트를 위한 AI 경험 OS
             </h2>
             <p className="mx-auto mt-5 max-w-xl leading-relaxed text-[#c4c7c7]">
-              STAGE를 만든 카이로스팀이 공연·전시·축제 주최사를 위해 만든
-              멀티테넌트 SaaS. 정보를 한 번 입력하면 모바일 브로셔·작품 해설·다국어
-              음성 가이드·관객 분석까지 자동으로.
+              공연·전시·축제 주최사를 위해 만든 멀티테넌트 SaaS. 정보를 한 번
+              입력하면 모바일 브로셔·작품 해설·다국어 음성 가이드·관객 분석까지
+              자동으로.
             </p>
             <Link
               href="/stageos"

@@ -40,7 +40,7 @@ export default function AboutPage() {
           <p className="mt-6 text-lg leading-relaxed text-[#444748]">
             STAGE는 공연예술을 중심으로 한 <strong>문화예술 AI 매거진</strong>입니다.
             인쇄 매거진의 깊이 있는 편집은 계승하되, 디지털·검색·AI로 독자 경험을
-            새롭게 설계합니다. 발행기획은 아트컴퍼니본, AI 기술은 (주)카이로스가
+            새롭게 설계합니다. 발행기획은 아트컴퍼니본, AI 기술은 (주)카이로스팀이
             함께합니다.
           </p>
         </section>
@@ -118,7 +118,7 @@ export default function AboutPage() {
               <dt className="font-label text-[11px] uppercase tracking-wider text-[#6f5c24]">
                 AI 기술
               </dt>
-              <dd className="font-headline mt-1 text-xl">(주) 카이로스</dd>
+              <dd className="font-headline mt-1 text-xl">(주) 카이로스팀</dd>
             </div>
             <div className="rounded-lg bg-white p-5 shadow-sm">
               <dt className="font-label text-[11px] uppercase tracking-wider text-[#6f5c24]">
