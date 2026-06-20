@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 // Using native <img> to avoid Vercel Image Optimization limits
 import type { MagazinePage, MagazineTocEntry } from "@/types/magazine";
 import { TocPanel, TocThumbnailStrip } from "./magazine-viewer";
+import { ComposedPage } from "./composed-page";
+import { parsePageLayout } from "@/types/magazine-layout";
 
 // 버튼/클릭 기반 페이지 뷰어 (플립 애니메이션 없음).
 // - 좌/우 클릭 영역 + 명시적 ← → 버튼 + 키보드 화살표로 한 페이지씩 이동
@@ -79,14 +81,18 @@ export function PagedMagazineViewer({
   return (
     <div className="flex h-full flex-col">
       <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-neutral-900">
-        {/* 현재 페이지 이미지 */}
-        <img
-          key={current.id}
-          src={current.imageUrl ?? ""}
-          alt={`Page ${current.pageNumber}`}
-          className="max-h-full max-w-full object-contain select-none"
-          draggable={false}
-        />
+        {/* 현재 페이지: 이미지형 또는 구성형 */}
+        {current.kind === "composed" ? (
+          <ComposedPage key={current.id} layout={parsePageLayout(current.layout)} />
+        ) : (
+          <img
+            key={current.id}
+            src={current.imageUrl ?? ""}
+            alt={`Page ${current.pageNumber}`}
+            className="max-h-full max-w-full object-contain select-none"
+            draggable={false}
+          />
+        )}
 
         {/* 좌측 클릭 영역 (이전) */}
         <button

@@ -10,6 +10,33 @@ import {
 } from "react";
 // Using native <img> to avoid Vercel Image Optimization limits
 import type { MagazinePage, MagazineTocEntry } from "@/types/magazine";
+import { ComposedPage } from "./composed-page";
+import { parsePageLayout } from "@/types/magazine-layout";
+
+// 페이지 본문: 이미지형은 <img>, 구성형(39호+)은 ComposedPage로 렌더.
+function PageBody({
+  page,
+  imgClassName,
+}: {
+  page: MagazinePage;
+  imgClassName: string;
+}) {
+  if (page.kind === "composed") {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center">
+        <ComposedPage layout={parsePageLayout(page.layout)} />
+      </div>
+    );
+  }
+  return (
+    <img
+      src={page.imageUrl ?? ""}
+      alt={`Page ${page.pageNumber}`}
+      className={imgClassName}
+      draggable={false}
+    />
+  );
+}
 
 // ── Pinch-to-zoom hook (mobile only) ──
 function usePinchZoom(
@@ -247,11 +274,9 @@ const FlipPage = forwardRef<
       style={style}
       className="relative h-full w-full overflow-hidden bg-neutral-900"
     >
-      <img
-        src={page.imageUrl ?? ""}
-        alt={`Page ${page.pageNumber}`}
-        className="absolute inset-0 h-full w-full object-contain"
-        draggable={false}
+      <PageBody
+        page={page}
+        imgClassName="absolute inset-0 h-full w-full object-contain"
       />
       {!isMobile && (
         <span className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded bg-black/50 px-2 py-0.5 text-xs text-white">
@@ -344,11 +369,9 @@ function MobilePrevFlipOverlay({
     >
       {/* Current page visible underneath */}
       <div className="absolute inset-0 overflow-hidden bg-neutral-900">
-        <img
-          src={currentPage.imageUrl ?? ""}
-          alt={`Page ${currentPage.pageNumber}`}
-          className="absolute inset-0 h-full w-full object-contain"
-          draggable={false}
+        <PageBody
+          page={currentPage}
+          imgClassName="absolute inset-0 h-full w-full object-contain"
         />
       </div>
 
@@ -362,11 +385,9 @@ function MobilePrevFlipOverlay({
           zIndex: angle < 90 ? 2 : 0,
         }}
       >
-        <img
-          src={prevPage.imageUrl ?? ""}
-          alt={`Page ${prevPage.pageNumber}`}
-          className="absolute inset-0 h-full w-full object-contain"
-          draggable={false}
+        <PageBody
+          page={prevPage}
+          imgClassName="absolute inset-0 h-full w-full object-contain"
         />
         <div
           className="absolute inset-0 bg-black pointer-events-none"
@@ -439,11 +460,17 @@ export function TocThumbnailStrip({
                 isActive ? "ring-2 ring-white" : "ring-1 ring-white/20"
               }`}
             >
-              <img
-                src={page.imageUrl ?? ""}
-                alt={entry.title}
-                className="absolute inset-0 h-full w-full object-cover"
-              />
+              {page.kind === "composed" ? (
+                <div className="absolute inset-0 flex items-center justify-center bg-neutral-900">
+                  <ComposedPage layout={parsePageLayout(page.layout)} />
+                </div>
+              ) : (
+                <img
+                  src={page.imageUrl ?? ""}
+                  alt={entry.title}
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+              )}
             </div>
             <span className="max-w-16 truncate text-[10px] text-gray-400">
               {entry.title}
@@ -525,11 +552,17 @@ export function TocPanel({
                   style={{ width: 100 }}
                 >
                   <div className="relative h-32 w-full bg-neutral-800">
-                    <img
-                      src={page.imageUrl ?? ""}
-                      alt={entry.title}
-                      className="absolute inset-0 h-full w-full object-cover"
-                    />
+                    {page.kind === "composed" ? (
+                      <div className="absolute inset-0 flex items-center justify-center bg-neutral-900">
+                        <ComposedPage layout={parsePageLayout(page.layout)} />
+                      </div>
+                    ) : (
+                      <img
+                        src={page.imageUrl ?? ""}
+                        alt={entry.title}
+                        className="absolute inset-0 h-full w-full object-cover"
+                      />
+                    )}
                   </div>
                   <div className="px-2 py-1.5 bg-gray-800/80">
                     <span className="block truncate text-[11px] text-gray-200">
@@ -577,11 +610,17 @@ export function TocPanel({
               </div>
               {page && (
                 <div className="relative h-14 w-10 flex-shrink-0 overflow-hidden rounded">
-                  <img
-                    src={page.imageUrl ?? ""}
-                    alt={entry.title}
-                    className="absolute inset-0 h-full w-full object-cover"
-                  />
+                  {page.kind === "composed" ? (
+                    <div className="absolute inset-0 flex items-center justify-center bg-neutral-900">
+                      <ComposedPage layout={parsePageLayout(page.layout)} />
+                    </div>
+                  ) : (
+                    <img
+                      src={page.imageUrl ?? ""}
+                      alt={entry.title}
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                  )}
                 </div>
               )}
             </button>
