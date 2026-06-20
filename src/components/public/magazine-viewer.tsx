@@ -653,7 +653,7 @@ export function MagazineViewer({
   } | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [isPortrait, setIsPortrait] = useState(false);
-  const pageRatioRef = useRef(3 / 4);
+  const pageRatioRef = useRef(2 / 3); // STAGE 지면 기본 2:3 (이미지 측정 시 보정)
 
   // Pinch-to-zoom (mobile)
   const zoomContainerRef = useRef<HTMLDivElement>(null);
@@ -722,7 +722,8 @@ export function MagazineViewer({
       }
     }
 
-    if (pages.length > 0) {
+    const first = pages[0];
+    if (first && first.kind !== "composed" && first.imageUrl) {
       const img = new window.Image();
       img.onload = () => {
         if (cancelled) return;
@@ -734,8 +735,11 @@ export function MagazineViewer({
       img.onerror = () => {
         if (!cancelled) computeDims();
       };
-      img.src = pages[0].imageUrl ?? "";
+      img.src = first.imageUrl;
     } else {
+      // 구성형(이미지 없음): 2:3 고정 — 1~38호 이미지(1200×1800=2:3)와 동일 비율로
+      // 면 크기를 잡아 여백/레이아웃/넘김 효과를 동일하게 유지.
+      if (first && first.kind === "composed") pageRatioRef.current = 2 / 3;
       computeDims();
     }
 
