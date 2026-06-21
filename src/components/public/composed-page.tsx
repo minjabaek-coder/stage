@@ -80,7 +80,7 @@ export function ComposedPage({
               overflow: "hidden",
             }}
           >
-            <BlockBody block={b} />
+            <ComposedBlockBody block={b} />
           </div>
         ))}
       </div>
@@ -88,7 +88,8 @@ export function ComposedPage({
   );
 }
 
-function BlockBody({ block }: { block: Block }) {
+// 블록 내용 렌더러 — 뷰어와 에디터(D3b)가 공유해 WYSIWYG 유지.
+export function ComposedBlockBody({ block }: { block: Block }) {
   if (block.type === "image") {
     return (
       <>

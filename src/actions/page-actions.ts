@@ -2,9 +2,30 @@
 
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
+import sanitizeHtml from "sanitize-html";
 import { deleteUploadedFile } from "@/lib/upload";
 import { getSupabase, STORAGE_BUCKET, getPublicUrl } from "@/lib/supabase";
 import { revalidatePath } from "next/cache";
+
+// 구성형 레이아웃 저장 전 텍스트 블록 HTML 정제(스타일은 블록 속성으로 관리).
+function sanitizeLayout(layout: unknown): { blocks: unknown[]; pageBg?: string } {
+  const obj = layout as { blocks?: unknown[]; pageBg?: unknown } | null;
+  if (!obj || !Array.isArray(obj.blocks)) return { blocks: [] };
+  const blocks = obj.blocks.map((b) => {
+    const blk = b as { type?: string; html?: unknown };
+    if (blk && blk.type === "text" && typeof blk.html === "string") {
+      return {
+        ...blk,
+        html: sanitizeHtml(blk.html, {
+          allowedTags: ["b", "strong", "i", "em", "u", "s", "br", "p", "div", "span", "a", "blockquote", "ul", "ol", "li", "h2", "h3", "small"],
+          allowedAttributes: { a: ["href", "target", "rel"] },
+        }),
+      };
+    }
+    return b;
+  });
+  return { blocks, pageBg: typeof obj.pageBg === "string" ? obj.pageBg : undefined };
+}
 
 // 구성형(39호+) 빈 페이지 추가
 export async function createComposedPage(magazineId: string) {
@@ -38,7 +59,7 @@ export async function updatePageLayout(
   await prisma.magazinePage.update({
     where: { id: pageId },
     data: {
-      layout: (layout ?? { blocks: [] }) as Prisma.InputJsonValue,
+      layout: sanitizeLayout(layout) as Prisma.InputJsonValue,
       ...(articleId !== undefined
         ? { articleId: articleId || null }
         : {}),
