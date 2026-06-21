@@ -230,18 +230,11 @@ export function PageEditor({
                 }}
               >
                 {isEmptyImg ? (
-                  <label
-                    onPointerDown={(e) => e.stopPropagation()}
-                    className="flex h-full w-full cursor-pointer items-center justify-center bg-gray-100 text-[11px] text-gray-500 hover:bg-gray-200"
-                  >
-                    📁 이미지 선택
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="sr-only"
-                      onChange={(e) => handleFileFor(b.id, e)}
-                    />
-                  </label>
+                  <div className="pointer-events-none flex h-full w-full items-center justify-center bg-gray-100 text-center text-[10px] leading-tight text-gray-400">
+                    이미지 없음
+                    <br />
+                    우측 패널에서 업로드
+                  </div>
                 ) : (
                   <ComposedBlockBody block={b} />
                 )}
@@ -309,15 +302,17 @@ export function PageEditor({
 
               {selected.type === "image" ? (
                 <div className="space-y-3 border-t pt-3">
-                  <label className="inline-block cursor-pointer rounded border px-3 py-1.5 text-xs hover:bg-accent">
-                    📁 이미지 업로드 / 교체
+                  <div className="space-y-1">
+                    <span className="block text-xs font-medium text-gray-600">
+                      이미지 파일 (업로드 / 교체)
+                    </span>
                     <input
                       type="file"
                       accept="image/*"
-                      className="sr-only"
                       onChange={(e) => handleFileFor(selected.id, e)}
+                      className="block w-full text-xs"
                     />
-                  </label>
+                  </div>
                   {uploading && <p className="text-xs text-gray-500">업로드 중...</p>}
                   <div className="flex gap-2">
                     <label className="text-xs">맞춤
