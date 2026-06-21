@@ -99,19 +99,20 @@ export function PageEditor({
     return { w: r?.width || BASE_W, h: r?.height || BASE_H };
   }
 
+  // 캡처를 누른 요소(currentTarget)에 걸고, move/up도 같은 요소에서 처리 → 안정적 드래그
   function onBlockPointerDown(e: ReactPointerEvent, b: Block) {
     e.stopPropagation();
     setSelectedId(b.id);
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    e.currentTarget.setPointerCapture(e.pointerId);
     drag.current = { mode: "move", id: b.id, sx: e.clientX, sy: e.clientY, bx: b.x, by: b.y, bw: b.w, bh: b.h };
   }
   function onHandlePointerDown(e: ReactPointerEvent, b: Block) {
     e.stopPropagation();
     setSelectedId(b.id);
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    e.currentTarget.setPointerCapture(e.pointerId);
     drag.current = { mode: "resize", id: b.id, sx: e.clientX, sy: e.clientY, bx: b.x, by: b.y, bw: b.w, bh: b.h };
   }
-  function onPointerMove(e: ReactPointerEvent) {
+  function onDragMove(e: ReactPointerEvent) {
     const d = drag.current;
     if (!d) return;
     const { w, h } = rectWH();
@@ -127,25 +128,22 @@ export function PageEditor({
       });
     }
   }
-  function onPointerUp() {
+  function onDragEnd() {
     drag.current = null;
   }
 
-  const fileRef = useRef<HTMLInputElement>(null);
-  const uploadTarget = useRef<string | null>(null);
-  function triggerUpload(blockId: string) {
-    uploadTarget.current = blockId;
-    fileRef.current?.click();
-  }
-  async function handleFile(e: ReactChangeEvent<HTMLInputElement>) {
+  // 네이티브 label→input 업로드(프로그램적 click 미사용)
+  async function handleFileFor(
+    blockId: string,
+    e: ReactChangeEvent<HTMLInputElement>
+  ) {
     const file = e.target.files?.[0];
-    const id = uploadTarget.current;
     e.target.value = "";
-    if (!file || !id) return;
+    if (!file) return;
     setUploading(true);
     try {
       const url = await uploadBlogImage(file);
-      patch(id, { src: url } as Partial<ImageBlock>);
+      patch(blockId, { src: url } as Partial<ImageBlock>);
       toast.success("이미지가 추가되었습니다");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "업로드 실패");
@@ -169,13 +167,6 @@ export function PageEditor({
 
   return (
     <div className="space-y-4">
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/*"
-        onChange={handleFile}
-        className="hidden"
-      />
       {/* 툴바 */}
       <div className="flex flex-wrap items-center gap-2">
         <Link
@@ -216,8 +207,6 @@ export function PageEditor({
         <div
           ref={canvasRef}
           onPointerDown={() => setSelectedId(null)}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
           className="relative shrink-0 overflow-hidden border shadow-sm"
           style={{ width: BASE_W, height: BASE_H, background: pageBg, touchAction: "none" }}
         >
@@ -228,6 +217,8 @@ export function PageEditor({
               <div
                 key={b.id}
                 onPointerDown={(e) => onBlockPointerDown(e, b)}
+                onPointerMove={onDragMove}
+                onPointerUp={onDragEnd}
                 style={{
                   position: "absolute",
                   left: `${b.x}%`, top: `${b.y}%`, width: `${b.w}%`, height: `${b.h}%`,
@@ -239,24 +230,26 @@ export function PageEditor({
                 }}
               >
                 {isEmptyImg ? (
-                  <button
-                    type="button"
+                  <label
                     onPointerDown={(e) => e.stopPropagation()}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedId(b.id);
-                      triggerUpload(b.id);
-                    }}
-                    className="flex h-full w-full items-center justify-center bg-gray-100 text-[11px] text-gray-500 hover:bg-gray-200"
+                    className="flex h-full w-full cursor-pointer items-center justify-center bg-gray-100 text-[11px] text-gray-500 hover:bg-gray-200"
                   >
                     📁 이미지 선택
-                  </button>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="sr-only"
+                      onChange={(e) => handleFileFor(b.id, e)}
+                    />
+                  </label>
                 ) : (
                   <ComposedBlockBody block={b} />
                 )}
                 {isSel && (
                   <div
                     onPointerDown={(e) => onHandlePointerDown(e, b)}
+                    onPointerMove={onDragMove}
+                    onPointerUp={onDragEnd}
                     title="크기 조절"
                     style={{
                       position: "absolute", right: -6, bottom: -6, width: 14, height: 14,
@@ -316,13 +309,15 @@ export function PageEditor({
 
               {selected.type === "image" ? (
                 <div className="space-y-3 border-t pt-3">
-                  <button
-                    type="button"
-                    onClick={() => triggerUpload(selected.id)}
-                    className="rounded border px-3 py-1.5 text-xs hover:bg-accent"
-                  >
+                  <label className="inline-block cursor-pointer rounded border px-3 py-1.5 text-xs hover:bg-accent">
                     📁 이미지 업로드 / 교체
-                  </button>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="sr-only"
+                      onChange={(e) => handleFileFor(selected.id, e)}
+                    />
+                  </label>
                   {uploading && <p className="text-xs text-gray-500">업로드 중...</p>}
                   <div className="flex gap-2">
                     <label className="text-xs">맞춤
