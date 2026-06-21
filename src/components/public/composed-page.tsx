@@ -133,6 +133,8 @@ export function ComposedBlockBody({ block }: { block: Block }) {
     background: block.bgColor,
     padding: block.padding ? `${block.padding}px` : undefined,
     overflow: "hidden",
+    // Enter 줄바꿈(\n)을 그대로 표시 + 단어 줄바꿈. (HTML 태그도 함께 동작)
+    whiteSpace: "pre-wrap",
   };
   return (
     <div

@@ -1,6 +1,11 @@
 "use client";
 
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import {
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ChangeEvent as ReactChangeEvent,
+} from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -126,12 +131,22 @@ export function PageEditor({
     drag.current = null;
   }
 
-  async function onUpload(file: File) {
-    if (!selected || selected.type !== "image") return;
+  const fileRef = useRef<HTMLInputElement>(null);
+  const uploadTarget = useRef<string | null>(null);
+  function triggerUpload(blockId: string) {
+    uploadTarget.current = blockId;
+    fileRef.current?.click();
+  }
+  async function handleFile(e: ReactChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    const id = uploadTarget.current;
+    e.target.value = "";
+    if (!file || !id) return;
     setUploading(true);
     try {
       const url = await uploadBlogImage(file);
-      patch(selected.id, { src: url } as Partial<ImageBlock>);
+      patch(id, { src: url } as Partial<ImageBlock>);
+      toast.success("이미지가 추가되었습니다");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "업로드 실패");
     }
@@ -154,6 +169,13 @@ export function PageEditor({
 
   return (
     <div className="space-y-4">
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFile}
+        className="hidden"
+      />
       {/* 툴바 */}
       <div className="flex flex-wrap items-center gap-2">
         <Link
@@ -217,9 +239,18 @@ export function PageEditor({
                 }}
               >
                 {isEmptyImg ? (
-                  <div className="flex h-full w-full items-center justify-center bg-gray-100 text-[10px] text-gray-400">
-                    이미지 업로드 →
-                  </div>
+                  <button
+                    type="button"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedId(b.id);
+                      triggerUpload(b.id);
+                    }}
+                    className="flex h-full w-full items-center justify-center bg-gray-100 text-[11px] text-gray-500 hover:bg-gray-200"
+                  >
+                    📁 이미지 선택
+                  </button>
                 ) : (
                   <ComposedBlockBody block={b} />
                 )}
@@ -285,9 +316,13 @@ export function PageEditor({
 
               {selected.type === "image" ? (
                 <div className="space-y-3 border-t pt-3">
-                  <label className="block text-xs font-medium text-gray-600">이미지
-                    <input type="file" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); }} className="mt-1 block w-full text-xs" />
-                  </label>
+                  <button
+                    type="button"
+                    onClick={() => triggerUpload(selected.id)}
+                    className="rounded border px-3 py-1.5 text-xs hover:bg-accent"
+                  >
+                    📁 이미지 업로드 / 교체
+                  </button>
                   {uploading && <p className="text-xs text-gray-500">업로드 중...</p>}
                   <div className="flex gap-2">
                     <label className="text-xs">맞춤
