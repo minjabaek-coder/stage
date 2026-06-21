@@ -46,6 +46,9 @@ export function ComposedPage({
     <div
       ref={wrapRef}
       className={`relative h-full w-full overflow-hidden ${className ?? ""}`}
+      // 뷰어에서 모서리 드래그-넘김(react-pageflip)이 텍스트 선택에 가로채이지
+      // 않도록 — 이미지 페이지와 동일한 책장 넘김 인터랙션 유지.
+      style={{ userSelect: "none", WebkitUserSelect: "none" }}
     >
       <div
         style={{
