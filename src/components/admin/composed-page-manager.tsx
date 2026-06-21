@@ -1,9 +1,26 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  rectSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { ComposedPage } from "@/components/public/composed-page";
 import { parsePageLayout } from "@/types/magazine-layout";
 import {
@@ -19,6 +36,94 @@ type PageItem = {
   articleId: string | null;
 };
 
+function SortableCard({
+  page,
+  index,
+  magazineId,
+  onMove,
+  onDelete,
+  isFirst,
+  isLast,
+  disabled,
+}: {
+  page: PageItem;
+  index: number;
+  magazineId: string;
+  onMove: (dir: -1 | 1) => void;
+  onDelete: () => void;
+  isFirst: boolean;
+  isLast: boolean;
+  disabled: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: page.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="rounded-lg border bg-card p-2">
+      <div className="mb-1 flex items-center justify-between text-xs">
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          aria-label="드래그하여 순서 변경"
+          className="cursor-grab touch-none px-1 text-gray-400 active:cursor-grabbing"
+        >
+          ⠿
+        </button>
+        <span className="text-muted-foreground">P.{page.pageNumber}</span>
+      </div>
+      <Link
+        href={`/admin/magazines/${magazineId}/pages/${page.id}`}
+        className="block"
+      >
+        <div className="relative aspect-[2/3] w-full overflow-hidden rounded bg-neutral-900">
+          <ComposedPage layout={parsePageLayout(page.layout)} />
+        </div>
+      </Link>
+      <div className="mt-2 flex items-center justify-end gap-1 text-xs">
+        <button
+          type="button"
+          onClick={() => onMove(-1)}
+          disabled={isFirst || disabled}
+          className="rounded border px-1.5 py-0.5 disabled:opacity-30"
+          aria-label="앞으로"
+        >
+          ↑
+        </button>
+        <button
+          type="button"
+          onClick={() => onMove(1)}
+          disabled={isLast || disabled}
+          className="rounded border px-1.5 py-0.5 disabled:opacity-30"
+          aria-label="뒤로"
+        >
+          ↓
+        </button>
+        <Link
+          href={`/admin/magazines/${magazineId}/pages/${page.id}`}
+          className="rounded border px-2 py-0.5 hover:bg-accent"
+        >
+          편집
+        </Link>
+        <button
+          type="button"
+          onClick={onDelete}
+          disabled={disabled}
+          className="rounded border px-2 py-0.5 text-red-600 hover:bg-red-50 disabled:opacity-50"
+        >
+          삭제
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function ComposedPageManager({
   magazineId,
   pages,
@@ -29,6 +134,43 @@ export function ComposedPageManager({
   const router = useRouter();
   const [items, setItems] = useState<PageItem[]>(pages);
   const [pending, start] = useTransition();
+  const dndId = useId();
+
+  useEffect(() => {
+    setItems(pages);
+  }, [pages]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  function persist(reordered: PageItem[]) {
+    setItems(reordered);
+    start(async () => {
+      await reorderPages(
+        magazineId,
+        reordered.map((p) => p.id)
+      );
+      toast.success("페이지 순서가 변경되었습니다");
+      router.refresh();
+    });
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = items.findIndex((p) => p.id === active.id);
+    const newIndex = items.findIndex((p) => p.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+    persist(arrayMove(items, oldIndex, newIndex));
+  }
+
+  function move(index: number, dir: -1 | 1) {
+    const target = index + dir;
+    if (target < 0 || target >= items.length) return;
+    persist(arrayMove(items, index, target));
+  }
 
   function addPage() {
     start(async () => {
@@ -49,26 +191,11 @@ export function ComposedPageManager({
     });
   }
 
-  function move(index: number, dir: -1 | 1) {
-    const j = index + dir;
-    if (j < 0 || j >= items.length) return;
-    const next = [...items];
-    [next[index], next[j]] = [next[j], next[index]];
-    setItems(next);
-    start(async () => {
-      await reorderPages(
-        magazineId,
-        next.map((p) => p.id)
-      );
-      router.refresh();
-    });
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">
-          페이지를 추가하고 자유배치 에디터에서 글·이미지를 구성하세요.
+          ⠿ 드래그(또는 ↑↓)로 순서 변경 · “편집”으로 자유배치 구성.
         </p>
         <button
           type="button"
@@ -85,57 +212,30 @@ export function ComposedPageManager({
           아직 페이지가 없습니다. “새 페이지”로 추가하세요.
         </p>
       ) : (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-          {items.map((p, i) => (
-            <div key={p.id} className="rounded-lg border bg-card p-2">
-              <Link
-                href={`/admin/magazines/${magazineId}/pages/${p.id}`}
-                className="block"
-              >
-                <div className="relative aspect-[2/3] w-full overflow-hidden rounded bg-neutral-900">
-                  <ComposedPage layout={parsePageLayout(p.layout)} />
-                </div>
-              </Link>
-              <div className="mt-2 flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">P.{p.pageNumber}</span>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => move(i, -1)}
-                    disabled={i === 0 || pending}
-                    className="rounded border px-1.5 py-0.5 disabled:opacity-30"
-                    aria-label="앞으로"
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => move(i, 1)}
-                    disabled={i === items.length - 1 || pending}
-                    className="rounded border px-1.5 py-0.5 disabled:opacity-30"
-                    aria-label="뒤로"
-                  >
-                    ↓
-                  </button>
-                  <Link
-                    href={`/admin/magazines/${magazineId}/pages/${p.id}`}
-                    className="rounded border px-2 py-0.5 hover:bg-accent"
-                  >
-                    편집
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => del(p.id)}
-                    disabled={pending}
-                    className="rounded border px-2 py-0.5 text-red-600 hover:bg-red-50 disabled:opacity-50"
-                  >
-                    삭제
-                  </button>
-                </div>
-              </div>
+        <DndContext
+          id={dndId}
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext items={items} strategy={rectSortingStrategy}>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+              {items.map((p, i) => (
+                <SortableCard
+                  key={p.id}
+                  page={p}
+                  index={i}
+                  magazineId={magazineId}
+                  onMove={(dir) => move(i, dir)}
+                  onDelete={() => del(p.id)}
+                  isFirst={i === 0}
+                  isLast={i === items.length - 1}
+                  disabled={pending}
+                />
+              ))}
             </div>
-          ))}
-        </div>
+          </SortableContext>
+        </DndContext>
       )}
     </div>
   );
