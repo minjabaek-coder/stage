@@ -14,10 +14,12 @@ export function MagazineReader({
   pages,
   magazineId,
   tocEntries = [],
+  initialPage = 1,
 }: {
   pages: MagazinePage[];
   magazineId?: string;
   tocEntries?: MagazineTocEntry[];
+  initialPage?: number; // 1-based, ?page= 딥링크 진입 페이지
 }) {
   const [mode, setMode] = useState<ViewMode>("flip");
 
@@ -70,12 +72,14 @@ export function MagazineReader({
           pages={pages}
           magazineId={magazineId}
           tocEntries={tocEntries}
+          initialPage={initialPage}
         />
       ) : (
         <PagedMagazineViewer
           pages={pages}
           magazineId={magazineId}
           tocEntries={tocEntries}
+          initialPage={initialPage}
         />
       )}
     </div>

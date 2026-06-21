@@ -13,12 +13,17 @@ import { parsePageLayout } from "@/types/magazine-layout";
 export function PagedMagazineViewer({
   pages,
   tocEntries = [],
+  initialPage = 1,
 }: {
   pages: MagazinePage[];
   magazineId?: string;
   tocEntries?: MagazineTocEntry[];
+  initialPage?: number; // 1-based, ?page= 딥링크 진입 페이지
 }) {
-  const [index, setIndex] = useState(0); // 0-based 페이지 인덱스
+  // ?page= 딥링크 → 0-based 인덱스로 보정(범위 클램프)
+  const [index, setIndex] = useState(
+    Math.min(Math.max(0, initialPage - 1), Math.max(0, pages.length - 1))
+  ); // 0-based 페이지 인덱스
   const [isMobile, setIsMobile] = useState(false);
   const [tocOpen, setTocOpen] = useState(false);
   const hasToc = tocEntries.length > 0;

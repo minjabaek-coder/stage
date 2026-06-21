@@ -11,11 +11,15 @@ type ArticleCardData = Pick<
   | "publishedAt"
   | "thumbnailUrl"
   | "isPremium"
->;
+> & {
+  // 매거진 기사 병합 노출용 — 링크 경로 오버라이드 및 호수 라벨(선택)
+  href?: string;
+  issueLabel?: string | null;
+};
 
 export function ArticleCard({ article }: { article: ArticleCardData }) {
   return (
-    <Link href={`/articles/${article.slug}`} className="group block">
+    <Link href={article.href ?? `/articles/${article.slug}`} className="group block">
       <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-gray-100">
         {article.thumbnailUrl ? (
           <img
@@ -37,11 +41,18 @@ export function ArticleCard({ article }: { article: ArticleCardData }) {
         )}
       </div>
       <div className="mt-3">
-        {article.category && (
-          <span className="font-label text-[11px] font-bold uppercase tracking-[0.15em] text-[#6f5c24]">
-            {article.category}
-          </span>
-        )}
+        <span className="flex items-center gap-1.5">
+          {article.category && (
+            <span className="font-label text-[11px] font-bold uppercase tracking-[0.15em] text-[#6f5c24]">
+              {article.category}
+            </span>
+          )}
+          {article.issueLabel && (
+            <span className="font-label text-[11px] font-semibold tracking-wide text-gray-400">
+              · {article.issueLabel}
+            </span>
+          )}
+        </span>
         <h3 className="mt-1 font-semibold line-clamp-2 group-hover:underline">
           {article.title}
         </h3>

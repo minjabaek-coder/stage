@@ -9,6 +9,7 @@ import type { Metadata } from "next";
 
 type Props = {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ page?: string }>;
 };
 
 // 비프로덕션(preview·로컬)에서는 미발행(draft) 매거진/아티클도 열람 허용 — 39호 등
@@ -48,8 +49,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function MagazineViewerPage({ params }: Props) {
+export default async function MagazineViewerPage({ params, searchParams }: Props) {
   const { id } = await params;
+  const { page: pageParam } = (await searchParams) ?? {};
+  const initialPage = Math.max(1, Number(pageParam) || 1);
 
   const magazine = await prisma.magazine.findUnique({
     where: { id },
@@ -79,7 +82,7 @@ export default async function MagazineViewerPage({ params }: Props) {
         </span>
       </header>
       <div className="relative flex-1 overflow-hidden">
-        <MagazineReader pages={magazine.pages} tocEntries={magazine.tocEntries} />
+        <MagazineReader pages={magazine.pages} tocEntries={magazine.tocEntries} initialPage={initialPage} />
         <div className="absolute bottom-4 left-0 right-0 flex md:hidden items-center justify-center gap-3">
           <Link
             href="/"

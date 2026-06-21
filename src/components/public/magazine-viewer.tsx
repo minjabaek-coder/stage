@@ -635,10 +635,12 @@ export function MagazineViewer({
   pages,
   magazineId,
   tocEntries = [],
+  initialPage = 1,
 }: {
   pages: MagazinePage[];
   magazineId?: string;
   tocEntries?: MagazineTocEntry[];
+  initialPage?: number; // 1-based, ?page= 딥링크 진입 페이지
 }) {
   const HTMLFlipBook = useFlipBook();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -651,7 +653,9 @@ export function MagazineViewer({
     wrapH: number;
     isMobile: boolean;
   } | null>(null);
-  const [currentPage, setCurrentPage] = useState(0);
+  // ?page= 딥링크 → 0-based 인덱스로 보정(범위 클램프)
+  const startIndex = Math.min(Math.max(0, initialPage - 1), Math.max(0, pages.length - 1));
+  const [currentPage, setCurrentPage] = useState(startIndex);
   const [isPortrait, setIsPortrait] = useState(false);
   const pageRatioRef = useRef(2 / 3); // STAGE 지면 기본 2:3 (이미지 측정 시 보정)
 
@@ -894,7 +898,7 @@ export function MagazineViewer({
               showCover={true}
               flippingTime={dims.isMobile ? 600 : 800}
               usePortrait={dims.isMobile}
-              startPage={0}
+              startPage={startIndex}
               startZIndex={0}
               autoSize={false}
               mobileScrollSupport={true}

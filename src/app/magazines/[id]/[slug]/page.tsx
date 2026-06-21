@@ -89,6 +89,16 @@ export default async function ArticlePage({ params }: Props) {
 
   const { prev, next } = await getSiblings(id, article.sortOrder);
 
+  // "실린 곳" — 이 기사가 구성된 매거진 페이지(구성형 39호+). 가장 앞 페이지로 딥링크.
+  const placedPage = await prisma.magazinePage.findFirst({
+    where: { magazineId: id, articleId: article.id },
+    orderBy: { pageNumber: "asc" },
+    select: { pageNumber: true },
+  });
+  const magazineHref = placedPage
+    ? `/magazines/${id}?page=${placedPage.pageNumber}`
+    : `/magazines/${id}`;
+
   const safeContent = sanitizeHtml(article.content, {
     allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img", "h1", "h2"]),
     allowedAttributes: {
@@ -149,6 +159,15 @@ export default async function ArticlePage({ params }: Props) {
           )}
         </div>
 
+        {placedPage && (
+          <Link
+            href={magazineHref}
+            className="mt-6 inline-flex items-center gap-1.5 rounded-full border border-[#6f5c24]/30 bg-[#6f5c24]/5 px-3.5 py-1.5 font-label text-xs font-semibold text-[#6f5c24] transition-colors hover:bg-[#6f5c24]/10"
+          >
+            실린 곳 · STAGE {article.magazine.issueNumber}호 {placedPage.pageNumber}페이지에서 보기 →
+          </Link>
+        )}
+
         <article
           className="prose prose-gray mt-10 max-w-none"
           dangerouslySetInnerHTML={{ __html: safeContent }}
@@ -191,7 +210,7 @@ export default async function ArticlePage({ params }: Props) {
 
           <div className="mt-8">
             <Link
-              href={`/magazines/${id}`}
+              href={magazineHref}
               className="font-label text-sm hover:text-[#6f5c24] transition-colors"
             >
               ← 매거진으로 돌아가기
