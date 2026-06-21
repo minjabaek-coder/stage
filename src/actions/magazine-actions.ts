@@ -17,7 +17,7 @@ const magazineSchema = z.object({
   title: z.string().min(1, "제목을 입력해주세요").max(200),
   description: z.string().optional().default(""),
   publishedAt: z.string().optional().default(""),
-  contentType: z.enum(["image", "web"]).optional().default("image"),
+  contentType: z.enum(["image", "web", "composed"]).optional().default("image"),
 });
 
 export async function createMagazine(formData: FormData) {

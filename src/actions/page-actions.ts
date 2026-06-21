@@ -1,9 +1,53 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@/generated/prisma/client";
 import { deleteUploadedFile } from "@/lib/upload";
 import { getSupabase, STORAGE_BUCKET, getPublicUrl } from "@/lib/supabase";
 import { revalidatePath } from "next/cache";
+
+// 구성형(39호+) 빈 페이지 추가
+export async function createComposedPage(magazineId: string) {
+  const agg = await prisma.magazinePage.aggregate({
+    where: { magazineId },
+    _max: { sortOrder: true, pageNumber: true },
+  });
+  const sortOrder = (agg._max.sortOrder ?? -1) + 1;
+  const pageNumber = (agg._max.pageNumber ?? 0) + 1;
+  const page = await prisma.magazinePage.create({
+    data: {
+      magazineId,
+      kind: "composed",
+      layout: { blocks: [] } as Prisma.InputJsonValue,
+      sortOrder,
+      pageNumber,
+    },
+  });
+  revalidatePath(`/admin/magazines/${magazineId}/edit`);
+  revalidatePath(`/magazines/${magazineId}`);
+  return { success: true as const, pageId: page.id };
+}
+
+// 구성형 페이지 레이아웃 저장(에디터). articleId 연동도 함께.
+export async function updatePageLayout(
+  pageId: string,
+  magazineId: string,
+  layout: unknown,
+  articleId?: string | null
+) {
+  await prisma.magazinePage.update({
+    where: { id: pageId },
+    data: {
+      layout: (layout ?? { blocks: [] }) as Prisma.InputJsonValue,
+      ...(articleId !== undefined
+        ? { articleId: articleId || null }
+        : {}),
+    },
+  });
+  revalidatePath(`/admin/magazines/${magazineId}/edit`);
+  revalidatePath(`/magazines/${magazineId}`);
+  return { success: true as const };
+}
 
 export async function reorderPages(
   magazineId: string,
@@ -38,7 +82,8 @@ export async function reorderPages(
     orderBy: { sortOrder: "asc" },
   });
 
-  if (firstPage) {
+  // 이미지형만 커버를 첫 페이지 이미지로 동기화(구성형은 imageUrl이 없어 덮어쓰지 않음)
+  if (firstPage?.imageUrl) {
     await prisma.magazine.update({
       where: { id: magazineId },
       data: { coverImageUrl: firstPage.imageUrl },

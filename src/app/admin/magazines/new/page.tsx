@@ -10,7 +10,7 @@ export default function NewMagazinePage() {
   return (
     <div className="mx-auto max-w-lg">
       <h1 className="mb-6 text-2xl font-bold">새 매거진</h1>
-      <MagazineForm action={action} submitLabel="생성" />
+      <MagazineForm action={action} submitLabel="생성" showContentType />
     </div>
   );
 }
