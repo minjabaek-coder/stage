@@ -2,31 +2,13 @@ export const dynamic = "force-dynamic";
 
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import sanitizeHtml from "sanitize-html";
 import { prisma } from "@/lib/prisma";
 import { MagazineReader } from "@/components/public/magazine-reader";
-import {
-  MagazineEbookViewer,
-  type EbookPage,
-  type ArticleLayout,
-} from "@/components/public/magazine-ebook-viewer";
-import { DocentChatFAB } from "@/components/public/docent-chat";
 import { ViewTracker } from "@/components/public/view-tracker";
 import type { Metadata } from "next";
 
-function sanitizeArticle(html: string): string {
-  return sanitizeHtml(html, {
-    allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img", "h1", "h2"]),
-    allowedAttributes: {
-      ...sanitizeHtml.defaults.allowedAttributes,
-      img: ["src", "alt", "width", "height"],
-    },
-  });
-}
-
 type Props = {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ article?: string }>;
 };
 
 // 비프로덕션(preview·로컬)에서는 미발행(draft) 매거진/아티클도 열람 허용 — 39호 등
@@ -66,22 +48,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function MagazineViewerPage({
-  params,
-  searchParams,
-}: Props) {
+export default async function MagazineViewerPage({ params }: Props) {
   const { id } = await params;
-  const { article: articleSlug } = (await searchParams) ?? {};
 
   const magazine = await prisma.magazine.findUnique({
     where: { id },
     include: {
       pages: { orderBy: { sortOrder: "asc" } },
       tocEntries: { orderBy: { sortOrder: "asc" } },
-      articles: {
-        where: ALLOW_DRAFT ? undefined : { status: "published" },
-        orderBy: { sortOrder: "asc" },
-      },
     },
   });
 
@@ -89,62 +63,7 @@ export default async function MagazineViewerPage({
     notFound();
   }
 
-  // Web-based magazine (39호~): structured-text interactive eBook viewer
-  if (magazine.contentType === "web") {
-    const pages: EbookPage[] = [
-      { kind: "cover" },
-      { kind: "toc" },
-      ...magazine.articles.map(
-        (a): EbookPage => ({
-          kind: "article",
-          slug: a.slug,
-          title: a.title,
-          section: a.section || null,
-          author: a.author || null,
-          thumbnailUrl: a.thumbnailUrl,
-          html: sanitizeArticle(a.content || ""),
-          layout: (a.layoutOptions as ArticleLayout | null) ?? null,
-        })
-      ),
-      { kind: "maestro" },
-    ];
-
-    // ?article=slug 로 진입 시 해당 아티클 페이지에서 시작(전체화면 → 목차로 돌아가기 연속성)
-    const initialIndex = articleSlug
-      ? Math.max(
-          0,
-          pages.findIndex(
-            (p) => p.kind === "article" && p.slug === articleSlug
-          )
-        )
-      : 0;
-
-    return (
-      <>
-        <ViewTracker type="magazine" id={magazine.id} />
-        <MagazineEbookViewer
-          initialIndex={initialIndex}
-          magazine={{
-            id: magazine.id,
-            title: magazine.title,
-            issueNumber: magazine.issueNumber,
-            description: magazine.description,
-            coverImageUrl: magazine.coverImageUrl,
-            publishedLabel: magazine.publishedAt
-              ? new Date(magazine.publishedAt).toLocaleDateString("ko-KR", {
-                  year: "numeric",
-                  month: "long",
-                })
-              : null,
-          }}
-          pages={pages}
-        />
-        <DocentChatFAB />
-      </>
-    );
-  }
-
-  // Image-based magazine: show existing viewer
+  // 모든 매거진(이미지형 1~38호 · 구성형 39호~)을 동일한 플립 뷰어로 표시.
   return (
     <div className="flex h-dvh flex-col bg-gray-950" style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}>
       <ViewTracker type="magazine" id={magazine.id} />

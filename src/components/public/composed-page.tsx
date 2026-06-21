@@ -91,6 +91,11 @@ export function ComposedPage({
 // 블록 내용 렌더러 — 뷰어와 에디터(D3b)가 공유해 WYSIWYG 유지.
 export function ComposedBlockBody({ block }: { block: Block }) {
   if (block.type === "image") {
+    const fit = block.fit ?? "cover";
+    const focusX = block.focusX ?? 50;
+    const focusY = block.focusY ?? 50;
+    // 채우기(cover)에서만 초점 기준 확대(줌). 초점 지점을 고정한 채 더 당겨 본다.
+    const zoom = fit === "cover" ? Math.max(1, block.zoom ?? 1) : 1;
     return (
       <>
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -103,8 +108,10 @@ export function ComposedBlockBody({ block }: { block: Block }) {
             inset: 0,
             width: "100%",
             height: "100%",
-            objectFit: block.fit ?? "cover",
-            objectPosition: `${block.focusX ?? 50}% ${block.focusY ?? 50}%`,
+            objectFit: fit,
+            objectPosition: `${focusX}% ${focusY}%`,
+            transform: zoom !== 1 ? `scale(${zoom})` : undefined,
+            transformOrigin: `${focusX}% ${focusY}%`,
             borderRadius: block.radius ? `${block.radius}px` : undefined,
           }}
         />

@@ -191,7 +191,7 @@ export default async function ArticlePage({ params }: Props) {
 
           <div className="mt-8">
             <Link
-              href={`/magazines/${id}?article=${slug}`}
+              href={`/magazines/${id}`}
               className="font-label text-sm hover:text-[#6f5c24] transition-colors"
             >
               ← 매거진으로 돌아가기

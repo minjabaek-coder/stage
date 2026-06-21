@@ -19,6 +19,7 @@ export type ImageBlock = BlockBase & {
   fit?: "cover" | "contain"; // 채우기(크롭) | 원본비율
   focusX?: number; // 0~100 (크롭 초점)
   focusY?: number;
+  zoom?: number; // 채우기 시 확대 배율(>=1, 기본 1) — 초점 기준으로 더 당겨 보기
   radius?: number; // px
   overlayDarken?: number; // 0~90 (%)
 };
