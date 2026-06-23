@@ -4,18 +4,19 @@ import { Footer } from "@/components/public/footer";
 import { ContactForm } from "@/components/public/contact-form";
 
 export const metadata: Metadata = {
-  title: "문의 | STAGE",
-  description: "제휴·광고·일반 문의를 보내주세요.",
+  title: "문의 · 제보 | STAGE",
+  description: "일반·광고·제휴 문의나 기사 제보를 보내주세요.",
 };
 
 export default function ContactPage() {
   return (
-    <div className="min-h-screen bg-[#fcf9f8] text-[#1c1b1b]">
+    <div className="min-h-screen bg-paper text-ink">
       <SiteHeader />
       <main className="mx-auto max-w-2xl px-6 py-16">
-        <h1 className="font-headline text-4xl tracking-tight">문의하기</h1>
-        <p className="mt-3 text-[#444748]">
-          제휴·광고·기타 문의를 남겨주시면 확인 후 답변드리겠습니다.
+        <h1 className="font-headline text-4xl tracking-tight">문의 · 제보</h1>
+        <p className="mt-3 text-ink-muted">
+          일반·광고·제휴 문의나 기사 제보를 유형에서 선택해 남겨주세요. 확인 후
+          입력하신 이메일로 답변드리겠습니다.
         </p>
         <div className="mt-10">
           <ContactForm />

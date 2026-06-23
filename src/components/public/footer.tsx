@@ -84,14 +84,12 @@ export function Footer() {
             <FooterColHeading>매거진</FooterColHeading>
             <FooterLink href="/magazines">매거진 목록</FooterLink>
             <FooterLink href="/articles">기사</FooterLink>
-            <FooterLink href="/blog">블로그</FooterLink>
           </div>
 
           {/* 공연·티켓 */}
           <div>
             <FooterColHeading>공연·티켓</FooterColHeading>
-            <FooterLink href="/culture-events">공연·전시·교육</FooterLink>
-            <FooterLink href="/tickets">회원 티켓 할인</FooterLink>
+            <FooterLink href="/tickets">공연·전시·교육</FooterLink>
             <FooterLink href="/ai-maestro">AI 마에스트로</FooterLink>
           </div>
 
@@ -100,9 +98,7 @@ export function Footer() {
             <FooterColHeading>정보</FooterColHeading>
             <FooterLink href="/about">STAGE 소개</FooterLink>
             <FooterLink href="/membership">STAGE Pro</FooterLink>
-            <FooterLink href="/advertise">광고 안내</FooterLink>
-            <FooterLink href="/tip">기사 제보</FooterLink>
-            <FooterLink href="/contact">문의</FooterLink>
+            <FooterLink href="/contact">문의 · 제보 · 광고</FooterLink>
             <FooterLink href="/stageos">StageOS</FooterLink>
             <FooterExtLink href="https://kairossebook.com">
               Kairossebook ↗

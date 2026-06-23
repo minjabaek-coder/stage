@@ -188,10 +188,10 @@ export default async function CultureEventPage({
 
         <div className="mt-12 border-t border-gray-100 pt-6">
           <Link
-            href="/culture-events"
+            href="/tickets"
             className="font-label text-xs uppercase tracking-wider text-[#6f5c24] hover:underline"
           >
-            ← 문화예술 목록
+            ← 공연·전시·교육
           </Link>
         </div>
       </main>

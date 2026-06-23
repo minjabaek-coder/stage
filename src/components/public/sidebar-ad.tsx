@@ -76,7 +76,7 @@ export function SidebarAd({ ads }: { ads: SidebarAdItem[] }) {
           </div>
         )}
         <a
-          href="/advertise"
+          href="/contact"
           className="ml-auto font-label text-[9px] uppercase tracking-wider text-ink/40 hover:text-gold-deep"
         >
           광고 문의
