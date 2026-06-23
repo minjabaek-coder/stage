@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 
-// 월간객석 벤치마킹 — 장르 탭. 실제 필터링 연동은 B3에서.
+// v2 장르 서브내비 (global-chrome §4). 기사 장르 필터로 활용.
+// 탭: 전체 + 8장르(그대로). NEW/AI추천은 후속(데이터·AI 큐레이션 필요).
+// 실제 필터 연동(?genre= → 목록)은 Phase 3 기사 페이지에서.
 const GENRES = [
   "전체",
   "클래식",
@@ -22,8 +24,8 @@ export function GenreSubNav() {
   const active = params.get("genre") ?? "전체";
 
   return (
-    <div className="sticky top-14 z-[9] border-b border-gray-100 bg-[#f8f5f0]/90 backdrop-blur-sm">
-      <nav className="mx-auto flex max-w-7xl gap-4 overflow-x-auto px-6 py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className="sticky top-[58px] z-[99] border-b border-ink/10 bg-surface-warm/90 backdrop-blur-sm">
+      <nav className="mx-auto flex max-w-[1380px] overflow-x-auto px-3 sm:px-8 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {GENRES.map((g) => {
           const href =
             g === "전체"
@@ -34,10 +36,11 @@ export function GenreSubNav() {
             <Link
               key={g}
               href={href}
-              className={`whitespace-nowrap border-b-2 px-1 pb-1 font-label text-sm transition-colors ${
+              aria-current={isActive ? "page" : undefined}
+              className={`flex h-[38px] flex-shrink-0 items-center whitespace-nowrap border-b-2 px-3.5 font-body text-[11px] font-semibold transition-colors ${
                 isActive
-                  ? "border-[#c4a35a] font-semibold text-[#1c1b1b]"
-                  : "border-transparent text-gray-500 hover:text-gray-900"
+                  ? "border-gold text-ink"
+                  : "border-transparent text-ink/45 hover:text-ink"
               }`}
             >
               {g}

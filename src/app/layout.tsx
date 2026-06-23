@@ -1,29 +1,31 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import { Newsreader, Work_Sans } from "next/font/google";
+import { Noto_Serif_KR, Noto_Sans_KR, DM_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { SITE_URL, SITE_NAME, SITE_TITLE, SITE_DESCRIPTION } from "@/lib/seo";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-const newsreader = Newsreader({
+// 헤드라인: 한글 세리프 (로고·제목·표지 워드마크)
+const notoSerifKR = Noto_Serif_KR({
   variable: "--font-headline",
-  subsets: ["latin"],
-  style: ["normal", "italic"],
+  weight: ["300", "400", "600", "700", "900"],
+  display: "swap",
+  preload: false, // CJK 대용량 — 프리로드 비활성(한글 글리프는 사용 시 로드)
 });
 
-const workSans = Work_Sans({
+// 본문/UI: 한글 산세리프
+const notoSansKR = Noto_Sans_KR({
+  variable: "--font-body",
+  weight: ["300", "400", "500", "700"],
+  display: "swap",
+  preload: false,
+});
+
+// 라벨/메타: 라틴 모노 (VOL.39 · AD · Sponsored 등)
+const dmMono = DM_Mono({
   variable: "--font-label",
   subsets: ["latin"],
+  weight: ["400", "500"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -74,7 +76,7 @@ export default function RootLayout({
   return (
     <html lang="ko" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${newsreader.variable} ${workSans.variable} antialiased`}
+        className={`${notoSansKR.variable} ${notoSerifKR.variable} ${dmMono.variable} antialiased`}
         suppressHydrationWarning
       >
         {children}

@@ -19,7 +19,7 @@ export function MainLayout({
     <div className="min-h-screen bg-white">
       <SiteHeader />
       {showGenreNav && (
-        <Suspense fallback={<div className="h-[41px] border-b border-gray-100" />}>
+        <Suspense fallback={<div className="h-[39px] border-b border-ink/10" />}>
           <GenreSubNav />
         </Suspense>
       )}
