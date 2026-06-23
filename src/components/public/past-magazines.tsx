@@ -9,71 +9,68 @@ interface Magazine {
   title: string;
   coverImageUrl: string | null;
   publishedAt: Date | null;
+  contentType: string;
 }
 
-const ROW_SIZE = { sm: 2, md: 4, lg: 5 };
+const DEFAULT_SHOW = 5; // 데스크탑 한 줄(5개) 기본, 전체보기로 확장
 
+// v2 매거진 아카이브 그리드 (page-home §G): 각진 표지 카드, 작게·촘촘하게.
 export function PastMagazines({ magazines }: { magazines: Magazine[] }) {
   const [expanded, setExpanded] = useState(false);
-
-  // Show one row on largest breakpoint (5 items) by default
-  const visible = expanded ? magazines : magazines.slice(0, ROW_SIZE.lg);
-  const hasMore = magazines.length > ROW_SIZE.lg;
+  const visible = expanded ? magazines : magazines.slice(0, DEFAULT_SHOW);
+  const hasMore = magazines.length > DEFAULT_SHOW;
 
   return (
-    <section className="mt-32 pt-24 border-t border-[#c4c7c7]/20">
-      <div className="flex justify-between items-end mb-16">
-        <div>
-          <span className="font-label text-[10px] uppercase tracking-[0.3em] opacity-60 block mb-2">
-            Past Issues
-          </span>
-          <h2 className="font-headline text-4xl">지난 매거진</h2>
-        </div>
+    <section className="mt-14">
+      <div className="flex items-baseline justify-between border-b-2 border-ink pb-2.5">
+        <h2 className="font-label text-[13px] font-bold uppercase tracking-[0.2em] text-ink">
+          매거진 아카이브
+        </h2>
         {hasMore && (
           <button
+            type="button"
             onClick={() => setExpanded((v) => !v)}
-            className="font-label text-[10px] uppercase tracking-widest border-b border-[#1c1b1b]/20 pb-1 hover:text-[#6f5c24] hover:border-[#6f5c24] transition-all"
+            className="font-label text-[11px] text-gold-deep transition-colors hover:underline"
           >
-            {expanded ? "접기" : "전체보기"}
+            {expanded ? "접기" : "전체보기"} →
           </button>
         )}
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8">
+      <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
         {visible.map((mag) => (
-          <Link
-            key={mag.id}
-            href={`/magazines/${mag.id}`}
-            className="group cursor-pointer"
-          >
-            <div className="aspect-[3/4] bg-[#eae7e7] mb-4 overflow-hidden relative">
+          <Link key={mag.id} href={`/magazines/${mag.id}`} className="group">
+            <div className="relative mb-2 aspect-[3/4] overflow-hidden bg-ink-deep">
               {mag.coverImageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={mag.coverImageUrl}
                   alt={mag.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <span className="font-headline text-lg opacity-30">
+                <div className="flex h-full w-full items-center justify-center">
+                  <span className="font-headline text-sm font-black text-white/30">
                     STAGE
                   </span>
                 </div>
               )}
-              <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors" />
+              {mag.contentType !== "image" && (
+                <span className="absolute right-1 top-1 rounded-sm bg-teal/90 px-1 py-0.5 font-label text-[7px] font-bold tracking-wide text-white">
+                  WEB
+                </span>
+              )}
             </div>
-            <span className="font-label text-[9px] uppercase tracking-widest opacity-50 block mb-1">
-              Issue {String(mag.issueNumber).padStart(2, "0")} /{" "}
-              {mag.publishedAt
-                ? new Date(mag.publishedAt).toLocaleDateString("ko-KR", {
-                    year: "numeric",
-                    month: "long",
-                  })
-                : ""}
-            </span>
-            <h5 className="font-headline text-lg group-hover:text-[#6f5c24] transition-colors">
+            <h5 className="line-clamp-1 text-[11px] font-medium text-ink transition-colors group-hover:text-gold-deep">
               {mag.title}
             </h5>
+            <div className="mt-0.5 font-label text-[8px] tracking-wide text-date">
+              Vol.{String(mag.issueNumber).padStart(2, "0")}
+              {mag.publishedAt &&
+                ` · ${new Date(mag.publishedAt).getFullYear()}.${String(
+                  new Date(mag.publishedAt).getMonth() + 1,
+                ).padStart(2, "0")}`}
+            </div>
           </Link>
         ))}
       </div>

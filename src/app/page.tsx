@@ -9,6 +9,34 @@ import { MaestroSection } from "@/components/public/maestro-section";
 import { ArticleCard } from "@/components/public/article-card";
 import { CultureEventCard } from "@/components/public/culture-event-card";
 import { AdSlot } from "@/components/public/ad-slot";
+import { LeftRail } from "@/components/public/left-rail";
+
+// v2 섹션 헤더 (page-home §B): 굵은 잉크 언더라인 + 모노 키커 + "전체보기 →"
+function SectionHead({
+  title,
+  moreHref,
+  moreLabel = "전체보기",
+}: {
+  title: string;
+  moreHref?: string;
+  moreLabel?: string;
+}) {
+  return (
+    <div className="flex items-baseline justify-between border-b-2 border-ink pb-2.5">
+      <h2 className="font-label text-[13px] font-bold uppercase tracking-[0.2em] text-ink">
+        {title}
+      </h2>
+      {moreHref && (
+        <Link
+          href={moreHref}
+          className="font-label text-[11px] text-gold-deep transition-colors hover:underline"
+        >
+          {moreLabel} →
+        </Link>
+      )}
+    </div>
+  );
+}
 
 export default async function HomePage() {
   const [publishedMagazines, recentArticles, recentEvents] = await Promise.all([
@@ -54,30 +82,45 @@ export default async function HomePage() {
   const [latestMagazine, ...previousMagazines] = publishedMagazines;
 
   return (
-    <MainLayout showGenreNav={false}>
-      {/* Hero: 최신호 */}
+    <MainLayout
+      showGenreNav={false}
+      leftRail={<LeftRail magazines={publishedMagazines} />}
+    >
+      {/* Hero: 최신호 (v2 §C) */}
       {latestMagazine && (
-        <section className="grid grid-cols-1 gap-8 sm:grid-cols-2 sm:items-center">
+        <section className="grid grid-cols-1 gap-6 sm:grid-cols-[clamp(180px,34%,260px)_1fr] sm:items-start">
           <Link
             href={`/magazines/${latestMagazine.id}`}
-            className="group block overflow-hidden bg-[#f6f3f2]"
+            className="group relative block aspect-[3/4] overflow-hidden bg-ink-deep"
           >
             {latestMagazine.coverImageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={latestMagazine.coverImageUrl}
                 alt={latestMagazine.title}
-                className="aspect-[3/4] w-full object-contain transition-transform duration-500 group-hover:scale-[1.02]"
+                className="absolute inset-0 h-full w-full object-cover grayscale-[0.15] transition-all duration-500 group-hover:scale-[1.03] group-hover:grayscale-0"
               />
             ) : (
-              <div className="flex aspect-[3/4] w-full items-center justify-center bg-[#eae7e7]">
-                <span className="font-headline text-4xl opacity-20">STAGE</span>
+              <div className="flex h-full w-full items-center justify-center">
+                <span className="font-headline text-3xl font-black text-white/30">
+                  STAGE
+                </span>
               </div>
             )}
+            <div className="absolute inset-x-0 top-0 flex justify-between p-2">
+              <span className="bg-gold px-1.5 py-0.5 font-label text-[8px] font-bold tracking-wider text-ink">
+                NEW
+              </span>
+              {latestMagazine.contentType !== "image" && (
+                <span className="rounded-sm bg-teal/90 px-1.5 py-0.5 font-label text-[8px] font-bold tracking-wider text-white">
+                  인터랙티브
+                </span>
+              )}
+            </div>
           </Link>
 
           <div>
-            <span className="font-label text-xs font-semibold uppercase tracking-[0.15em] text-[#6f5c24]">
+            <span className="font-label text-[9px] font-bold uppercase tracking-[0.15em] text-gold-deep">
               최신호 · Issue {String(latestMagazine.issueNumber).padStart(2, "0")}
               {latestMagazine.publishedAt &&
                 ` · ${new Date(latestMagazine.publishedAt).toLocaleDateString(
@@ -86,25 +129,25 @@ export default async function HomePage() {
                 )}`}
             </span>
             <Link href={`/magazines/${latestMagazine.id}`}>
-              <h1 className="font-headline mt-4 text-4xl leading-[1.1] tracking-tight transition-colors hover:text-[#6f5c24] md:text-5xl">
+              <h1 className="font-headline mt-2 text-2xl font-bold leading-[1.18] tracking-tight transition-colors hover:text-gold-deep sm:text-[30px]">
                 {latestMagazine.title}
               </h1>
             </Link>
             {latestMagazine.description && (
-              <p className="mt-5 leading-relaxed text-[#444748]">
+              <p className="mt-2.5 line-clamp-4 text-[13px] leading-[1.85] text-ink-muted">
                 {latestMagazine.description}
               </p>
             )}
-            <div className="mt-7 flex flex-wrap items-center gap-3">
+            <div className="mt-4 flex flex-wrap items-center gap-2">
               <Link
                 href={`/magazines/${latestMagazine.id}`}
-                className="inline-block bg-[#1c1b1b] px-7 py-3 font-label text-[10px] font-bold uppercase tracking-widest text-white transition-colors hover:bg-[#6f5c24]"
+                className="bg-ink px-5 py-2.5 font-label text-[10px] font-bold uppercase tracking-widest text-white transition-colors hover:bg-gold-deep"
               >
                 매거진 보기
               </Link>
               <Link
                 href="/ai-maestro"
-                className="font-label text-[11px] font-bold uppercase tracking-widest text-[#1b6b6e] hover:underline"
+                className="bg-teal px-5 py-2.5 font-label text-[10px] font-bold uppercase tracking-widest text-white transition-colors hover:bg-teal-deep"
               >
                 🎼 AI와 읽기
               </Link>
@@ -113,21 +156,16 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* 최신 기사 */}
+      {/* 매거진 아카이브 (v2 §G) */}
+      {previousMagazines.length > 0 && (
+        <PastMagazines magazines={previousMagazines} />
+      )}
+
+      {/* 최신 기사 (v2 §D) */}
       {recentArticles.length > 0 && (
-        <section className="mt-20">
-          <div className="flex items-baseline justify-between border-b border-[#1c1b1b]/10 pb-4">
-            <h2 className="font-label text-sm font-black uppercase tracking-[0.2em]">
-              최신 기사
-            </h2>
-            <Link
-              href="/articles"
-              className="font-label text-[11px] uppercase tracking-wider text-[#6f5c24] hover:underline"
-            >
-              전체보기 →
-            </Link>
-          </div>
-          <div className="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-2 xl:grid-cols-3">
+        <section className="mt-14">
+          <SectionHead title="최신 기사" moreHref="/articles" />
+          <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
             {recentArticles.map((article) => (
               <ArticleCard key={article.id} article={article} />
             ))}
@@ -135,21 +173,11 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* 문화예술 */}
+      {/* 공연·전시·교육 (v2 §F) */}
       {recentEvents.length > 0 && (
-        <section className="mt-20">
-          <div className="flex items-baseline justify-between border-b border-[#1c1b1b]/10 pb-4">
-            <h2 className="font-label text-sm font-black uppercase tracking-[0.2em]">
-              문화예술
-            </h2>
-            <Link
-              href="/culture-events"
-              className="font-label text-[11px] uppercase tracking-wider text-[#6f5c24] hover:underline"
-            >
-              전체보기 →
-            </Link>
-          </div>
-          <div className="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-2 xl:grid-cols-3">
+        <section className="mt-14">
+          <SectionHead title="이달의 공연·전시·교육" moreHref="/culture-events" />
+          <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
             {recentEvents.map((event) => (
               <CultureEventCard key={event.id} event={event} />
             ))}
@@ -157,18 +185,11 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* 광고 (홈 인라인) */}
-      <AdSlot placement="home" className="mt-16 block" />
+      {/* AI 마에스트로 인라인 (v2 §E) */}
+      <MaestroSection />
 
-      {/* AI 마에스트로 */}
-      <div className="mt-20">
-        <MaestroSection />
-      </div>
-
-      {/* 지난 호 */}
-      {previousMagazines.length > 0 && (
-        <PastMagazines magazines={previousMagazines} />
-      )}
+      {/* 광고 (홈 인라인) — 위치는 추후 관리자 설정형(roadmap Phase 4) */}
+      <AdSlot placement="home" className="mt-14 block" />
 
       <DocentChatFAB />
     </MainLayout>
