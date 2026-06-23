@@ -59,7 +59,10 @@ export async function POST(
 
     for (const file of files) {
       const pageNumber = nextSortOrder + 1;
-      const imageUrl = await saveUploadedFile(file, magazineId, pageNumber);
+      // 고유 파일명으로 저장(pageNumber 미전달) — 파일명이 어긋난 매거진(예: 2호)이나
+      // "페이지 삭제 후 추가" 시 `{pageNumber}.webp`가 기존 파일과 충돌("이미 존재")해
+      // 업로드가 500으로 실패하던 문제 방지. 표시용 번호는 "파일명 정리" 버튼으로 정규화.
+      const imageUrl = await saveUploadedFile(file, magazineId);
 
       const page = await prisma.magazinePage.create({
         data: {
