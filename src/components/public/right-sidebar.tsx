@@ -6,8 +6,13 @@ import { NewsletterForm } from "@/components/public/newsletter-form";
 import { SidebarAd } from "@/components/public/sidebar-ad";
 
 // 우측 상시 사이드바 (데스크탑 lg+). 위젯: 광고 · 티켓 할인 · StageOS · 최근 기사 ·
-// 뉴스레터. 데이터는 요청 시 조회(force-dynamic 페이지에서 사용).
-export async function RightSidebar() {
+// 뉴스레터. v2 토큰(ink/gold/terra/widget-bg) 적용.
+// hideRecent: 홈처럼 본문에 "최신 기사" 섹션이 있어 중복일 때 최근 기사 위젯 숨김.
+export async function RightSidebar({
+  hideRecent = false,
+}: {
+  hideRecent?: boolean;
+} = {}) {
   const now = new Date();
   const [user, ads, tickets, recentArticles] = await Promise.all([
     getCurrentUser(),
@@ -53,7 +58,7 @@ export async function RightSidebar() {
 
   return (
     <aside className="hidden w-[280px] flex-shrink-0 lg:block">
-      <div className="sticky top-[calc(3.5rem+3rem)] space-y-6">
+      <div className="sticky top-[74px] space-y-4">
         {/* ① 광고 */}
         {ads.length > 0 && <SidebarAd ads={ads} />}
 
@@ -78,19 +83,19 @@ export async function RightSidebar() {
                       </div>
                     )}
                     <div className="min-w-0 flex-1">
-                      <p className="line-clamp-2 text-xs font-medium leading-snug text-[#1c1b1b] group-hover:text-[#6f5c24]">
+                      <p className="line-clamp-2 text-xs font-medium leading-snug text-ink group-hover:text-gold-deep">
                         {t.title}
                       </p>
-                      <p className="mt-0.5 text-[11px] text-gray-500">
+                      <p className="mt-0.5 font-label text-[11px] text-taupe">
                         {formatKSTDate(t.startDate)}
                       </p>
                       {t.memberDiscount > 0 &&
                         (isMember ? (
-                          <span className="mt-0.5 inline-block font-label text-[10px] font-bold text-[#b5431a]">
+                          <span className="mt-0.5 inline-block font-label text-[10px] font-bold text-terra">
                             회원 {t.memberDiscount}% 할인
                           </span>
                         ) : (
-                          <span className="mt-0.5 inline-block font-label text-[10px] text-gray-400">
+                          <span className="mt-0.5 inline-block font-label text-[10px] text-ink/40">
                             로그인 시 할인가
                           </span>
                         ))}
@@ -103,38 +108,38 @@ export async function RightSidebar() {
           </Widget>
         )}
 
-        {/* ③ StageOS */}
+        {/* ③ StageOS (B 서브브랜드) */}
         <Link
           href="/stageos"
-          className="block rounded-lg bg-gradient-to-br from-[#0a0f1a] to-[#12193a] p-4 text-[#fcf9f8] transition-opacity hover:opacity-95"
+          className="block rounded-[9px] border border-os-purple/20 bg-[linear-gradient(135deg,#0a0f1a,#111827)] p-4 text-white transition-opacity hover:opacity-95"
         >
-          <span className="font-label text-[10px] font-bold uppercase tracking-[0.2em] text-[#a5b4fc]">
+          <span className="font-label text-[10px] font-bold uppercase tracking-[0.2em] text-os-purple-light">
             ✦ StageOS
           </span>
-          <p className="mt-2 text-sm leading-snug">
+          <p className="mt-2 text-sm leading-snug text-white/90">
             문화예술 기관을 위한 AI 운영 플랫폼
           </p>
-          <ul className="mt-2 space-y-0.5 text-[11px] text-[#c4c7d0]">
+          <ul className="mt-2 space-y-0.5 text-[11px] text-white/55">
             <li>· 모바일 브로셔 자동 생성</li>
             <li>· 다국어 음성 해설</li>
             <li>· 관객 데이터 분석</li>
           </ul>
-          <span className="mt-3 inline-block font-label text-[10px] uppercase tracking-widest text-[#a5b4fc]">
+          <span className="mt-3 inline-block font-label text-[10px] uppercase tracking-widest text-os-purple-light">
             자세히 보기 →
           </span>
         </Link>
 
-        {/* ④ 최근 기사 */}
-        {recentArticles.length > 0 && (
+        {/* ④ 최근 기사 (홈에선 본문 "최신 기사"와 중복 → 숨김) */}
+        {!hideRecent && recentArticles.length > 0 && (
           <Widget title="최근 기사">
             <ul className="space-y-2">
               {recentArticles.map((a) => (
                 <li key={a.id}>
                   <Link
                     href={`/articles/${a.slug}`}
-                    className="flex gap-1.5 text-xs leading-snug text-[#444748] hover:text-[#6f5c24]"
+                    className="flex gap-1.5 text-xs leading-snug text-slate hover:text-gold-deep"
                   >
-                    <span className="text-[#c4a35a]">·</span>
+                    <span className="text-gold">·</span>
                     <span className="line-clamp-2">{a.title}</span>
                   </Link>
                 </li>
@@ -145,7 +150,7 @@ export async function RightSidebar() {
 
         {/* ⑤ 뉴스레터 */}
         <Widget title="📮 STAGE Weekly">
-          <p className="mb-3 text-[11px] leading-relaxed text-gray-500">
+          <p className="mb-3 text-[11px] leading-relaxed text-taupe">
             매주 토요일, 문화예술 이야기를 메일로.
           </p>
           <NewsletterForm source="sidebar" placeholder="이메일 주소" />
@@ -163,8 +168,8 @@ function Widget({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-[#1c1b1b]/10 bg-[#faf7f4] p-4">
-      <h3 className="mb-3 font-label text-[10px] font-bold uppercase tracking-[0.2em] text-[#6f5c24]">
+    <div className="rounded-[9px] border border-ink/[0.08] bg-widget-bg p-4">
+      <h3 className="mb-3 font-label text-[10px] font-bold uppercase tracking-[0.2em] text-gold-deep">
         {title}
       </h3>
       {children}
@@ -176,7 +181,7 @@ function WidgetMore({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
-      className="mt-3 block border-t border-[#1c1b1b]/8 pt-2 font-label text-[10px] uppercase tracking-wider text-gray-400 hover:text-[#6f5c24]"
+      className="mt-3 block border-t border-ink/[0.08] pt-2 font-label text-[10px] uppercase tracking-wider text-ink/40 hover:text-gold-deep"
     >
       {label} →
     </Link>

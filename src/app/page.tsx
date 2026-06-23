@@ -7,7 +7,6 @@ import { PastMagazines } from "@/components/public/past-magazines";
 import { DocentChatFAB } from "@/components/public/docent-chat";
 import { MaestroSection } from "@/components/public/maestro-section";
 import { ArticleCard } from "@/components/public/article-card";
-import { CultureEventCard } from "@/components/public/culture-event-card";
 import { AdSlot } from "@/components/public/ad-slot";
 import { LeftRail } from "@/components/public/left-rail";
 
@@ -39,7 +38,7 @@ function SectionHead({
 }
 
 export default async function HomePage() {
-  const [publishedMagazines, recentArticles, recentEvents] = await Promise.all([
+  const [publishedMagazines, recentArticles] = await Promise.all([
     prisma.magazine.findMany({
       where: { status: "published" },
       orderBy: { issueNumber: "desc" },
@@ -60,23 +59,6 @@ export default async function HomePage() {
         isPremium: true,
       },
     }),
-    prisma.cultureEvent.findMany({
-      where: { status: "published" },
-      orderBy: { startDate: "desc" },
-      take: 3,
-      select: {
-        id: true,
-        slug: true,
-        type: true,
-        genre: true,
-        title: true,
-        venue: true,
-        startDate: true,
-        endDate: true,
-        thumbnailUrl: true,
-        memberDiscount: true,
-      },
-    }),
   ]);
 
   const [latestMagazine, ...previousMagazines] = publishedMagazines;
@@ -84,6 +66,7 @@ export default async function HomePage() {
   return (
     <MainLayout
       showGenreNav={false}
+      sidebarHideRecent
       leftRail={<LeftRail magazines={publishedMagazines} />}
     >
       {/* Hero: 최신호 (v2 §C) */}
@@ -168,18 +151,6 @@ export default async function HomePage() {
           <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
             {recentArticles.map((article) => (
               <ArticleCard key={article.id} article={article} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* 공연·전시·교육 (v2 §F) */}
-      {recentEvents.length > 0 && (
-        <section className="mt-14">
-          <SectionHead title="이달의 공연·전시·교육" moreHref="/culture-events" />
-          <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
-            {recentEvents.map((event) => (
-              <CultureEventCard key={event.id} event={event} />
             ))}
           </div>
         </section>

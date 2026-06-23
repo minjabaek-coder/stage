@@ -36,7 +36,8 @@ function FooterColHeading({ children }: { children: ReactNode }) {
 
 export function Footer() {
   return (
-    <footer className="bg-ink text-white/55">
+    <footer className="bg-ink pb-[max(env(safe-area-inset-bottom),56px)] text-white/55 md:pb-0">
+      {/* 모바일 하단 탭바(고정)에 가리지 않도록 하단 여백 */}
       <div className="mx-auto max-w-[1380px] px-3 sm:px-8">
         {/* Top: logo + scroll-to-top */}
         <div className="flex items-center justify-between border-b border-white/10 py-8">

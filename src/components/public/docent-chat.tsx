@@ -299,7 +299,7 @@ export function DocentChatFAB() {
             setSeed(undefined);
             setIsOpen(true);
           }}
-          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-[#1c1b1b] text-white flex items-center justify-center shadow-lg hover:bg-[#6f5c24] transition-colors"
+          className="fixed bottom-6 right-6 z-50 hidden h-14 w-14 items-center justify-center rounded-full bg-[#1c1b1b] text-white shadow-lg transition-colors hover:bg-[#6f5c24] md:flex"
         >
           <svg
             width="24"

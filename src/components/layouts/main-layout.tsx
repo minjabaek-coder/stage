@@ -12,11 +12,13 @@ export function MainLayout({
   showSidebar = true,
   showGenreNav = true,
   leftRail,
+  sidebarHideRecent = false,
 }: {
   children: ReactNode;
   showSidebar?: boolean;
   showGenreNav?: boolean;
   leftRail?: ReactNode;
+  sidebarHideRecent?: boolean;
 }) {
   return (
     <div className="min-h-screen bg-paper">
@@ -33,7 +35,7 @@ export function MainLayout({
           </aside>
         )}
         <main className="min-w-0 flex-1">{children}</main>
-        {showSidebar && <RightSidebar />}
+        {showSidebar && <RightSidebar hideRecent={sidebarHideRecent} />}
       </div>
       <Footer />
     </div>

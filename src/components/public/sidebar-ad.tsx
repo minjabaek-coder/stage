@@ -36,7 +36,7 @@ export function SidebarAd({ ads }: { ads: SidebarAdItem[] }) {
   if (!ad) return null;
 
   return (
-    <div className="rounded-lg border border-[#1c1b1b]/10 bg-[#f6f3f2] p-3">
+    <div className="rounded-[9px] border border-ink/[0.08] bg-widget-bg p-3">
       <a
         href={`/api/ads/${ad.id}/click`}
         target="_blank"
@@ -54,10 +54,10 @@ export function SidebarAd({ ads }: { ads: SidebarAdItem[] }) {
           </div>
         )}
         <div className="mt-2">
-          <span className="font-label text-[9px] font-bold uppercase tracking-[0.15em] text-[#6f5c24]">
+          <span className="font-label text-[9px] font-bold uppercase tracking-[0.15em] text-gold-deep">
             광고 · {ad.sponsor}
           </span>
-          <p className="mt-0.5 line-clamp-2 font-headline text-sm leading-snug group-hover:text-[#6f5c24]">
+          <p className="mt-0.5 line-clamp-2 font-headline text-sm leading-snug text-ink group-hover:text-gold-deep">
             {ad.title}
           </p>
         </div>
@@ -69,7 +69,7 @@ export function SidebarAd({ ads }: { ads: SidebarAdItem[] }) {
               <span
                 key={a.id}
                 className={`h-1 w-1 rounded-full ${
-                  i === index ? "bg-[#6f5c24]" : "bg-[#1c1b1b]/20"
+                  i === index ? "bg-gold-deep" : "bg-ink/20"
                 }`}
               />
             ))}
@@ -77,7 +77,7 @@ export function SidebarAd({ ads }: { ads: SidebarAdItem[] }) {
         )}
         <a
           href="/advertise"
-          className="ml-auto font-label text-[9px] uppercase tracking-wider text-gray-400 hover:text-[#6f5c24]"
+          className="ml-auto font-label text-[9px] uppercase tracking-wider text-ink/40 hover:text-gold-deep"
         >
           광고 문의
         </a>

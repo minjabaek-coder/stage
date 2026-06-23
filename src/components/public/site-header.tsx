@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { HeaderAuth } from "@/components/public/header-auth";
 import { StageOsBanner } from "@/components/public/stageos-banner";
+import { BottomTabBar } from "@/components/public/bottom-tab-bar";
 
 // v2 GNB (2026-06-23): 홈·매거진·기사·티켓·소개·문의.
 // 티켓은 테라코타 특수색(이모지 없음). AI 마에스트로=FAB/홈/푸터, 블로그·공연전시=제외.
@@ -23,8 +24,8 @@ function isActive(pathname: string, href: string) {
 }
 
 export function SiteHeader() {
-  const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <>
@@ -68,7 +69,7 @@ export function SiteHeader() {
             })}
           </nav>
 
-          {/* Right: 인증(항상 노출) + 모바일 햄버거(메뉴만) */}
+          {/* Right: 인증 + 모바일 햄버거(기사·소개·문의) */}
           <div className="flex flex-shrink-0 items-center gap-2 sm:gap-3">
             <HeaderAuth variant="editorial" />
             <button
@@ -83,24 +84,26 @@ export function SiteHeader() {
           </div>
         </div>
 
-        {/* 모바일 메뉴(내비게이션만 — 인증은 헤더에 분리 노출). 하단 탭바는 후속 청크 */}
+        {/* 모바일 햄버거 드롭다운 — 데스크탑 GNB와 동일(일관성). 하단 탭바와 일부 중복 허용 */}
         {menuOpen && (
           <nav className="border-t border-ink/10 bg-paper md:hidden">
             {navItems.map((item) => {
               const active = isActive(pathname, item.href);
+              const terra = item.accent === "terra";
+              const tone = terra
+                ? active
+                  ? "font-semibold text-terra"
+                  : "text-terra"
+                : active
+                  ? "font-semibold text-gold-deep"
+                  : "text-ink/70";
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   onClick={() => setMenuOpen(false)}
                   aria-current={active ? "page" : undefined}
-                  className={`block px-6 py-3 font-body text-sm transition-colors hover:bg-gold/[0.06] ${
-                    active
-                      ? "font-semibold text-gold-deep"
-                      : item.accent === "terra"
-                        ? "text-terra"
-                        : "text-ink/70"
-                  }`}
+                  className={`block px-6 py-3 font-body text-sm transition-colors hover:bg-gold/[0.06] ${tone}`}
                 >
                   {item.label}
                 </Link>
@@ -109,6 +112,9 @@ export function SiteHeader() {
           </nav>
         )}
       </header>
+
+      {/* 모바일 하단 탭바 (≤md) */}
+      <BottomTabBar />
     </>
   );
 }
