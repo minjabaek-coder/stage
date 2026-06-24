@@ -17,8 +17,31 @@ interface Message {
 const WELCOME_MESSAGE: Message = {
   role: "ai",
   content:
-    "안녕하세요! STAGE 도슨트입니다. 매거진이나 블로그에 대해 궁금한 것을 물어보세요.",
+    "안녕하세요, STAGE의 AI 도슨트 마에스트로입니다. STAGE가 읽은 기사·블로그를 바탕으로 작품 배경·작곡가·공연 정보를 함께 풀어드려요. 아래에서 골라 시작하거나, 무엇이든 물어보세요.",
 };
+
+// 빈 화면 시작 프롬프트 — 누르면 바로 전송.
+const STARTERS = [
+  "이번 호 핵심만 요약해줘",
+  "이 작곡가에 대해 더 알려줘",
+  "비슷한 공연 추천해줘",
+  "용어가 어려워요, 쉽게 설명해줘",
+];
+
+// 스트리밍 대기 중 표시(점 3개 애니메이션)
+function TypingDots() {
+  return (
+    <span className="inline-flex gap-1">
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal/60"
+          style={{ animationDelay: `${i * 0.15}s` }}
+        />
+      ))}
+    </span>
+  );
+}
 
 // 게스트(미로그인) 사용량 식별용 sessionId. localStorage에 영속.
 function getSessionId(): string {
@@ -46,8 +69,8 @@ export function ChatBody({ seedQuestion }: { seedQuestion?: string }) {
     if (seedQuestion) setInput(seedQuestion);
   }, [seedQuestion]);
 
-  async function handleSend() {
-    const text = input.trim();
+  async function sendMessage(raw: string) {
+    const text = raw.trim();
     if (!text || isLoading) return;
 
     const userMessage: Message = { role: "user", content: text };
@@ -133,19 +156,29 @@ export function ChatBody({ seedQuestion }: { seedQuestion?: string }) {
     }
   }
 
+  function handleSend() {
+    sendMessage(input);
+  }
+
+  // 시작 프롬프트는 환영 메시지만 있을 때(대화 시작 전) 노출
+  const showStarters = messages.length === 1 && !isLoading;
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 min-h-0 overflow-y-auto space-y-3">
-        {messages.map((msg, i) => (
+        {messages.map((msg, i) => {
+          const isLastAi = i === messages.length - 1 && msg.role === "ai";
+          const isStreaming = isLastAi && isLoading && msg.content === "";
+          return (
           <div key={i}>
             <div
               className={
                 msg.role === "ai"
-                  ? "bg-[#f6f3f2] rounded-lg p-3 text-sm max-w-[80%]"
-                  : "bg-[#1c1b1b] text-white rounded-lg p-3 text-sm max-w-[80%] ml-auto"
+                  ? "bg-surface-warm text-ink rounded-lg p-3 text-sm leading-relaxed max-w-[80%]"
+                  : "bg-ink text-white rounded-lg p-3 text-sm max-w-[80%] ml-auto"
               }
             >
-              {msg.content}
+              {isStreaming ? <TypingDots /> : msg.content}
             </div>
             {msg.sources && msg.sources.length > 0 && (
               <div className="mt-1.5 flex flex-wrap gap-1.5 max-w-[80%]">
@@ -154,7 +187,7 @@ export function ChatBody({ seedQuestion }: { seedQuestion?: string }) {
                     key={j}
                     href={src.href}
                     target="_blank"
-                    className="inline-flex items-center gap-1 px-2 py-1 bg-[#f6f3f2] rounded text-[10px] font-label text-[#6f5c24] hover:bg-[#ebe6e4] transition-colors"
+                    className="inline-flex items-center gap-1 px-2 py-1 bg-surface-warm rounded text-[10px] font-label text-teal-deep hover:bg-surface-warm/70 transition-colors"
                   >
                     <svg
                       width="10"
@@ -176,7 +209,22 @@ export function ChatBody({ seedQuestion }: { seedQuestion?: string }) {
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
+
+        {showStarters && (
+          <div className="flex flex-wrap gap-2 pt-1">
+            {STARTERS.map((q) => (
+              <button
+                key={q}
+                onClick={() => sendMessage(q)}
+                className="rounded-full border border-teal/30 bg-white px-3.5 py-1.5 text-sm text-teal-deep transition-colors hover:border-teal hover:bg-teal/5"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+        )}
         <div ref={bottomRef} />
       </div>
 
@@ -188,12 +236,12 @@ export function ChatBody({ seedQuestion }: { seedQuestion?: string }) {
           onKeyDown={(e) => e.key === "Enter" && handleSend()}
           placeholder="메시지를 입력하세요"
           disabled={isLoading}
-          className="flex-1 bg-transparent border-b border-[#1c1b1b]/20 py-2 font-label text-base lg:text-xs focus:outline-none focus:border-[#6f5c24] transition-colors disabled:opacity-50"
+          className="flex-1 bg-transparent border-b border-ink/20 py-2 font-label text-base lg:text-xs focus:outline-none focus:border-teal transition-colors disabled:opacity-50"
         />
         <button
           onClick={handleSend}
           disabled={isLoading}
-          className="font-label text-xs font-bold uppercase tracking-widest text-[#6f5c24] hover:text-[#1c1b1b] transition-colors disabled:opacity-50"
+          className="font-label text-xs font-bold uppercase tracking-widest text-teal-deep hover:text-ink transition-colors disabled:opacity-50"
         >
           전송
         </button>
@@ -269,7 +317,7 @@ export function DocentChatFAB() {
             </h3>
             <button
               onClick={() => setIsOpen(false)}
-              className="text-[#1c1b1b]/50 hover:text-[#1c1b1b] transition-colors"
+              className="text-ink/50 hover:text-ink transition-colors"
             >
               <svg
                 width="20"
@@ -299,7 +347,7 @@ export function DocentChatFAB() {
             setSeed(undefined);
             setIsOpen(true);
           }}
-          className="fixed bottom-6 right-6 z-50 hidden h-14 w-14 items-center justify-center rounded-full bg-[#1c1b1b] text-white shadow-lg transition-colors hover:bg-[#6f5c24] md:flex"
+          className="fixed bottom-6 right-6 z-50 hidden h-14 w-14 items-center justify-center rounded-full bg-ink text-white shadow-lg transition-colors hover:bg-teal md:flex"
         >
           <svg
             width="24"
