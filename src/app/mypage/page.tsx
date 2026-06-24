@@ -161,7 +161,7 @@ export default async function MyPage() {
             <a
               key={n.id}
               href={`#${n.id}`}
-              className="whitespace-nowrap font-label text-xs uppercase tracking-wider text-ink/55 transition-colors hover:text-gold-deep"
+              className="whitespace-nowrap text-[13px] font-medium tracking-tight text-ink/55 transition-colors hover:text-gold-deep"
             >
               {n.label}
             </a>
