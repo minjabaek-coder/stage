@@ -1,15 +1,23 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { getCurrentUser } from "@/lib/auth";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "STAGE Admin",
 };
 
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // 운영 권한 게이트: 비-admin(비로그인 포함)은 404로 경로 자체를 은닉.
+  const user = await getCurrentUser();
+  if (user?.role !== "admin") notFound();
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="border-b bg-white">
