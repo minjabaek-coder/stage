@@ -8,11 +8,11 @@ import sanitizeHtml from "sanitize-html";
 import { prisma } from "@/lib/prisma";
 import { SiteHeader } from "@/components/public/site-header";
 import { Footer } from "@/components/public/footer";
-import { Badge } from "@/components/ui/badge";
 import { getCurrentUser } from "@/lib/auth";
 import { BookmarkButton } from "@/components/public/bookmark-button";
 import { ArticleMaestroWidget } from "@/components/public/article-maestro-widget";
 import { DocentChatFAB } from "@/components/public/docent-chat";
+import { formatKSTDate } from "@/lib/format";
 
 // 비프로덕션(preview·로컬)에서는 미발행(draft) 기사도 열람 허용 — 목록 정책과 동일.
 const ALLOW_DRAFT = process.env.VERCEL_ENV !== "production";
@@ -29,6 +29,8 @@ const getArticleMeta = cache(async (slug: string) => {
       excerpt: true,
       author: true,
       category: true,
+      genre: true,
+      subCategory: true,
       tags: true,
       thumbnailUrl: true,
       thumbnailFocusX: true,
@@ -129,12 +131,17 @@ export default async function ArticlePage({
       }))
     : false;
 
+  // 키커: 장르(없으면 유형, 그래도 없으면 레거시 category)를 주 라벨로,
+  // 유형은 주 라벨과 다를 때만 보조로(중복 방지).
+  const kickerPrimary =
+    article.genre || article.subCategory || article.category;
+
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-paper text-ink">
       <SiteHeader />
 
       {article.thumbnailUrl && (
-        <div className="relative h-64 w-full sm:h-80 md:h-96">
+        <div className="relative h-60 w-full sm:h-80 md:h-[26rem]">
           <img
             src={article.thumbnailUrl}
             alt={article.title}
@@ -146,36 +153,44 @@ export default async function ArticlePage({
                 : {}),
             }}
           />
+          {/* 하단을 종이색으로 페이드 — 에디토리얼 헤더와 자연스럽게 연결 */}
+          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-paper" />
         </div>
       )}
 
-      <main className="mx-auto max-w-2xl px-6 py-12">
-        <div className="flex items-center gap-2">
-          {article.category && (
-            <span className="font-label text-[11px] font-bold uppercase tracking-[0.2em] text-[#6f5c24]">
-              {article.category}
+      <main className="mx-auto max-w-[680px] px-6 pb-16 pt-10">
+        {/* 키커: 장르 · 유형 + 프리미엄 */}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          {kickerPrimary && (
+            <span className="font-label text-[11px] font-bold uppercase tracking-[0.2em] text-gold-deep">
+              {kickerPrimary}
+            </span>
+          )}
+          {article.subCategory && article.subCategory !== kickerPrimary && (
+            <span className="font-label text-[11px] font-semibold tracking-wide text-taupe">
+              · {article.subCategory}
             </span>
           )}
           {article.isPremium && (
-            <Badge className="bg-[#6f5c24] text-white">프리미엄</Badge>
+            <span className="bg-gold-deep px-1.5 py-0.5 font-label text-[10px] font-bold uppercase tracking-wider text-white">
+              프리미엄
+            </span>
           )}
         </div>
 
-        <h1 className="mt-3 text-3xl font-bold leading-tight tracking-tight md:text-4xl">
+        <h1 className="font-headline mt-3 text-[28px] font-bold leading-[1.25] tracking-tight text-ink md:text-[40px] md:leading-[1.2]">
           {article.title}
         </h1>
 
-        <div className="mt-4 flex items-center gap-2 text-sm text-gray-500">
-          {article.author && <span>{article.author}</span>}
+        <div className="mt-5 flex items-center gap-2 text-sm text-taupe">
+          {article.author && (
+            <span className="font-medium text-ink-muted">{article.author}</span>
+          )}
           {article.publishedAt && (
             <>
-              {article.author && <span>·</span>}
-              <span>
-                {new Date(article.publishedAt).toLocaleDateString("ko-KR", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
+              {article.author && <span className="text-taupe/50">·</span>}
+              <span className="font-label text-xs tracking-wide text-date">
+                {formatKSTDate(article.publishedAt)}
               </span>
             </>
           )}
@@ -184,18 +199,21 @@ export default async function ArticlePage({
         {placement && (
           <Link
             href={`/magazines/${placement.magazineId}?page=${placement.pageNumber}`}
-            className="mt-5 inline-flex items-center gap-1.5 rounded-full border border-[#6f5c24]/30 bg-[#6f5c24]/5 px-3.5 py-1.5 font-label text-xs font-semibold text-[#6f5c24] transition-colors hover:bg-[#6f5c24]/10"
+            className="mt-5 inline-flex items-center gap-1.5 border border-gold-deep/30 bg-gold-deep/5 px-3.5 py-1.5 font-label text-xs font-semibold tracking-wide text-gold-deep transition-colors hover:bg-gold-deep/10"
           >
             실린 곳 · STAGE {placement.magazine.issueNumber}호 {placement.pageNumber}페이지에서 보기 →
           </Link>
         )}
 
         {article.tags.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-1">
+          <div className="mt-5 flex flex-wrap gap-1.5">
             {article.tags.map((tag) => (
-              <Badge key={tag} variant="secondary" className="text-xs">
-                {tag}
-              </Badge>
+              <span
+                key={tag}
+                className="bg-surface-warm px-2 py-0.5 font-label text-[11px] tracking-wide text-taupe"
+              >
+                #{tag}
+              </span>
             ))}
           </div>
         )}
@@ -209,28 +227,30 @@ export default async function ArticlePage({
           </div>
         )}
 
+        <div className="mt-8 border-t border-ink/10" />
+
         {locked ? (
-          <div className="mt-10">
+          <div className="mt-8">
             {article.excerpt && (
-              <p className="text-lg leading-relaxed text-gray-700">
+              <p className="text-lg leading-[1.9] text-ink-muted">
                 {article.excerpt}
               </p>
             )}
-            <div className="mt-8 rounded-2xl border border-[#6f5c24]/20 bg-[#faf7f2] p-8 text-center">
-              <p className="font-headline text-2xl">프리미엄 기사입니다</p>
-              <p className="mt-3 text-sm text-[#444748]">
+            <div className="mt-8 border border-gold-deep/20 bg-surface-warm p-8 text-center">
+              <p className="font-headline text-2xl text-ink">프리미엄 기사입니다</p>
+              <p className="mt-3 text-sm text-ink-muted">
                 STAGE 회원으로 로그인하면 전체 내용을 읽을 수 있습니다.
               </p>
               <div className="mt-6 flex items-center justify-center gap-3">
                 <Link
                   href="/auth/login"
-                  className="bg-[#1c1b1b] px-6 py-3 font-label text-[11px] font-bold uppercase tracking-widest text-white transition-colors hover:bg-[#6f5c24]"
+                  className="bg-ink px-6 py-3 font-label text-[11px] font-bold uppercase tracking-widest text-white transition-colors hover:bg-gold-deep"
                 >
                   로그인
                 </Link>
                 <Link
                   href="/auth/signup"
-                  className="font-label text-[11px] font-bold uppercase tracking-widest text-[#6f5c24] hover:underline"
+                  className="font-label text-[11px] font-bold uppercase tracking-widest text-gold-deep hover:underline"
                 >
                   회원가입
                 </Link>
@@ -239,17 +259,17 @@ export default async function ArticlePage({
           </div>
         ) : (
           <div
-            className="prose prose-gray mt-10 max-w-none"
+            className="prose prose-stone mt-8 max-w-none leading-[1.9] prose-headings:font-headline prose-headings:text-ink prose-p:text-ink-muted prose-a:text-gold-deep prose-strong:text-ink prose-img:w-full prose-blockquote:border-gold-deep prose-blockquote:text-ink-muted"
             dangerouslySetInnerHTML={{ __html: safeContent ?? "" }}
           />
         )}
 
         <ArticleMaestroWidget title={article.title} />
 
-        <div className="mt-12 border-t border-gray-100 pt-6">
+        <div className="mt-12 border-t border-ink/10 pt-6">
           <Link
             href="/articles"
-            className="font-label text-xs uppercase tracking-wider text-[#6f5c24] hover:underline"
+            className="font-label text-xs uppercase tracking-wider text-gold-deep transition-colors hover:underline"
           >
             ← 기사 목록
           </Link>
