@@ -10,6 +10,7 @@ import { SiteHeader } from "@/components/public/site-header";
 import { Footer } from "@/components/public/footer";
 import { getCurrentUser } from "@/lib/auth";
 import { BookmarkButton } from "@/components/public/bookmark-button";
+import { ViewTracker } from "@/components/public/view-tracker";
 import { ArticleMaestroWidget } from "@/components/public/article-maestro-widget";
 import { DocentChatFAB } from "@/components/public/docent-chat";
 import { formatKSTDate } from "@/lib/format";
@@ -140,6 +141,7 @@ export default async function ArticlePage({
 
   return (
     <div className="min-h-screen bg-paper text-ink">
+      <ViewTracker type="article" id={article.id} />
       <SiteHeader />
 
       {article.thumbnailUrl && (

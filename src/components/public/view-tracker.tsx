@@ -6,7 +6,7 @@ export function ViewTracker({
   type,
   id,
 }: {
-  type: "magazine" | "blog";
+  type: "magazine" | "blog" | "article";
   id: string;
 }) {
   useEffect(() => {
