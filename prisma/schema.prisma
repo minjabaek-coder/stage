@@ -78,6 +78,19 @@ enum BlogPostStatus {
   published
 }
 
+// Article 전용 상태 — 기고자 검토대기(submitted) 포함. BlogPost/CultureEvent는 BlogPostStatus 유지.
+enum ArticleStatus {
+  draft
+  submitted
+  published
+}
+
+// 운영 권한 축(회원 등급 tier와 별개). admin만 /admin·기사 발행 권한.
+enum UserRole {
+  user
+  admin
+}
+
 enum EmbeddingStatus {
   none
   processing
@@ -142,17 +155,29 @@ model Article {
   isPremium    Boolean        @default(false)
   aiIndexable  Boolean        @default(true)
   viewCount    Int            @default(0)
-  status       BlogPostStatus @default(draft)
+  status       ArticleStatus  @default(draft)
   publishedAt  DateTime?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   bookmarks    Bookmark[]
   chunks       ArticleChunk[]
   magazinePages MagazinePage[] // 이 기사를 싣는 매거진 페이지(들) — "실린 곳"
+  editToken    ArticleEditToken? // 기고자 무계정 편집 토큰(발행 시 무효화)
 
   @@index([status, publishedAt(sort: Desc)])
   @@index([category])
   @@index([genre])
+}
+
+// 기고자 무계정 편집 토큰 — 기사당 1개. 해시 저장, 발행 시 무효화, 수동 회수/재발급.
+model ArticleEditToken {
+  id        String    @id @default(cuid())
+  articleId String    @unique
+  tokenHash String    @unique
+  createdAt DateTime  @default(now())
+  expiresAt DateTime? // 선택적 TTL(기본 null=발행 전까지 유효)
+  revokedAt DateTime? // 수동 회수
+  article   Article   @relation(fields: [articleId], references: [id], onDelete: Cascade)
 }
 
 // 단독 기사 RAG 임베딩 청크 (pgvector). aiIndexable=true인 발행 기사만 임베딩.
@@ -296,6 +321,7 @@ model User {
   avatarUrl       String?
   snsProvider     String?
   tier            UserTier        @default(member)
+  role            UserRole        @default(user) // 운영 권한(admin=/admin·발행)
   interests       String[]
   proExpiresAt    DateTime?
   newsletterOptIn Boolean         @default(false)
