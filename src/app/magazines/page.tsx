@@ -19,8 +19,13 @@ export default async function MagazinesPage() {
 
   return (
     <MainLayout showGenreNav={false}>
-      <h1 className="text-3xl font-bold tracking-tight">전체 매거진</h1>
-      <p className="mt-2 text-gray-500">총 {magazines.length}호 발행</p>
+      <span className="font-label text-[10px] font-bold uppercase tracking-[0.25em] text-gold-deep">
+        Archive
+      </span>
+      <h1 className="font-headline mt-2 text-3xl font-bold tracking-tight text-ink sm:text-4xl">
+        전체 매거진
+      </h1>
+      <p className="mt-2 text-sm text-taupe">총 {magazines.length}호 발행</p>
 
       <MagazineGrid magazines={magazines} />
 

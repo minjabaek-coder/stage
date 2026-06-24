@@ -42,14 +42,14 @@ export function MagazineReader({
   return (
     <div className="relative h-full">
       {/* 모드 토글 */}
-      <div className="absolute left-1/2 top-2 z-[70] flex -translate-x-1/2 items-center gap-0.5 rounded-full border border-white/15 bg-black/60 p-0.5 backdrop-blur-sm">
+      <div className="absolute left-1/2 top-2 z-[70] flex -translate-x-1/2 items-center gap-0.5 rounded-full border border-white/15 bg-ink/70 p-0.5 backdrop-blur-sm">
         <button
           onClick={() => change("flip")}
           aria-pressed={mode === "flip"}
-          className={`rounded-full px-3 py-1 text-xs transition-colors ${
+          className={`rounded-full px-3 py-1 font-label text-xs uppercase tracking-wider transition-colors ${
             mode === "flip"
-              ? "bg-white text-gray-900"
-              : "text-gray-300 hover:text-white"
+              ? "bg-gold text-ink"
+              : "text-white/60 hover:text-white"
           }`}
         >
           넘기기
@@ -57,10 +57,10 @@ export function MagazineReader({
         <button
           onClick={() => change("paged")}
           aria-pressed={mode === "paged"}
-          className={`rounded-full px-3 py-1 text-xs transition-colors ${
+          className={`rounded-full px-3 py-1 font-label text-xs uppercase tracking-wider transition-colors ${
             mode === "paged"
-              ? "bg-white text-gray-900"
-              : "text-gray-300 hover:text-white"
+              ? "bg-gold text-ink"
+              : "text-white/60 hover:text-white"
           }`}
         >
           페이지

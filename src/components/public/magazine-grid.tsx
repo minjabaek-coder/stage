@@ -66,12 +66,12 @@ export function MagazineGrid({ magazines }: MagazineGridProps) {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="호수 또는 제목 검색"
           aria-label="매거진 검색"
-          className="w-full max-w-xs rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 placeholder:text-gray-400 focus:border-gray-400 focus:outline-none"
+          className="w-full max-w-xs border-b border-ink/20 bg-transparent px-1 py-1.5 text-sm text-ink placeholder:text-ink/40 focus:border-gold-deep focus:outline-none"
         />
         <DropdownMenu>
-          <DropdownMenuTrigger className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+          <DropdownMenuTrigger className="inline-flex items-center gap-1.5 border-b border-ink/20 px-1 py-1.5 font-label text-xs uppercase tracking-wider text-ink transition-colors hover:text-gold-deep">
             {sortLabels[sortOrder]}
-            <ChevronDownIcon className="size-4 text-gray-400" />
+            <ChevronDownIcon className="size-4 text-ink/40" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuRadioGroup
@@ -90,58 +90,57 @@ export function MagazineGrid({ magazines }: MagazineGridProps) {
       </div>
 
       {magazines.length === 0 ? (
-        <div className="mt-24 text-center text-gray-400">
+        <div className="mt-24 text-center text-taupe">
           아직 발행된 매거진이 없습니다.
         </div>
       ) : filtered.length === 0 ? (
-        <div className="mt-24 text-center text-gray-400">
-          검색 결과가 없습니다.
-        </div>
+        <div className="mt-24 text-center text-taupe">검색 결과가 없습니다.</div>
       ) : (
-        <div className="mt-4 grid grid-cols-2 gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {filtered.map((magazine) => (
             <Link
               key={magazine.id}
               href={`/magazines/${magazine.id}`}
               className="group"
             >
-              <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-gray-100">
+              <div className="relative aspect-[3/4] w-full overflow-hidden bg-ink-deep">
                 {magazine.coverImageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={magazine.coverImageUrl}
                     alt={magazine.title}
-                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-sm text-gray-400">
-                    No Cover
+                  <div className="flex h-full w-full items-center justify-center">
+                    <span className="font-headline text-lg font-black text-white/30">
+                      STAGE
+                    </span>
                   </div>
                 )}
-                <div className="absolute inset-0 bg-black/0 transition-colors duration-300 group-hover:bg-black/10" />
                 <div className="absolute left-2 top-2 flex flex-col items-start gap-1">
                   {magazine.issueNumber === latestIssue && (
-                    <span className="rounded bg-[#6f5c24] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow">
+                    <span className="bg-gold px-1.5 py-0.5 font-label text-[9px] font-bold uppercase tracking-wider text-ink">
                       NEW
                     </span>
                   )}
-                  {magazine.contentType === "web" && (
-                    <span className="rounded bg-white/90 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#6f5c24] shadow">
+                  {magazine.contentType !== "image" && (
+                    <span className="rounded-sm bg-teal/90 px-1.5 py-0.5 font-label text-[9px] font-bold uppercase tracking-wider text-white">
                       인터랙티브
                     </span>
                   )}
                 </div>
               </div>
               <div className="mt-3">
-                <p className="text-sm font-semibold line-clamp-1">
+                <p className="line-clamp-1 text-sm font-semibold text-ink transition-colors group-hover:text-gold-deep">
                   {magazine.title}
                 </p>
                 {magazine.publishedAt && (
-                  <p className="mt-1 text-xs text-gray-400">
-                    {new Date(magazine.publishedAt).toLocaleDateString("ko-KR", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
+                  <p className="mt-1 font-label text-[10px] tracking-wide text-date">
+                    {new Date(magazine.publishedAt).getFullYear()}.
+                    {String(
+                      new Date(magazine.publishedAt).getMonth() + 1,
+                    ).padStart(2, "0")}
                   </p>
                 )}
               </div>

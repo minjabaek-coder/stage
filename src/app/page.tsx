@@ -81,7 +81,7 @@ export default async function HomePage() {
               <img
                 src={latestMagazine.coverImageUrl}
                 alt={latestMagazine.title}
-                className="absolute inset-0 h-full w-full object-cover grayscale-[0.15] transition-all duration-500 group-hover:scale-[1.03] group-hover:grayscale-0"
+                className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center">

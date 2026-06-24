@@ -11,6 +11,7 @@ import {
 // Using native <img> to avoid Vercel Image Optimization limits
 import type { MagazinePage, MagazineTocEntry } from "@/types/magazine";
 import { ComposedPage } from "./composed-page";
+import { MagazineZoomLightbox } from "./magazine-zoom-lightbox";
 import { parsePageLayout } from "@/types/magazine-layout";
 
 // 페이지 본문: 이미지형은 <img>, 구성형(39호+)은 ComposedPage로 렌더.
@@ -272,7 +273,7 @@ const FlipPage = forwardRef<
     <div
       ref={ref}
       style={style}
-      className="relative h-full w-full overflow-hidden bg-neutral-900"
+      className="relative h-full w-full overflow-hidden bg-ink-deep"
     >
       <PageBody
         page={page}
@@ -306,17 +307,17 @@ function Controls({
       <button
         onClick={onPrev}
         disabled={!canPrev}
-        className="flex h-11 w-11 items-center justify-center rounded-lg border border-gray-700 text-lg text-gray-300 transition-colors hover:bg-gray-800 disabled:opacity-30"
+        className="flex h-11 w-11 items-center justify-center rounded-lg border border-white/15 text-lg text-white/70 transition-colors hover:bg-white/10 hover:text-gold disabled:opacity-30"
       >
         &larr;
       </button>
-      <span className="min-w-[100px] text-center text-sm text-gray-500">
+      <span className="min-w-[100px] text-center font-label text-sm tracking-wide text-white/45">
         {label}
       </span>
       <button
         onClick={onNext}
         disabled={!canNext}
-        className="flex h-11 w-11 items-center justify-center rounded-lg border border-gray-700 text-lg text-gray-300 transition-colors hover:bg-gray-800 disabled:opacity-30"
+        className="flex h-11 w-11 items-center justify-center rounded-lg border border-white/15 text-lg text-white/70 transition-colors hover:bg-white/10 hover:text-gold disabled:opacity-30"
       >
         &rarr;
       </button>
@@ -368,7 +369,7 @@ function MobilePrevFlipOverlay({
       style={{ perspective: "1200px", width: pageW, height: pageH }}
     >
       {/* Current page visible underneath */}
-      <div className="absolute inset-0 overflow-hidden bg-neutral-900">
+      <div className="absolute inset-0 overflow-hidden bg-ink-deep">
         <PageBody
           page={currentPage}
           imgClassName="absolute inset-0 h-full w-full object-contain"
@@ -377,7 +378,7 @@ function MobilePrevFlipOverlay({
 
       {/* Previous page flipping in from the left */}
       <div
-        className="absolute inset-0 overflow-hidden bg-neutral-900"
+        className="absolute inset-0 overflow-hidden bg-ink-deep"
         style={{
           transformOrigin: "right center",
           transform: `rotateY(${-angle}deg)`,
@@ -457,11 +458,11 @@ export function TocThumbnailStrip({
           >
             <div
               className={`relative h-20 w-16 overflow-hidden rounded ${
-                isActive ? "ring-2 ring-white" : "ring-1 ring-white/20"
+                isActive ? "ring-2 ring-gold" : "ring-1 ring-white/20"
               }`}
             >
               {page.kind === "composed" ? (
-                <div className="absolute inset-0 flex items-center justify-center bg-neutral-900">
+                <div className="absolute inset-0 flex items-center justify-center bg-ink-deep">
                   <ComposedPage layout={parsePageLayout(page.layout)} />
                 </div>
               ) : (
@@ -472,7 +473,7 @@ export function TocThumbnailStrip({
                 />
               )}
             </div>
-            <span className="max-w-16 truncate text-[10px] text-gray-400">
+            <span className="max-w-16 truncate text-[10px] text-white/55">
               {entry.title}
             </span>
           </button>
@@ -523,7 +524,7 @@ export function TocPanel({
           onClick={onClose}
         />
         {/* Bottom carousel modal */}
-        <div className="fixed bottom-0 left-0 right-0 z-[100] bg-gray-900/95 backdrop-blur-sm">
+        <div className="fixed bottom-0 left-0 right-0 z-[100] bg-ink/95 backdrop-blur-sm">
           <div
             className="toc-carousel flex gap-3 overflow-x-auto px-4 py-3"
             style={{
@@ -546,14 +547,14 @@ export function TocPanel({
                   }}
                   className={`flex-shrink-0 overflow-hidden rounded-lg transition-all ${
                     isActive
-                      ? "ring-2 ring-white shadow-lg shadow-white/10"
+                      ? "ring-2 ring-gold shadow-lg shadow-gold/10"
                       : "ring-1 ring-white/15 opacity-70"
                   }`}
                   style={{ width: 100 }}
                 >
-                  <div className="relative h-32 w-full bg-neutral-800">
+                  <div className="relative h-32 w-full bg-ink-deep">
                     {page.kind === "composed" ? (
-                      <div className="absolute inset-0 flex items-center justify-center bg-neutral-900">
+                      <div className="absolute inset-0 flex items-center justify-center bg-ink-deep">
                         <ComposedPage layout={parsePageLayout(page.layout)} />
                       </div>
                     ) : (
@@ -564,8 +565,8 @@ export function TocPanel({
                       />
                     )}
                   </div>
-                  <div className="px-2 py-1.5 bg-gray-800/80">
-                    <span className="block truncate text-[11px] text-gray-200">
+                  <div className="px-2 py-1.5 bg-ink/80">
+                    <span className="block truncate text-[11px] text-white/80">
                       {entry.title}
                     </span>
                   </div>
@@ -580,12 +581,12 @@ export function TocPanel({
 
   // Desktop: side panel
   return (
-    <div className="absolute right-0 top-0 bottom-0 z-50 flex w-72 flex-col border-l border-white/10 bg-gray-900/95 backdrop-blur-sm">
+    <div className="absolute right-0 top-0 bottom-0 z-50 flex w-72 flex-col border-l border-white/10 bg-ink/95 backdrop-blur-sm">
       <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-        <span className="text-sm font-semibold text-white">목차</span>
+        <span className="font-label text-xs font-bold uppercase tracking-[0.2em] text-gold">목차</span>
         <button
           onClick={onClose}
-          className="flex h-8 w-8 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-white/10 hover:text-white"
+          className="flex h-8 w-8 items-center justify-center rounded-md text-white/55 transition-colors hover:bg-white/10 hover:text-white"
         >
           ✕
         </button>
@@ -600,18 +601,18 @@ export function TocPanel({
               onClick={() => onNavigate(entry.pageNumber)}
               className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors ${
                 isActive
-                  ? "bg-white/15 text-white"
-                  : "text-gray-300 hover:bg-white/10 hover:text-white"
+                  ? "bg-gold/15 text-white"
+                  : "text-white/70 hover:bg-white/10 hover:text-white"
               }`}
             >
               <div className="min-w-0 flex-1">
                 <span className="block truncate">{entry.title}</span>
-                <span className="text-xs text-gray-500">p.{entry.pageNumber}</span>
+                <span className="font-label text-xs text-white/40">p.{entry.pageNumber}</span>
               </div>
               {page && (
                 <div className="relative h-14 w-10 flex-shrink-0 overflow-hidden rounded">
                   {page.kind === "composed" ? (
-                    <div className="absolute inset-0 flex items-center justify-center bg-neutral-900">
+                    <div className="absolute inset-0 flex items-center justify-center bg-ink-deep">
                       <ComposedPage layout={parsePageLayout(page.layout)} />
                     </div>
                   ) : (
@@ -663,7 +664,14 @@ export function MagazineViewer({
   const zoomContainerRef = useRef<HTMLDivElement>(null);
   const ready = HTMLFlipBook && dims;
   const [tocOpen, setTocOpen] = useState(false);
+  const [zoomOpen, setZoomOpen] = useState(false);
   const hasToc = tocEntries.length > 0;
+
+  // 현재 페이지 확대 가능 여부 — 이미지형(URL 있음) 또는 구성형 모두 지원
+  const currentPageObj = pages[currentPage];
+  const canZoom =
+    !!currentPageObj &&
+    (currentPageObj.kind === "composed" || !!currentPageObj.imageUrl);
 
   const flipPrevRef = useRef<() => void>(undefined);
   const flipNextRef = useRef<() => void>(undefined);
@@ -855,7 +863,7 @@ export function MagazineViewer({
           ref={containerRef}
           className={`flex flex-1 justify-center overflow-hidden ${dims?.isMobile ? "items-start" : "items-center"}`}
         >
-        {!ready && <div className="text-gray-500">Loading...</div>}
+        {!ready && <div className="font-label text-sm tracking-wide text-white/40">Loading…</div>}
         {ready && (
           <div
             ref={zoomContainerRef}
@@ -932,13 +940,25 @@ export function MagazineViewer({
         )}
         </div>
 
+        {/* 확대 버튼 (이미지 페이지에서만) */}
+        {canZoom && (
+          <button
+            onClick={() => setZoomOpen(true)}
+            className="absolute right-3 top-3 z-40 flex h-10 w-10 items-center justify-center rounded-lg bg-ink/70 text-base text-white backdrop-blur-sm transition-colors hover:bg-ink hover:text-gold"
+            title="확대"
+            aria-label="페이지 확대"
+          >
+            🔍
+          </button>
+        )}
+
         {hasToc && (
           <>
-            {/* Desktop: ☰ button */}
+            {/* Desktop: ☰ button (확대 버튼 아래로 스택) */}
             {!dims?.isMobile && !tocOpen && (
               <button
                 onClick={() => setTocOpen(true)}
-                className="absolute right-3 top-3 z-40 flex h-10 w-10 items-center justify-center rounded-lg bg-black/60 text-lg text-white backdrop-blur-sm transition-colors hover:bg-black/80"
+                className="absolute right-3 top-[3.75rem] z-40 flex h-10 w-10 items-center justify-center rounded-lg bg-ink/70 text-lg text-white backdrop-blur-sm transition-colors hover:bg-ink hover:text-gold"
                 title="목차"
               >
                 ☰
@@ -973,6 +993,24 @@ export function MagazineViewer({
           canNext={canNext && !mobilePrevFlip && !isZoomed}
           label={`${displayPage} / ${total}`}
         />
+      )}
+
+      {zoomOpen && canZoom && (
+        <MagazineZoomLightbox onClose={() => setZoomOpen(false)}>
+          {currentPageObj.kind === "composed" ? (
+            <div className="h-full w-full">
+              <ComposedPage layout={parsePageLayout(currentPageObj.layout)} />
+            </div>
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={currentPageObj.imageUrl ?? ""}
+              alt={`Page ${currentPage + 1}`}
+              draggable={false}
+              className="max-h-full max-w-full object-contain"
+            />
+          )}
+        </MagazineZoomLightbox>
       )}
     </div>
   );

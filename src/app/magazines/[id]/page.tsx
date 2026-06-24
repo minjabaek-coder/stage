@@ -68,31 +68,36 @@ export default async function MagazineViewerPage({ params, searchParams }: Props
 
   // 모든 매거진(이미지형 1~38호 · 구성형 39호~)을 동일한 플립 뷰어로 표시.
   return (
-    <div className="flex h-dvh flex-col bg-gray-950" style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}>
+    <div className="flex h-dvh flex-col bg-ink-deep" style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}>
       <ViewTracker type="magazine" id={magazine.id} />
-      <header className="hidden md:flex h-12 flex-shrink-0 items-center justify-between px-4">
+      <header className="hidden md:flex h-12 flex-shrink-0 items-center justify-between px-5">
         <Link
           href="/"
-          className="text-sm font-bold tracking-tight text-white"
+          className="font-label text-sm font-bold uppercase tracking-[0.2em] text-white transition-colors hover:text-gold"
         >
           STAGE
         </Link>
-        <span className="text-sm text-gray-400">
-          {magazine.title}
-        </span>
+        <div className="flex items-baseline gap-3">
+          <span className="font-label text-[10px] font-bold uppercase tracking-[0.2em] text-gold">
+            Issue {String(magazine.issueNumber).padStart(2, "0")}
+          </span>
+          <span className="font-headline text-sm text-white/80">
+            {magazine.title}
+          </span>
+        </div>
       </header>
       <div className="relative flex-1 overflow-hidden">
         <MagazineReader pages={magazine.pages} tocEntries={magazine.tocEntries} initialPage={initialPage} />
         <div className="absolute bottom-4 left-0 right-0 flex md:hidden items-center justify-center gap-3">
           <Link
             href="/"
-            className="rounded-full bg-black/50 px-4 py-1.5 text-xs text-gray-300 backdrop-blur-sm transition-colors hover:text-white"
+            className="rounded-full bg-ink/70 px-4 py-1.5 text-xs text-white/70 backdrop-blur-sm transition-colors hover:text-gold"
           >
             &larr; 메인으로
           </Link>
           <Link
             href="/magazines"
-            className="rounded-full bg-black/50 px-4 py-1.5 text-xs text-gray-300 backdrop-blur-sm transition-colors hover:text-white"
+            className="rounded-full bg-ink/70 px-4 py-1.5 text-xs text-white/70 backdrop-blur-sm transition-colors hover:text-gold"
           >
             매거진 목록
           </Link>
@@ -101,14 +106,14 @@ export default async function MagazineViewerPage({ params, searchParams }: Props
       <div className="hidden md:flex flex-shrink-0 items-center justify-center gap-4 border-t border-white/10 py-3 px-4">
         <Link
           href="/"
-          className="text-sm text-gray-400 transition-colors hover:text-white"
+          className="font-label text-xs uppercase tracking-wider text-white/55 transition-colors hover:text-gold"
         >
           &larr; 메인으로
         </Link>
-        <span className="text-gray-700">|</span>
+        <span className="text-white/20">|</span>
         <Link
           href="/magazines"
-          className="text-sm text-gray-400 transition-colors hover:text-white"
+          className="font-label text-xs uppercase tracking-wider text-white/55 transition-colors hover:text-gold"
         >
           매거진 목록
         </Link>
