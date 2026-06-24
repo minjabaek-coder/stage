@@ -38,3 +38,9 @@ export async function getCurrentUser() {
   if (!authUser) return null;
   return prisma.user.findUnique({ where: { authId: authUser.id } });
 }
+
+// 현재 유저가 운영 권한(admin)인지. 서버 액션 방어용.
+export async function isAdmin(): Promise<boolean> {
+  const user = await getCurrentUser();
+  return user?.role === "admin";
+}

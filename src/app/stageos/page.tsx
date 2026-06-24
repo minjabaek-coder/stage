@@ -40,50 +40,61 @@ const SHOTS = [
   { src: "/stageos/ops-dashboard.png", alt: "운영 대시보드" },
 ];
 
+// 도입·데모 문의 링크. stage-os에 문의 페이지가 생기면 외부 URL로 교체.
+// (현재 stage-os 공개 앱엔 문의 라우트 없음 → STAGE 통합 문의로 연결, "StageOS 도입" 유형 존재)
+const DEMO_INQUIRY_HREF = "/contact";
+
+const OS_GRADIENT = "bg-[linear-gradient(135deg,#6366f1,#8b5cf6)]";
+
 export default function StageOSPage() {
   return (
-    <div className="min-h-screen bg-[#fcf9f8] text-[#1c1b1b]">
+    <div className="min-h-screen bg-[#0b1120] text-white">
       <SiteHeader />
 
       <main>
-        {/* Hero */}
-        <section className="mx-auto max-w-5xl px-6 py-20 text-center">
-          <span className="font-label text-[11px] font-bold uppercase tracking-[0.3em] text-[#6f5c24]">
-            StageOS · AI Experience OS for Culture &amp; Events
-          </span>
-          <h1 className="font-headline mt-6 text-4xl leading-[1.1] tracking-tight md:text-6xl">
-            문화·이벤트를 위한
-            <br />
-            AI 경험 OS
-          </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-[#444748]">
-            공연·전시·영화제·축제 정보를 <strong>한 번 입력</strong>하면, AI가
-            모바일 브로셔·작품 해설·다국어 음성 가이드·QR 배포·관객 분석까지
-            자동으로 만들어 드립니다. 주최사를 위한 멀티테넌트 클라우드 SaaS.
-          </p>
-          <div className="mt-10 flex items-center justify-center gap-4">
-            <Link
-              href="/contact"
-              className="inline-block bg-[#1c1b1b] px-8 py-3 font-label text-[11px] font-bold uppercase tracking-widest text-white transition-colors hover:bg-[#6f5c24]"
-            >
-              도입·데모 문의
-            </Link>
+        {/* Hero — 미드나잇 그라데이션 + 퍼플 글로우 (B 서브브랜드) */}
+        <section className="relative overflow-hidden">
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,#0a0f1a_0%,#111827_50%,#0d1520_100%)]" />
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_20%_30%,rgba(99,102,241,0.20)_0%,transparent_60%)]" />
+          <div className="relative z-[1] mx-auto max-w-5xl px-6 py-24 text-center">
+            <span className="font-label text-[11px] font-bold uppercase tracking-[0.3em] text-os-purple-light">
+              StageOS · AI Experience OS for Culture &amp; Events
+            </span>
+            <h1 className="font-headline mt-6 text-4xl font-bold leading-[1.1] tracking-tight md:text-6xl">
+              문화·이벤트를 위한
+              <br />
+              AI 경험 OS
+            </h1>
+            <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-white/65">
+              공연·전시·영화제·축제 정보를{" "}
+              <strong className="text-white">한 번 입력</strong>하면, AI가 모바일
+              브로셔·작품 해설·다국어 음성 가이드·QR 배포·관객 분석까지 자동으로
+              만들어 드립니다. 주최사를 위한 멀티테넌트 클라우드 SaaS.
+            </p>
+            <div className="mt-10 flex items-center justify-center gap-4">
+              <Link
+                href={DEMO_INQUIRY_HREF}
+                className={`inline-block ${OS_GRADIENT} px-8 py-3 font-label text-[11px] font-bold uppercase tracking-widest text-white transition-opacity hover:opacity-90`}
+              >
+                도입·데모 문의
+              </Link>
+            </div>
+            <p className="mt-4 font-label text-[10px] uppercase tracking-wider text-white/40">
+              주식회사 카이로스팀
+            </p>
           </div>
-          <p className="mt-4 font-label text-[10px] uppercase tracking-wider opacity-40">
-            주식회사 카이로스팀 · BIPA 2026 클라우드 SaaS 지원사업
-          </p>
         </section>
 
         {/* Features */}
         <section className="mx-auto max-w-5xl px-6 py-10">
-          <div className="grid gap-8 sm:grid-cols-2">
+          <div className="grid gap-6 sm:grid-cols-2">
             {FEATURES.map((f) => (
               <div
                 key={f.title}
-                className="rounded-2xl border border-[#1c1b1b]/10 bg-white p-8"
+                className="rounded-2xl border border-white/10 bg-white/[0.04] p-8"
               >
-                <h3 className="font-headline text-2xl">{f.title}</h3>
-                <p className="mt-3 leading-relaxed text-[#444748]">{f.desc}</p>
+                <h3 className="font-headline text-2xl text-white">{f.title}</h3>
+                <p className="mt-3 leading-relaxed text-white/65">{f.desc}</p>
               </div>
             ))}
           </div>
@@ -91,14 +102,14 @@ export default function StageOSPage() {
 
         {/* Surfaces */}
         <section className="mx-auto max-w-5xl px-6 py-10">
-          <h2 className="font-label text-sm font-black uppercase tracking-[0.2em] text-[#6f5c24]">
+          <h2 className="font-label text-sm font-black uppercase tracking-[0.2em] text-os-purple-light">
             하나의 OS, 세 개의 화면
           </h2>
           <div className="mt-6 grid gap-6 sm:grid-cols-3">
             {SURFACES.map((s) => (
-              <div key={s.label} className="border-t border-[#1c1b1b]/10 pt-4">
-                <p className="font-headline text-xl">{s.label}</p>
-                <p className="mt-1 text-sm text-[#444748]">{s.desc}</p>
+              <div key={s.label} className="border-t border-os-purple/30 pt-4">
+                <p className="font-headline text-xl text-white">{s.label}</p>
+                <p className="mt-1 text-sm text-white/60">{s.desc}</p>
               </div>
             ))}
           </div>
@@ -110,14 +121,11 @@ export default function StageOSPage() {
             {SHOTS.map((s) => (
               <div
                 key={s.src}
-                className="overflow-hidden rounded-xl border border-[#1c1b1b]/10 bg-white"
+                className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.04]"
               >
-                <img
-                  src={s.src}
-                  alt={s.alt}
-                  className="w-full object-cover"
-                />
-                <p className="px-4 py-3 font-label text-[11px] uppercase tracking-wider text-[#444748]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={s.src} alt={s.alt} className="w-full object-cover" />
+                <p className="px-4 py-3 font-label text-[11px] uppercase tracking-wider text-white/55">
                   {s.alt}
                 </p>
               </div>
@@ -127,17 +135,22 @@ export default function StageOSPage() {
 
         {/* CTA */}
         <section className="mx-auto max-w-3xl px-6 py-16">
-          <div className="rounded-2xl border border-[#6f5c24]/20 bg-[#faf7f2] p-10 text-center">
-            <p className="font-headline text-3xl">StageOS 도입을 검토 중이신가요?</p>
-            <p className="mt-3 text-[#444748]">
-              기관·주최사 맞춤 데모와 도입 상담을 도와드립니다.
-            </p>
-            <Link
-              href="/contact"
-              className="mt-6 inline-block bg-[#1c1b1b] px-8 py-3 font-label text-[11px] font-bold uppercase tracking-widest text-white transition-colors hover:bg-[#6f5c24]"
-            >
-              도입·데모 문의하기
-            </Link>
+          <div className="relative overflow-hidden rounded-2xl border border-os-purple/30 bg-os-purple/10 p-10 text-center">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(139,92,246,0.18)_0%,transparent_60%)]" />
+            <div className="relative z-[1]">
+              <p className="font-headline text-3xl text-white">
+                StageOS 도입을 검토 중이신가요?
+              </p>
+              <p className="mt-3 text-white/65">
+                기관·주최사 맞춤 데모와 도입 상담을 도와드립니다.
+              </p>
+              <Link
+                href={DEMO_INQUIRY_HREF}
+                className={`mt-6 inline-block ${OS_GRADIENT} px-8 py-3 font-label text-[11px] font-bold uppercase tracking-widest text-white transition-opacity hover:opacity-90`}
+              >
+                도입·데모 문의하기
+              </Link>
+            </div>
           </div>
         </section>
       </main>

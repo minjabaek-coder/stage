@@ -19,6 +19,11 @@ export async function POST(request: NextRequest) {
         where: { id },
         data: { viewCount: { increment: 1 } },
       });
+    } else if (type === "article") {
+      await prisma.article.update({
+        where: { id },
+        data: { viewCount: { increment: 1 } },
+      });
     } else {
       return NextResponse.json({ error: "Invalid type" }, { status: 400 });
     }

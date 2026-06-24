@@ -30,10 +30,15 @@ const articleSchema = z.object({
     .regex(/^[a-z0-9-]+$/, "슬러그는 소문자, 숫자, 하이픈만 사용 가능합니다"),
   excerpt: z.string().optional().default(""),
   author: z.string().optional().default(""),
-  category: z.string().optional().default(""),
+  genre: z.string().optional().default(""), // 대분류(예술 장르)
+  subCategory: z.string().optional().default(""), // 소분류(형식)
   tags: z.string().optional().default(""),
   content: z.string().optional().default(""),
   thumbnailUrl: z.string().optional().default(""),
+  thumbnailFocusX: z.coerce.number().optional(),
+  thumbnailFocusY: z.coerce.number().optional(),
+  thumbnailZoom: z.coerce.number().optional(),
+  heroAspect: z.string().optional().default(""),
   isFeatured: z.boolean().optional().default(false),
   isPremium: z.boolean().optional().default(false),
   aiIndexable: z.boolean().optional().default(true),
@@ -46,10 +51,15 @@ function readForm(formData: FormData) {
     slug: formData.get("slug"),
     excerpt: formData.get("excerpt"),
     author: formData.get("author"),
-    category: formData.get("category"),
+    genre: formData.get("genre"),
+    subCategory: formData.get("subCategory"),
     tags: formData.get("tags"),
     content: formData.get("content"),
     thumbnailUrl: formData.get("thumbnailUrl"),
+    thumbnailFocusX: formData.get("thumbnailFocusX") ?? undefined,
+    thumbnailFocusY: formData.get("thumbnailFocusY") ?? undefined,
+    thumbnailZoom: formData.get("thumbnailZoom") ?? undefined,
+    heroAspect: formData.get("heroAspect"),
     isFeatured: formData.get("isFeatured") === "on",
     isPremium: formData.get("isPremium") === "on",
     aiIndexable: formData.get("aiIndexable") === "on",
@@ -74,10 +84,16 @@ export async function createArticle(formData: FormData) {
       slug: parsed.data.slug,
       excerpt: parsed.data.excerpt || null,
       author: parsed.data.author || "",
-      category: parsed.data.category || "",
+      genre: parsed.data.genre || null,
+      subCategory: parsed.data.subCategory || null,
+      category: parsed.data.subCategory || "", // 레거시 미러(소분류)
       tags: parseTags(parsed.data.tags),
       content: parsed.data.content || "",
       thumbnailUrl: parsed.data.thumbnailUrl || null,
+      thumbnailFocusX: parsed.data.thumbnailFocusX ?? null,
+      thumbnailFocusY: parsed.data.thumbnailFocusY ?? null,
+      thumbnailZoom: parsed.data.thumbnailZoom ?? null,
+      heroAspect: parsed.data.heroAspect || null,
       isFeatured: parsed.data.isFeatured,
       isPremium: parsed.data.isPremium,
       aiIndexable: parsed.data.aiIndexable,
@@ -115,10 +131,16 @@ export async function updateArticle(id: string, formData: FormData) {
       slug: parsed.data.slug,
       excerpt: parsed.data.excerpt || null,
       author: parsed.data.author || "",
-      category: parsed.data.category || "",
+      genre: parsed.data.genre || null,
+      subCategory: parsed.data.subCategory || null,
+      category: parsed.data.subCategory || "", // 레거시 미러(소분류)
       tags: parseTags(parsed.data.tags),
       content: parsed.data.content || "",
       thumbnailUrl: newThumbnail,
+      thumbnailFocusX: parsed.data.thumbnailFocusX ?? null,
+      thumbnailFocusY: parsed.data.thumbnailFocusY ?? null,
+      thumbnailZoom: parsed.data.thumbnailZoom ?? null,
+      heroAspect: parsed.data.heroAspect || null,
       isFeatured: parsed.data.isFeatured,
       isPremium: parsed.data.isPremium,
       aiIndexable: parsed.data.aiIndexable,
@@ -157,6 +179,12 @@ export async function publishArticle(id: string) {
       status: "published",
       publishedAt: article.publishedAt ?? new Date(),
     },
+  });
+
+  // 발행 = 기고자 토큰 무효화(자동). 재발급은 관리자 수동(#7).
+  await prisma.articleEditToken.updateMany({
+    where: { articleId: id, revokedAt: null },
+    data: { revokedAt: new Date() },
   });
 
   // RAG: 발행 시 본문 임베딩(aiIndexable=true인 경우). best-effort.

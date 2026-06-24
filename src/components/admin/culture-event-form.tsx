@@ -63,6 +63,7 @@ export function CultureEventForm({
     maxParticipants?: number | null;
     applyUrl?: string | null;
     isFeatured?: boolean;
+    sidebarFeatured?: boolean;
     publishedAt?: Date | null;
   };
   formId?: string;
@@ -339,6 +340,15 @@ export function CultureEventForm({
                 className="h-4 w-4 accent-[#6f5c24]"
               />
               추천 이벤트
+            </label>
+            <label className="flex items-end gap-2 pb-2 text-sm">
+              <input
+                type="checkbox"
+                name="sidebarFeatured"
+                defaultChecked={defaultValues?.sidebarFeatured ?? false}
+                className="h-4 w-4 accent-[#6f5c24]"
+              />
+              사이드바 티켓 위젯 노출
             </label>
           </div>
 

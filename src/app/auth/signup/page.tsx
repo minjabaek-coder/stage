@@ -7,9 +7,9 @@ export const metadata: Metadata = { title: "회원가입 | STAGE" };
 
 export default function SignupPage() {
   return (
-    <div className="min-h-screen bg-[#fcf9f8] text-[#1c1b1b]">
+    <div className="min-h-screen bg-paper text-ink">
       <SiteHeader />
-      <main className="flex items-center justify-center px-6 py-20">
+      <main className="flex items-center justify-center px-6 py-20 md:py-28">
         <AuthForm action={signUpEmail} mode="signup" />
       </main>
     </div>

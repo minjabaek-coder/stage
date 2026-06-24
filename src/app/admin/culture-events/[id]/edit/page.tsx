@@ -60,6 +60,7 @@ export default async function EditCultureEventPage({
             maxParticipants: event.maxParticipants,
             applyUrl: event.applyUrl,
             isFeatured: event.isFeatured,
+            sidebarFeatured: event.sidebarFeatured,
             publishedAt: event.publishedAt,
           }}
           formId="culture-event-edit-form"

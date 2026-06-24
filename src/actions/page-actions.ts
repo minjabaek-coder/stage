@@ -1,36 +1,107 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@/generated/prisma/client";
+import sanitizeHtml from "sanitize-html";
 import { deleteUploadedFile } from "@/lib/upload";
 import { getSupabase, STORAGE_BUCKET, getPublicUrl } from "@/lib/supabase";
 import { revalidatePath } from "next/cache";
+
+// 구성형 레이아웃 저장 전 텍스트 블록 HTML 정제(스타일은 블록 속성으로 관리).
+function sanitizeLayout(layout: unknown): { blocks: unknown[]; pageBg?: string } {
+  const obj = layout as { blocks?: unknown[]; pageBg?: unknown } | null;
+  if (!obj || !Array.isArray(obj.blocks)) return { blocks: [] };
+  const blocks = obj.blocks.map((b) => {
+    const blk = b as { type?: string; html?: unknown };
+    if (blk && blk.type === "text" && typeof blk.html === "string") {
+      return {
+        ...blk,
+        html: sanitizeHtml(blk.html, {
+          allowedTags: ["b", "strong", "i", "em", "u", "s", "br", "p", "div", "span", "a", "blockquote", "ul", "ol", "li", "h2", "h3", "small"],
+          allowedAttributes: { a: ["href", "target", "rel"] },
+        }),
+      };
+    }
+    return b;
+  });
+  return { blocks, pageBg: typeof obj.pageBg === "string" ? obj.pageBg : undefined };
+}
+
+// 구성형(39호+) 빈 페이지 추가
+export async function createComposedPage(magazineId: string) {
+  const agg = await prisma.magazinePage.aggregate({
+    where: { magazineId },
+    _max: { sortOrder: true, pageNumber: true },
+  });
+  const sortOrder = (agg._max.sortOrder ?? -1) + 1;
+  const pageNumber = (agg._max.pageNumber ?? 0) + 1;
+  const page = await prisma.magazinePage.create({
+    data: {
+      magazineId,
+      kind: "composed",
+      layout: { blocks: [] } as Prisma.InputJsonValue,
+      sortOrder,
+      pageNumber,
+    },
+  });
+  revalidatePath(`/admin/magazines/${magazineId}/edit`);
+  revalidatePath(`/magazines/${magazineId}`);
+  return { success: true as const, pageId: page.id };
+}
+
+// 구성형 페이지 레이아웃 저장(에디터). articleId 연동도 함께.
+export async function updatePageLayout(
+  pageId: string,
+  magazineId: string,
+  layout: unknown,
+  articleId?: string | null
+) {
+  await prisma.magazinePage.update({
+    where: { id: pageId },
+    data: {
+      layout: sanitizeLayout(layout) as Prisma.InputJsonValue,
+      ...(articleId !== undefined
+        ? { articleId: articleId || null }
+        : {}),
+    },
+  });
+  revalidatePath(`/admin/magazines/${magazineId}/edit`);
+  revalidatePath(`/magazines/${magazineId}`);
+  return { success: true as const };
+}
+
+// 페이지 순서를 orderedIds 순으로 재배치.
+// (magazineId, sortOrder) 유니크 제약을 피하는 2-pass를 **단 2개의 raw SQL**로 수행한다.
+// (페이지별 update 110개를 한 트랜잭션에 넣으면 대륙간 DB 지연 시 Prisma 5s 트랜잭션
+//  한도(P2028)를 초과해 실패함 — Vercel(미동부)↔Supabase(서울). 2 statement면 즉시 완료.)
+async function applyPageOrder(orderedIds: string[]) {
+  if (orderedIds.length === 0) return;
+  const tuples = Prisma.join(
+    orderedIds.map((id, i) => Prisma.sql`(${id}::text, ${i}::int)`)
+  );
+  await prisma.$transaction([
+    // pass 1: 모두 음수로 이동(충돌 제거)
+    prisma.$executeRaw`
+      UPDATE "MagazinePage" AS m
+      SET "sortOrder" = v.ord - 100000
+      FROM (VALUES ${tuples}) AS v(id, ord)
+      WHERE m.id = v.id
+    `,
+    // pass 2: 최종 sortOrder/pageNumber 설정
+    prisma.$executeRaw`
+      UPDATE "MagazinePage" AS m
+      SET "sortOrder" = v.ord, "pageNumber" = v.ord + 1
+      FROM (VALUES ${tuples}) AS v(id, ord)
+      WHERE m.id = v.id
+    `,
+  ]);
+}
 
 export async function reorderPages(
   magazineId: string,
   orderedIds: string[]
 ) {
-  // Two-pass to avoid unique constraint on (magazineId, sortOrder):
-  // 1. Set all sortOrders to negative (offset) values to clear conflicts
-  // 2. Set final sortOrders
-  const offset = 100000;
-
-  await prisma.$transaction([
-    ...orderedIds.map((id, index) =>
-      prisma.magazinePage.update({
-        where: { id },
-        data: { sortOrder: -(index + offset) },
-      })
-    ),
-    ...orderedIds.map((id, index) =>
-      prisma.magazinePage.update({
-        where: { id },
-        data: {
-          sortOrder: index,
-          pageNumber: index + 1,
-        },
-      })
-    ),
-  ]);
+  await applyPageOrder(orderedIds);
 
   // Update cover image to first page
   const firstPage = await prisma.magazinePage.findFirst({
@@ -38,7 +109,8 @@ export async function reorderPages(
     orderBy: { sortOrder: "asc" },
   });
 
-  if (firstPage) {
+  // 이미지형만 커버를 첫 페이지 이미지로 동기화(구성형은 imageUrl이 없어 덮어쓰지 않음)
+  if (firstPage?.imageUrl) {
     await prisma.magazine.update({
       where: { id: magazineId },
       data: { coverImageUrl: firstPage.imageUrl },
@@ -56,7 +128,7 @@ export async function deletePage(pageId: string, magazineId: string) {
   });
 
   if (page) {
-    await deleteUploadedFile(page.imageUrl);
+    if (page.imageUrl) await deleteUploadedFile(page.imageUrl);
     await prisma.magazinePage.delete({ where: { id: pageId } });
 
     // Reorder remaining pages (two-pass for unique constraint)
@@ -66,21 +138,7 @@ export async function deletePage(pageId: string, magazineId: string) {
     });
 
     if (remaining.length > 0) {
-      const offset = 100000;
-      await prisma.$transaction([
-        ...remaining.map((p, index) =>
-          prisma.magazinePage.update({
-            where: { id: p.id },
-            data: { sortOrder: -(index + offset) },
-          })
-        ),
-        ...remaining.map((p, index) =>
-          prisma.magazinePage.update({
-            where: { id: p.id },
-            data: { sortOrder: index, pageNumber: index + 1 },
-          })
-        ),
-      ]);
+      await applyPageOrder(remaining.map((p) => p.id));
     }
 
     // Update cover
@@ -125,7 +183,7 @@ export async function renamePageFiles(magazineId: string) {
   let newCoverUrl: string | null = null;
 
   for (const page of pages) {
-    const oldPath = extractStoragePath(page.imageUrl);
+    const oldPath = extractStoragePath(page.imageUrl ?? "");
     if (!oldPath) continue;
 
     const ext = oldPath.split(".").pop() || "webp";
@@ -176,7 +234,7 @@ export async function renamePageFile(
   const page = await prisma.magazinePage.findUnique({ where: { id: pageId } });
   if (!page) return { error: "페이지를 찾을 수 없습니다" };
 
-  const oldPath = extractStoragePath(page.imageUrl);
+  const oldPath = extractStoragePath(page.imageUrl ?? "");
   if (!oldPath) return { error: "파일 경로를 찾을 수 없습니다" };
 
   const ext = oldPath.split(".").pop() || "webp";

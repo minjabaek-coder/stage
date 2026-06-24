@@ -16,6 +16,13 @@ enum MagazineStatus {
 enum MagazineContentType {
   image
   web
+  composed
+}
+
+// 매거진 페이지 종류: image=완성 이미지 업로드(1~38호), composed=CMS 자유배치 구성(39호+)
+enum MagazinePageKind {
+  image
+  composed
 }
 
 model Magazine {
@@ -32,22 +39,26 @@ model Magazine {
   publishedAt   DateTime?
   pages         MagazinePage[]
   tocEntries    MagazineTocEntry[]
-  articles      MagazineArticle[]
 
   @@index([status, publishedAt(sort: Desc)])
 }
 
 model MagazinePage {
-  id         String   @id @default(cuid())
+  id         String           @id @default(cuid())
   magazineId String
   pageNumber Int
-  imageUrl   String
+  kind       MagazinePageKind @default(image)
+  imageUrl   String? // kind=image (1~38호 완성 이미지)
+  layout     Json? // kind=composed (39호+ 자유배치 레이아웃: { blocks: [...] })
+  articleId  String? // 이 페이지가 싣는 기사(선택) — 페이지↔Article 연동("실린 곳")
   sortOrder  Int
-  createdAt  DateTime @default(now())
-  magazine   Magazine @relation(fields: [magazineId], references: [id], onDelete: Cascade)
+  createdAt  DateTime         @default(now())
+  magazine   Magazine         @relation(fields: [magazineId], references: [id], onDelete: Cascade)
+  article    Article?         @relation(fields: [articleId], references: [id], onDelete: SetNull)
 
   @@unique([magazineId, sortOrder])
   @@index([magazineId, sortOrder])
+  @@index([articleId])
 }
 
 model MagazineTocEntry {
@@ -62,45 +73,22 @@ model MagazineTocEntry {
   @@index([magazineId, sortOrder])
 }
 
-model MagazineArticle {
-  id           String         @id @default(cuid())
-  magazineId   String
-  title        String
-  slug         String
-  content      String         @default("") @db.Text
-  author       String         @default("")
-  section      String         @default("")
-  thumbnailUrl String?
-  sortOrder    Int
-  isCoverStory Boolean        @default(false)
-  status       BlogPostStatus @default(draft)
-  publishedAt  DateTime?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  magazine     Magazine       @relation(fields: [magazineId], references: [id], onDelete: Cascade)
-  chunks       MagazineArticleChunk[]
-
-  @@unique([magazineId, slug])
-  @@index([magazineId, sortOrder])
-}
-
-// 매거진 아티클 RAG 임베딩 청크 (pgvector). HNSW 인덱스는 마이그레이션 raw SQL로 생성(Prisma 미표현).
-model MagazineArticleChunk {
-  id         String                       @id @default(dbgenerated("gen_random_uuid()::text"))
-  articleId  String
-  chunkIndex Int
-  title      String
-  content    String                       @db.Text
-  embedding  Unsupported("vector(1024)")?
-  createdAt  DateTime                     @default(now())
-  article    MagazineArticle              @relation(fields: [articleId], references: [id], onDelete: Cascade)
-
-  @@index([articleId])
-}
-
 enum BlogPostStatus {
   draft
   published
+}
+
+// Article 전용 상태 — 기고자 검토대기(submitted) 포함. BlogPost/CultureEvent는 BlogPostStatus 유지.
+enum ArticleStatus {
+  draft
+  submitted
+  published
+}
+
+// 운영 권한 축(회원 등급 tier와 별개). admin만 /admin·기사 발행 권한.
+enum UserRole {
+  user
+  admin
 }
 
 enum EmbeddingStatus {
@@ -155,21 +143,41 @@ model Article {
   content      String         @default("") @db.Text
   author       String         @default("")
   category     String         @default("")
+  genre        String?        // 대분류(예술 장르): 클래식·오페라·무용·연극·뮤지컬·국악·전시·교육
+  subCategory  String?        // 소분류(형식): 리뷰·프리뷰·인터뷰·공연소식·전시소식·칼럼·에세이·현장스케치·기획
   tags         String[]
   thumbnailUrl String?
+  thumbnailFocusX Float?      // 썸네일 크롭 초점 X%(null=50) — 비파괴 크롭(objectPosition)
+  thumbnailFocusY Float?      // 썸네일 크롭 초점 Y%(null=50)
+  thumbnailZoom   Float?      // 썸네일 줌 배율(null=1)
+  heroAspect      String?     // 상세 히어로 비율 프리셋(wide/standard/tall, null=standard)
   isFeatured   Boolean        @default(false)
   isPremium    Boolean        @default(false)
   aiIndexable  Boolean        @default(true)
   viewCount    Int            @default(0)
-  status       BlogPostStatus @default(draft)
+  status       ArticleStatus  @default(draft)
   publishedAt  DateTime?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   bookmarks    Bookmark[]
   chunks       ArticleChunk[]
+  magazinePages MagazinePage[] // 이 기사를 싣는 매거진 페이지(들) — "실린 곳"
+  editToken    ArticleEditToken? // 기고자 무계정 편집 토큰(발행 시 무효화)
 
   @@index([status, publishedAt(sort: Desc)])
   @@index([category])
+  @@index([genre])
+}
+
+// 기고자 무계정 편집 토큰 — 기사당 1개. 해시 저장, 발행 시 무효화, 수동 회수/재발급.
+model ArticleEditToken {
+  id        String    @id @default(cuid())
+  articleId String    @unique
+  tokenHash String    @unique
+  createdAt DateTime  @default(now())
+  expiresAt DateTime? // 선택적 TTL(기본 null=발행 전까지 유효)
+  revokedAt DateTime? // 수동 회수
+  article   Article   @relation(fields: [articleId], references: [id], onDelete: Cascade)
 }
 
 // 단독 기사 RAG 임베딩 청크 (pgvector). aiIndexable=true인 발행 기사만 임베딩.
@@ -223,6 +231,8 @@ model CultureEvent {
   maxParticipants Int?
   applyUrl        String?
   isFeatured      Boolean        @default(false)
+  // 홈 우측 사이드바 "티켓 할인" 위젯에 노출할지(어드민 큐레이션)
+  sidebarFeatured Boolean        @default(false)
   status          BlogPostStatus @default(draft)
   publishedAt     DateTime?
   createdAt       DateTime       @default(now())
@@ -285,6 +295,13 @@ model Advertisement {
   @@index([isActive])
 }
 
+// 사이트 전역 설정 (키-값 JSON). StageOS 배너 등 어드민 설정형 항목 저장소.
+model SiteSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
 // 뉴스레터 구독자 (기존 운영 테이블을 채택해 baseline)
 model NewsletterSubscriber {
   id        String   @id @default(cuid())
@@ -311,6 +328,7 @@ model User {
   avatarUrl       String?
   snsProvider     String?
   tier            UserTier        @default(member)
+  role            UserRole        @default(user) // 운영 권한(admin=/admin·발행)
   interests       String[]
   proExpiresAt    DateTime?
   newsletterOptIn Boolean         @default(false)

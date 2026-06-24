@@ -8,8 +8,31 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-label);
+
+  /* ── v2 에디토리얼 팔레트 (공개 콘텐츠 A) ── */
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-deep: var(--ink-deep);
+  --color-slate: var(--slate);
+  --color-taupe: var(--taupe);
+  --color-date: var(--date);
+  --color-gold: var(--gold);
+  --color-gold-deep: var(--gold-deep);
+  --color-gold-text: var(--gold-text);
+  --color-teal: var(--teal);
+  --color-teal-deep: var(--teal-deep);
+  --color-terra: var(--terra);
+  --color-surface-warm: var(--surface-warm);
+  --color-surface-input: var(--surface-input);
+  --color-widget-bg: var(--widget-bg);
+  /* ── v2 서브브랜드 (StageOS·패밀리·광고 B) ── */
+  --color-os-purple: var(--os-purple);
+  --color-os-violet: var(--os-violet);
+  --color-os-purple-light: var(--os-purple-light);
+  --color-book-cyan: var(--book-cyan);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -81,6 +104,29 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* ── v2 에디토리얼 팔레트 (raw hex, HTML 실측) ── */
+  --paper: #fcf9f8;
+  --ink: #1c1b1b;
+  --ink-muted: #444748;
+  --ink-deep: #0e0d0b;
+  --slate: #374151;
+  --taupe: #7a7060;
+  --date: #9ca3af;
+  --gold: #c4a35a;
+  --gold-deep: #6f5c24;
+  --gold-text: #8a6820;
+  --teal: #1b6b6e;
+  --teal-deep: #155558;
+  --terra: #b5431a;
+  --surface-warm: #f8f5f0;
+  --surface-input: #faf7f4;
+  --widget-bg: #ffffff;
+  /* ── v2 서브브랜드 ── */
+  --os-purple: #6366f1;
+  --os-violet: #8b5cf6;
+  --os-purple-light: #a5b4fc;
+  --book-cyan: #0891b2;
 }
 
 .dark {
@@ -123,18 +169,22 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-body), "Apple SD Gothic Neo", "Malgun Gothic",
+      sans-serif;
   }
   html {
     @apply font-sans;
   }
 }
 
-/* Editorial typography utilities */
+/* Editorial typography utilities (v2) */
+/* 헤드라인: 한글 세리프 (Noto Serif KR) */
 .font-headline {
-  font-family: var(--font-headline), serif;
+  font-family: var(--font-headline), "Apple SD Gothic Neo", serif;
 }
+/* 라벨/메타: 라틴 모노(DM Mono), 한글은 본문 산세리프로 폴백 */
 .font-label {
-  font-family: var(--font-label), sans-serif;
+  font-family: var(--font-label), var(--font-body), sans-serif;
 }
 
 /* react-pageflip: no overrides on internal layout */

@@ -7,7 +7,7 @@ import { MagazineListTable } from "@/components/admin/magazine-list-table";
 
 export default async function AdminMagazinesPage() {
   const magazines = await prisma.magazine.findMany({
-    include: { _count: { select: { pages: true, articles: true } } },
+    include: { _count: { select: { pages: true } } },
     orderBy: { issueNumber: "desc" },
   });
 

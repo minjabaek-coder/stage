@@ -11,6 +11,13 @@ import { RichTextEditor } from "./rich-text-editor";
 import { toast } from "sonner";
 import { ACCEPTED_IMAGE_TYPES, MAX_FILE_SIZE } from "@/lib/constants";
 import { uploadBlogImage } from "@/lib/upload-client";
+import {
+  ARTICLE_GENRES,
+  ARTICLE_SUBCATEGORIES,
+  ARTICLE_HERO_ASPECTS,
+  heroAspectRatio,
+} from "@/lib/article-taxonomy";
+import { FocusPicker } from "@/components/admin/focus-picker";
 
 type FormState = { error?: string; success?: boolean } | undefined;
 
@@ -37,10 +44,15 @@ export function ArticleForm({
     slug?: string;
     excerpt?: string | null;
     author?: string;
-    category?: string;
+    genre?: string | null;
+    subCategory?: string | null;
     tags?: string[];
     content?: string;
     thumbnailUrl?: string | null;
+    thumbnailFocusX?: number | null;
+    thumbnailFocusY?: number | null;
+    thumbnailZoom?: number | null;
+    heroAspect?: string | null;
     isFeatured?: boolean;
     isPremium?: boolean;
     aiIndexable?: boolean;
@@ -57,6 +69,13 @@ export function ArticleForm({
   const [slug, setSlug] = useState(defaultValues?.slug || "");
   const [title, setTitle] = useState(defaultValues?.title || "");
   const [uploading, setUploading] = useState(false);
+  // 썸네일 비파괴 크롭(초점+줌)
+  const [focusX, setFocusX] = useState(defaultValues?.thumbnailFocusX ?? 50);
+  const [focusY, setFocusY] = useState(defaultValues?.thumbnailFocusY ?? 50);
+  const [zoom, setZoom] = useState(defaultValues?.thumbnailZoom ?? 1);
+  const [heroAspect, setHeroAspect] = useState(
+    defaultValues?.heroAspect ?? "standard",
+  );
 
   useEffect(() => {
     if (state?.success) {
@@ -73,6 +92,10 @@ export function ArticleForm({
     try {
       const url = await uploadBlogImage(file);
       setThumbnailUrl(url);
+      // 새 이미지 업로드 시 크롭 초기화
+      setFocusX(50);
+      setFocusY(50);
+      setZoom(1);
     } catch (e) {
       toast.error(
         e instanceof Error ? e.message : "업로드 중 오류가 발생했습니다"
@@ -111,6 +134,10 @@ export function ArticleForm({
           <form id={formId} action={formAction} className="space-y-4">
             <input type="hidden" name="content" value={content} />
             <input type="hidden" name="thumbnailUrl" value={thumbnailUrl} />
+            <input type="hidden" name="thumbnailFocusX" value={focusX} />
+            <input type="hidden" name="thumbnailFocusY" value={focusY} />
+            <input type="hidden" name="thumbnailZoom" value={zoom} />
+            <input type="hidden" name="heroAspect" value={heroAspect} />
 
             <div className="space-y-2">
               <Label htmlFor="title">제목</Label>
@@ -150,7 +177,7 @@ export function ArticleForm({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="author">작성자</Label>
                 <Input
@@ -160,13 +187,35 @@ export function ArticleForm({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="category">카테고리</Label>
+                <Label htmlFor="genre">장르</Label>
+                <select
+                  id="genre"
+                  name="genre"
+                  defaultValue={defaultValues?.genre ?? ""}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  <option value="">선택 안 함</option>
+                  {ARTICLE_GENRES.map((g) => (
+                    <option key={g} value={g}>
+                      {g}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="subCategory">유형</Label>
                 <Input
-                  id="category"
-                  name="category"
-                  defaultValue={defaultValues?.category}
-                  placeholder="예: 리뷰, 인터뷰, 칼럼"
+                  id="subCategory"
+                  name="subCategory"
+                  list="article-subcats"
+                  defaultValue={defaultValues?.subCategory ?? ""}
+                  placeholder="리뷰·인터뷰·칼럼 등 (직접입력 가능)"
                 />
+                <datalist id="article-subcats">
+                  {ARTICLE_SUBCATEGORIES.map((s) => (
+                    <option key={s} value={s} />
+                  ))}
+                </datalist>
               </div>
             </div>
 
@@ -244,12 +293,15 @@ export function ArticleForm({
                 {uploading ? (
                   <p className="text-sm text-gray-500">업로드 중...</p>
                 ) : thumbnailUrl ? (
-                  <div className="relative mx-auto aspect-video w-full max-w-xs overflow-hidden rounded">
+                  <div className="relative mx-auto aspect-video w-full max-w-xs overflow-hidden rounded bg-gray-50">
                     <img
                       src={thumbnailUrl}
-                      alt="썸네일 미리보기"
-                      className="absolute inset-0 h-full w-full object-cover"
+                      alt="업로드된 원본"
+                      className="absolute inset-0 h-full w-full object-contain"
                     />
+                    <span className="absolute bottom-1 left-1 rounded bg-black/50 px-1.5 py-0.5 text-[10px] text-white">
+                      원본 (클릭해 교체)
+                    </span>
                   </div>
                 ) : (
                   <div className="space-y-1">
@@ -264,14 +316,105 @@ export function ArticleForm({
                 )}
               </div>
               {thumbnailUrl && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setThumbnailUrl("")}
-                >
-                  썸네일 제거
-                </Button>
+                <div className="space-y-3 rounded-lg border border-gray-200 p-3">
+                  <FocusPicker
+                    src={thumbnailUrl}
+                    focusX={focusX}
+                    focusY={focusY}
+                    zoom={zoom}
+                    onChange={(x, y) => {
+                      setFocusX(x);
+                      setFocusY(y);
+                    }}
+                    onZoomChange={setZoom}
+                  />
+
+                  {/* 결과 미리보기 — 같은 초점·줌이 비율이 다른 두 곳에 어떻게 적용되는지 */}
+                  <div className="space-y-1.5">
+                    <span className="block text-xs font-medium text-gray-600">
+                      결과 미리보기 (목록 카드 · 상세 히어로)
+                    </span>
+                    <div className="flex gap-2">
+                      <div className="w-1/2 space-y-0.5">
+                        <span className="block text-[10px] text-gray-400">
+                          목록 카드 (16:9)
+                        </span>
+                        <div className="aspect-video w-full overflow-hidden rounded border bg-gray-100">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={thumbnailUrl}
+                            alt="카드 미리보기"
+                            className="h-full w-full object-cover"
+                            style={{
+                              objectPosition: `${focusX}% ${focusY}%`,
+                              transform: zoom !== 1 ? `scale(${zoom})` : undefined,
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <div className="w-1/2 space-y-0.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-gray-400">
+                            상세 히어로
+                          </span>
+                          <select
+                            value={heroAspect}
+                            onChange={(e) => setHeroAspect(e.target.value)}
+                            className="rounded border px-1 py-0.5 text-[10px]"
+                            aria-label="히어로 비율"
+                          >
+                            {ARTICLE_HERO_ASPECTS.map((a) => (
+                              <option key={a.key} value={a.key}>
+                                {a.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div
+                          className="w-full overflow-hidden rounded border bg-gray-100"
+                          style={{ aspectRatio: heroAspectRatio(heroAspect) }}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={thumbnailUrl}
+                            alt="히어로 미리보기"
+                            className="h-full w-full object-cover"
+                            style={{
+                              objectPosition: `${focusX}% ${focusY}%`,
+                              transform: zoom !== 1 ? `scale(${zoom})` : undefined,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-gray-400">
+                    초점·줌은 카드/상세 썸네일 크롭에만 적용되며 원본은 보존됩니다.
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setFocusX(50);
+                        setFocusY(50);
+                        setZoom(1);
+                      }}
+                    >
+                      크롭 초기화
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setThumbnailUrl("")}
+                    >
+                      썸네일 제거
+                    </Button>
+                  </div>
+                </div>
               )}
             </div>
 

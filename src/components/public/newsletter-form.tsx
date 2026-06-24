@@ -40,12 +40,12 @@ export function NewsletterForm({
         type="email"
         required
         placeholder={placeholder}
-        className="w-full bg-transparent border-b border-[#1c1b1b]/20 py-2 font-label text-xs mb-4 focus:outline-none focus:border-[#6f5c24] transition-colors placeholder:opacity-50"
+        className="w-full bg-transparent border-b border-ink/20 py-2 font-label text-xs mb-4 text-ink focus:outline-none focus:border-gold-deep transition-colors placeholder:opacity-50"
       />
       <button
         type="submit"
         disabled={pending}
-        className="w-full bg-[#1c1b1b] text-white py-3 font-label text-[10px] font-bold uppercase tracking-widest transition-colors hover:bg-[#6f5c24] disabled:opacity-50"
+        className="w-full bg-ink text-white py-3 font-label text-[10px] font-bold uppercase tracking-widest transition-colors hover:bg-gold-deep disabled:opacity-50"
       >
         {pending ? pendingLabel : submitLabel}
       </button>
