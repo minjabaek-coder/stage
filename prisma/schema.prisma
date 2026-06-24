@@ -295,6 +295,13 @@ model Advertisement {
   @@index([isActive])
 }
 
+// 사이트 전역 설정 (키-값 JSON). StageOS 배너 등 어드민 설정형 항목 저장소.
+model SiteSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
 // 뉴스레터 구독자 (기존 운영 테이블을 채택해 baseline)
 model NewsletterSubscriber {
   id        String   @id @default(cuid())

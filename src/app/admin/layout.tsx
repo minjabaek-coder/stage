@@ -84,6 +84,12 @@ export default async function AdminLayout({
               >
                 API 로그
               </Link>
+              <Link
+                href="/admin/settings"
+                className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                설정
+              </Link>
             </nav>
           </div>
           <Link
