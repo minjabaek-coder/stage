@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ScrollToTopButton } from "./scroll-to-top-button";
+import { FamilySitesDropdown } from "./family-sites-dropdown";
 
 function FooterLink({ href, children }: { href: string; children: ReactNode }) {
   return (
@@ -10,19 +11,6 @@ function FooterLink({ href, children }: { href: string; children: ReactNode }) {
     >
       {children}
     </Link>
-  );
-}
-
-function FooterExtLink({ href, children }: { href: string; children: ReactNode }) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="block py-1 font-body text-[13px] text-white/45 transition-colors hover:text-gold"
-    >
-      {children}
-    </a>
   );
 }
 
@@ -39,14 +27,17 @@ export function Footer() {
     <footer className="bg-ink pb-[max(env(safe-area-inset-bottom),56px)] text-white/55 md:pb-0">
       {/* 모바일 하단 탭바(고정)에 가리지 않도록 하단 여백 */}
       <div className="mx-auto max-w-[1380px] px-3 sm:px-8">
-        {/* Top: logo + scroll-to-top */}
+        {/* Top: logo + 패밀리 사이트 + scroll-to-top */}
         <div className="flex items-center justify-between border-b border-white/10 py-8">
-          <Link
-            href="/"
-            className="font-headline text-xl font-black tracking-[-0.03em] text-white"
-          >
-            STAGE
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/"
+              className="font-headline text-xl font-black tracking-[-0.03em] text-white"
+            >
+              STAGE
+            </Link>
+            <FamilySitesDropdown />
+          </div>
           <ScrollToTopButton />
         </div>
 
@@ -98,11 +89,8 @@ export function Footer() {
             <FooterColHeading>정보</FooterColHeading>
             <FooterLink href="/about">STAGE 소개</FooterLink>
             <FooterLink href="/membership">STAGE Pro</FooterLink>
-            <FooterLink href="/contact">문의 · 제보 · 광고</FooterLink>
             <FooterLink href="/stageos">StageOS</FooterLink>
-            <FooterExtLink href="https://kairossebook.com">
-              Kairossebook ↗
-            </FooterExtLink>
+            <FooterLink href="/contact">문의 · 제보 · 광고</FooterLink>
           </div>
         </div>
 

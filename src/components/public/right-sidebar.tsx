@@ -111,21 +111,35 @@ export async function RightSidebar({
         {/* ③ StageOS (B 서브브랜드) */}
         <Link
           href="/stageos"
-          className="block rounded-[9px] border border-os-purple/20 bg-[linear-gradient(135deg,#0a0f1a,#111827)] p-4 text-white transition-opacity hover:opacity-95"
+          className="block rounded-[9px] border border-os-purple/20 bg-[linear-gradient(135deg,#0a0f1a,#111827)] p-4 transition-opacity hover:opacity-95"
         >
-          <span className="font-label text-[10px] font-bold uppercase tracking-[0.2em] text-os-purple-light">
-            ✦ StageOS
-          </span>
-          <p className="mt-2 text-sm leading-snug text-white/90">
-            문화예술 기관을 위한 AI 운영 플랫폼
+          <div className="flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-os-purple" />
+            <span className="font-label text-[9px] uppercase tracking-[0.2em] text-os-purple-light/60">
+              Coming Soon · StageOS
+            </span>
+          </div>
+          <p className="mt-2 font-headline text-base font-black tracking-tight text-white">
+            Stage<span className="text-os-purple">OS</span>
           </p>
-          <ul className="mt-2 space-y-0.5 text-[11px] text-white/55">
-            <li>· 모바일 브로셔 자동 생성</li>
-            <li>· 다국어 음성 해설</li>
-            <li>· 관객 데이터 분석</li>
+          <p className="mt-1 text-[11px] leading-relaxed text-white/45">
+            공연·전시·축제 주최사를 위한 AI 운영 플랫폼. 정보 한 번 입력으로 모든 것을 자동화.
+          </p>
+          <ul className="mt-2.5 space-y-1 text-[11px] text-white/55">
+            {[
+              "모바일 브로셔 자동 생성",
+              "다국어 음성 해설",
+              "관객 데이터 분석",
+              "AI 마에스트로 API",
+            ].map((f) => (
+              <li key={f} className="flex items-center gap-1.5">
+                <span className="text-os-purple">·</span>
+                {f}
+              </li>
+            ))}
           </ul>
-          <span className="mt-3 inline-block font-label text-[10px] uppercase tracking-widest text-os-purple-light">
-            자세히 보기 →
+          <span className="mt-3 block w-full rounded-md bg-[linear-gradient(135deg,#6366f1,#8b5cf6)] py-2 text-center font-label text-[10px] font-bold uppercase tracking-wider text-white">
+            얼리 액세스 신청 →
           </span>
         </Link>
 
@@ -148,13 +162,16 @@ export async function RightSidebar({
           </Widget>
         )}
 
-        {/* ⑤ 뉴스레터 */}
-        <Widget title="📮 STAGE Weekly">
-          <p className="mb-3 text-[11px] leading-relaxed text-taupe">
-            매주 토요일, 문화예술 이야기를 메일로.
+        {/* ⑤ 뉴스레터 (STAGE Weekly) */}
+        <div className="rounded-[9px] border border-ink/[0.08] bg-widget-bg p-4">
+          <p className="font-headline text-[15px] italic text-ink">
+            STAGE Weekly
+          </p>
+          <p className="mb-3 mt-1 text-[11px] leading-relaxed text-taupe">
+            매주 토요일 아침, 문화예술 이야기를 편지함으로.
           </p>
           <NewsletterForm source="sidebar" placeholder="이메일 주소" />
-        </Widget>
+        </div>
       </div>
     </aside>
   );

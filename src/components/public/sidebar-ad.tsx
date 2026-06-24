@@ -9,20 +9,22 @@ export type SidebarAdItem = {
   imageUrl: string | null;
 };
 
-// 사이드바 광고 위젯: 여러 광고를 30초 간격으로 로테이션. 노출 시 1회 카운팅,
-// 클릭은 /api/ads/[id]/click(302 → 링크)로 위임.
+// 사이드바 광고 위젯: 이미지 소재만 노출(스폰서·제목·문구는 소재 안에). 여러 광고는
+// 30초 간격 로테이션. 노출 시 1회 카운팅, 클릭은 /api/ads/[id]/click(302 → 링크)로 위임.
+// 'AD' 라벨은 표시광고법상 광고 식별 표시(소재와 별개로 플랫폼이 보장).
 export function SidebarAd({ ads }: { ads: SidebarAdItem[] }) {
+  const withImage = ads.filter((a) => a.imageUrl);
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
-    if (ads.length <= 1) return;
+    if (withImage.length <= 1) return;
     const t = setInterval(() => {
-      setIndex((i) => (i + 1) % ads.length);
+      setIndex((i) => (i + 1) % withImage.length);
     }, 30_000);
     return () => clearInterval(t);
-  }, [ads.length]);
+  }, [withImage.length]);
 
-  const ad = ads[index];
+  const ad = withImage[index];
   const firedFor = useRef<string | null>(null);
   useEffect(() => {
     if (!ad || firedFor.current === ad.id) return;
@@ -33,55 +35,36 @@ export function SidebarAd({ ads }: { ads: SidebarAdItem[] }) {
     }).catch(() => {});
   }, [ad]);
 
-  if (!ad) return null;
+  if (!ad || !ad.imageUrl) return null;
 
   return (
-    <div className="rounded-[9px] border border-ink/[0.08] bg-widget-bg p-3">
-      <a
-        href={`/api/ads/${ad.id}/click`}
-        target="_blank"
-        rel="noopener noreferrer sponsored"
-        className="group block"
-      >
-        {ad.imageUrl && (
-          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-md">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={ad.imageUrl}
-              alt={ad.title}
-              className="absolute inset-0 h-full w-full object-cover"
+    <a
+      href={`/api/ads/${ad.id}/click`}
+      target="_blank"
+      rel="noopener noreferrer sponsored"
+      className="group relative block aspect-[4/3] w-full overflow-hidden rounded-[9px] border border-ink/[0.08]"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={ad.imageUrl}
+        alt={ad.title || ad.sponsor}
+        className="absolute inset-0 h-full w-full object-cover"
+      />
+      <span className="absolute right-1.5 top-1.5 rounded bg-black/45 px-1.5 py-0.5 font-label text-[8px] uppercase tracking-wider text-white/75">
+        AD
+      </span>
+      {withImage.length > 1 && (
+        <div className="absolute bottom-1.5 left-1/2 flex -translate-x-1/2 gap-1">
+          {withImage.map((a, i) => (
+            <span
+              key={a.id}
+              className={`h-1 w-1 rounded-full ${
+                i === index ? "bg-white" : "bg-white/40"
+              }`}
             />
-          </div>
-        )}
-        <div className="mt-2">
-          <span className="font-label text-[9px] font-bold uppercase tracking-[0.15em] text-gold-deep">
-            광고 · {ad.sponsor}
-          </span>
-          <p className="mt-0.5 line-clamp-2 font-headline text-sm leading-snug text-ink group-hover:text-gold-deep">
-            {ad.title}
-          </p>
+          ))}
         </div>
-      </a>
-      <div className="mt-2 flex items-center justify-between">
-        {ads.length > 1 && (
-          <div className="flex gap-1">
-            {ads.map((a, i) => (
-              <span
-                key={a.id}
-                className={`h-1 w-1 rounded-full ${
-                  i === index ? "bg-gold-deep" : "bg-ink/20"
-                }`}
-              />
-            ))}
-          </div>
-        )}
-        <a
-          href="/contact"
-          className="ml-auto font-label text-[9px] uppercase tracking-wider text-ink/40 hover:text-gold-deep"
-        >
-          광고 문의
-        </a>
-      </div>
-    </div>
+      )}
+    </a>
   );
 }

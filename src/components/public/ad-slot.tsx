@@ -2,7 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { AdImpression } from "@/components/public/ad-impression";
 
 // 공개 광고 슬롯. placement·isActive·노출기간(start/end)에 맞는 활성 광고 1건을 렌더.
-// 매칭 광고가 없으면 아무것도 렌더하지 않는다. (노출/클릭 트래킹은 후속 단계)
+// 이미지 소재만 노출(스폰서·제목·설명은 소재 안에). 이미지 없는 광고는 노출하지 않음.
+// 'AD' 라벨은 표시광고법상 광고 식별 표시.
 export async function AdSlot({
   placement,
   className,
@@ -15,6 +16,7 @@ export async function AdSlot({
     where: {
       isActive: true,
       placement: { has: placement },
+      imageUrl: { not: null },
       AND: [
         { OR: [{ startDate: null }, { startDate: { lte: now } }] },
         { OR: [{ endDate: null }, { endDate: { gte: now } }] },
@@ -23,7 +25,7 @@ export async function AdSlot({
     orderBy: { createdAt: "desc" },
   });
 
-  if (!ad) return null;
+  if (!ad || !ad.imageUrl) return null;
 
   return (
     <aside className={className}>
@@ -32,32 +34,16 @@ export async function AdSlot({
         href={`/api/ads/${ad.id}/click`}
         target="_blank"
         rel="noopener noreferrer sponsored"
-        className="group flex items-center gap-5 overflow-hidden rounded-2xl border border-[#1c1b1b]/10 bg-[#f6f3f2] p-4 transition-colors hover:border-[#6f5c24]/40"
+        className="group relative block overflow-hidden rounded-2xl border border-ink/10 transition-colors hover:border-gold-deep/40"
       >
-        {ad.imageUrl && (
-          <div className="relative hidden aspect-[16/9] w-40 flex-shrink-0 overflow-hidden rounded-lg sm:block">
-            <img
-              src={ad.imageUrl}
-              alt={ad.title}
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-          </div>
-        )}
-        <div className="min-w-0 flex-1">
-          <span className="font-label text-[10px] font-bold uppercase tracking-[0.2em] text-[#6f5c24]">
-            광고 · {ad.sponsor}
-          </span>
-          <p className="mt-1 font-headline text-xl leading-snug group-hover:text-[#6f5c24]">
-            {ad.title}
-          </p>
-          {ad.description && (
-            <p className="mt-1 line-clamp-1 text-sm text-[#444748]">
-              {ad.description}
-            </p>
-          )}
-        </div>
-        <span className="font-label text-[11px] uppercase tracking-wider text-[#6f5c24] opacity-0 transition-opacity group-hover:opacity-100">
-          보기 →
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={ad.imageUrl}
+          alt={ad.title || ad.sponsor}
+          className="block w-full"
+        />
+        <span className="absolute right-2 top-2 rounded bg-black/45 px-1.5 py-0.5 font-label text-[9px] uppercase tracking-wider text-white/75">
+          AD
         </span>
       </a>
     </aside>
