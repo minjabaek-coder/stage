@@ -54,6 +54,8 @@ export default async function EditArticlePage({
           slug: article.slug,
           author: article.author,
           section: article.section,
+          genre: article.genre,
+          subCategory: article.subCategory,
           content: article.content,
           thumbnailUrl: article.thumbnailUrl,
           publishedAt: article.publishedAt,

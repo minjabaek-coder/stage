@@ -11,6 +11,10 @@ import { RichTextEditor } from "./rich-text-editor";
 import { toast } from "sonner";
 import { ACCEPTED_IMAGE_TYPES, MAX_FILE_SIZE } from "@/lib/constants";
 import { uploadBlogImage } from "@/lib/upload-client";
+import {
+  ARTICLE_GENRES,
+  ARTICLE_SUBCATEGORIES,
+} from "@/lib/article-taxonomy";
 
 type FormState = { error?: string; success?: boolean } | undefined;
 
@@ -96,6 +100,8 @@ export function ArticleForm({
     slug?: string;
     author?: string;
     section?: string;
+    genre?: string | null;
+    subCategory?: string | null;
     content?: string;
     thumbnailUrl?: string | null;
     publishedAt?: Date | null;
@@ -250,17 +256,52 @@ export function ArticleForm({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="section">섹션</Label>
+                <Label htmlFor="section">섹션 (뷰어 표시용)</Label>
                 <Input
                   id="section"
                   name="section"
                   list="article-sections"
                   value={section}
                   onChange={(e) => setSection(e.target.value)}
-                  placeholder="커버스토리 / 인터뷰 …"
+                  placeholder="커버스토리 / 오페라산책 …"
                 />
                 <datalist id="article-sections">
                   {SECTIONS.map((s) => (
+                    <option key={s} value={s} />
+                  ))}
+                </datalist>
+              </div>
+            </div>
+
+            {/* 택소노미(목록 필터·카드용) — 단독기사와 공유. 섹션과 별개. */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="genre">장르 (목록 분류)</Label>
+                <select
+                  id="genre"
+                  name="genre"
+                  defaultValue={defaultValues?.genre ?? ""}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  <option value="">선택 안 함</option>
+                  {ARTICLE_GENRES.map((g) => (
+                    <option key={g} value={g}>
+                      {g}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="subCategory">유형 (목록 분류)</Label>
+                <Input
+                  id="subCategory"
+                  name="subCategory"
+                  list="mag-article-subcats"
+                  defaultValue={defaultValues?.subCategory ?? ""}
+                  placeholder="리뷰·인터뷰·칼럼 등 (직접입력 가능)"
+                />
+                <datalist id="mag-article-subcats">
+                  {ARTICLE_SUBCATEGORIES.map((s) => (
                     <option key={s} value={s} />
                   ))}
                 </datalist>

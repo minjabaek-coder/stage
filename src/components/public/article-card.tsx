@@ -22,6 +22,12 @@ type ArticleCardData = Pick<
 };
 
 export function ArticleCard({ article }: { article: ArticleCardData }) {
+  // 키커: 장르(없으면 유형, 그래도 없으면 섹션)를 골드 주요 라벨로,
+  // 나머지(유형·호수)를 muted로 — 주요 라벨과 중복되는 값은 제거.
+  const primary = article.genre || article.subCategory || article.category;
+  const muted = [article.subCategory, article.issueLabel].filter(
+    (v): v is string => Boolean(v) && v !== primary,
+  );
   return (
     <Link href={article.href ?? `/articles/${article.slug}`} className="group block">
       <div className="relative aspect-video w-full overflow-hidden bg-ink-deep">
@@ -47,16 +53,19 @@ export function ArticleCard({ article }: { article: ArticleCardData }) {
       </div>
       <div className="mt-3">
         <span className="flex items-center gap-1.5">
-          {(article.genre || article.category) && (
+          {primary && (
             <span className="font-label text-[11px] font-bold uppercase tracking-[0.15em] text-gold-deep">
-              {article.genre || article.category}
+              {primary}
             </span>
           )}
-          {(article.subCategory || article.issueLabel) && (
-            <span className="font-label text-[11px] font-semibold tracking-wide text-taupe">
-              · {article.subCategory || article.issueLabel}
+          {muted.map((part, i) => (
+            <span
+              key={i}
+              className="font-label text-[11px] font-semibold tracking-wide text-taupe"
+            >
+              · {part}
             </span>
-          )}
+          ))}
         </span>
         <h3 className="mt-1 line-clamp-2 font-semibold text-ink transition-colors group-hover:text-gold-deep">
           {article.title}

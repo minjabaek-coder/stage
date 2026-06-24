@@ -78,6 +78,8 @@ export default async function ArticlesPage({
         content: true,
         author: true,
         section: true,
+        genre: true,
+        subCategory: true,
         publishedAt: true,
         thumbnailUrl: true,
         magazineId: true,
@@ -86,10 +88,13 @@ export default async function ArticlesPage({
     }),
   ]);
 
-  // 매거진 기사를 카드 형태로 정규화. 대분류(장르)는 section 포함으로 근사.
-  // 소분류(?sub=)는 매거진 기사에 없으므로 sub 필터가 켜지면 매거진 기사는 제외(단독기사 전용).
-  const magCards: CardItem[] = (sub ? [] : magArticles)
-    .filter((m) => !genre || (m.section ?? "").includes(genre))
+  // 매거진 기사도 단독기사와 동일 택소노미(genre·subCategory)로 필터.
+  // 카드 키커는 장르 · 유형(· 호수). 장르/유형 미지정 시 섹션을 키커 폴백으로.
+  const magCards: CardItem[] = magArticles
+    .filter(
+      (m) =>
+        (!genre || m.genre === genre) && (!sub || m.subCategory === sub)
+    )
     .map((m) => ({
       id: m.id,
       slug: m.slug,
@@ -97,6 +102,8 @@ export default async function ArticlesPage({
       excerpt: excerptFromHtml(m.content),
       author: m.author ?? "",
       category: m.section ?? "",
+      genre: m.genre,
+      subCategory: m.subCategory,
       publishedAt: m.publishedAt,
       thumbnailUrl: m.thumbnailUrl,
       isPremium: false,

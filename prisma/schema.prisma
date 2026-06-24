@@ -81,7 +81,9 @@ model MagazineArticle {
   slug         String
   content      String         @default("") @db.Text
   author       String         @default("")
-  section      String         @default("")
+  section      String         @default("") // eBook 뷰어 표시용 편집 라벨(코너): 커버스토리·오페라산책 등
+  genre        String?        // 대분류(장르) — 목록 필터/카드용, Article과 공유 택소노미
+  subCategory  String?        // 소분류(유형) — 목록 필터/카드용
   thumbnailUrl String?
   // 배경 이미지 오버레이 모드 등 페이지 표시 설정(JSONB). null = 기본(텍스트) 레이아웃.
   // { bgMode, bgImageUrl, bgDarkness(0~90), titleColor, bodyColor, labelColor }
@@ -98,6 +100,7 @@ model MagazineArticle {
 
   @@unique([magazineId, slug])
   @@index([magazineId, sortOrder])
+  @@index([genre])
 }
 
 // 매거진 아티클 RAG 임베딩 청크 (pgvector). HNSW 인덱스는 마이그레이션 raw SQL로 생성(Prisma 미표현).
