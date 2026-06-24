@@ -100,7 +100,7 @@ export async function publishMagazine(id: string) {
     where: { id },
     include: {
       _count: {
-        select: { pages: true, articles: true },
+        select: { pages: true },
       },
     },
   });
@@ -109,12 +109,9 @@ export async function publishMagazine(id: string) {
     return { error: "매거진을 찾을 수 없습니다" };
   }
 
-  if (magazine.contentType === "image" && magazine._count.pages === 0) {
+  // 매거진은 페이지로 구성된다(기사는 독립 Article). 이미지·구성형 모두 최소 1장 필요.
+  if (magazine._count.pages === 0) {
     return { error: "최소 1장의 페이지가 필요합니다" };
-  }
-
-  if (magazine.contentType === "web" && magazine._count.articles === 0) {
-    return { error: "최소 1개의 아티클이 필요합니다" };
   }
 
   await prisma.magazine.update({
@@ -140,15 +137,14 @@ export async function unpublishMagazine(id: string) {
 }
 
 export async function deleteMagazine(id: string) {
-  // Collect all Storage-backed URLs before deletion. Cascade removes the DB
-  // rows (pages, articles) but NOT the Supabase Storage objects, so gather them
-  // up front and clean them after the DB delete to avoid orphaned files.
+  // Collect Storage-backed URLs before deletion. Cascade removes pages (NOT the
+  // Storage objects), so gather them up front. 기사(Article)는 매거진 소유가 아니라
+  // 독립 콘텐츠이므로 매거진 삭제 시 함께 지우지 않는다(페이지 연동만 해제됨).
   const magazine = await prisma.magazine.findUnique({
     where: { id },
     select: {
       coverImageUrl: true,
       pages: { select: { imageUrl: true } },
-      articles: { select: { thumbnailUrl: true } },
     },
   });
 
@@ -161,9 +157,6 @@ export async function deleteMagazine(id: string) {
   const urls = new Set<string>();
   if (magazine.coverImageUrl) urls.add(magazine.coverImageUrl);
   for (const page of magazine.pages) if (page.imageUrl) urls.add(page.imageUrl);
-  for (const article of magazine.articles) {
-    if (article.thumbnailUrl) urls.add(article.thumbnailUrl);
-  }
 
   // Best-effort cleanup; failures are logged inside deleteUploadedFile and must
   // not block the deletion that already succeeded in the DB.

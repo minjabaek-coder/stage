@@ -152,7 +152,12 @@ function FocusPicker({
   );
 }
 
-type ArticleOpt = { id: string; title: string; section: string };
+type ArticleOpt = {
+  id: string;
+  title: string;
+  genre?: string | null;
+  subCategory?: string | null;
+};
 
 export function PageEditor({
   magazineId,
@@ -310,9 +315,15 @@ export function PageEditor({
             className="rounded border px-2 py-1 text-sm"
           >
             <option value="">없음</option>
-            {articles.map((a) => (
-              <option key={a.id} value={a.id}>{a.section ? `[${a.section}] ` : ""}{a.title}</option>
-            ))}
+            {articles.map((a) => {
+              const tag = a.genre || a.subCategory;
+              return (
+                <option key={a.id} value={a.id}>
+                  {tag ? `[${tag}] ` : ""}
+                  {a.title}
+                </option>
+              );
+            })}
           </select>
           <button
             type="button"

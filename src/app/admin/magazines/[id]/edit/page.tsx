@@ -1,13 +1,11 @@
 export const dynamic = "force-dynamic";
 
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { MagazineForm } from "@/components/admin/magazine-form";
 import { PageUploadZone } from "@/components/admin/page-upload-zone";
 import { PageListSortable } from "@/components/admin/page-list-sortable";
 import { ComposedPageManager } from "@/components/admin/composed-page-manager";
-import { ArticleListSortable } from "@/components/admin/magazine-article-list-sortable";
 import { StatusActions } from "@/components/admin/status-actions";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { TocEditor } from "@/components/admin/toc-editor";
@@ -26,7 +24,6 @@ export default async function EditMagazinePage({
     include: {
       pages: { orderBy: { sortOrder: "asc" } },
       tocEntries: { orderBy: { sortOrder: "asc" } },
-      articles: { orderBy: { sortOrder: "asc" } },
     },
   });
 
@@ -106,36 +103,6 @@ export default async function EditMagazinePage({
                   articleId: p.articleId,
                 }))}
               />
-            </CardContent>
-          </Card>
-        ) : isWeb ? (
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>아티클 관리</CardTitle>
-              <Link
-                href={`/admin/magazines/${magazine.id}/articles/new`}
-                className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-              >
-                + 새 아티클
-              </Link>
-            </CardHeader>
-            <CardContent>
-              {magazine.articles.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  아직 아티클이 없습니다. 위 버튼으로 추가하세요.
-                </p>
-              ) : (
-                <>
-                  <p className="mb-2 text-xs text-muted-foreground">
-                    ⠿ 드래그(모바일은 ↑↓)로 순서를 변경하면 뷰어 페이지 순서에
-                    반영됩니다.
-                  </p>
-                  <ArticleListSortable
-                    articles={magazine.articles}
-                    magazineId={magazine.id}
-                  />
-                </>
-              )}
             </CardContent>
           </Card>
         ) : (

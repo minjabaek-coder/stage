@@ -39,7 +39,6 @@ model Magazine {
   publishedAt   DateTime?
   pages         MagazinePage[]
   tocEntries    MagazineTocEntry[]
-  articles      MagazineArticle[]
 
   @@index([status, publishedAt(sort: Desc)])
 }
@@ -51,11 +50,11 @@ model MagazinePage {
   kind       MagazinePageKind @default(image)
   imageUrl   String? // kind=image (1~38호 완성 이미지)
   layout     Json? // kind=composed (39호+ 자유배치 레이아웃: { blocks: [...] })
-  articleId  String? // 이 페이지가 표현하는 기사(선택) — 기사↔페이지 연동
+  articleId  String? // 이 페이지가 싣는 기사(선택) — 페이지↔Article 연동("실린 곳")
   sortOrder  Int
   createdAt  DateTime         @default(now())
   magazine   Magazine         @relation(fields: [magazineId], references: [id], onDelete: Cascade)
-  article    MagazineArticle? @relation(fields: [articleId], references: [id], onDelete: SetNull)
+  article    Article?         @relation(fields: [articleId], references: [id], onDelete: SetNull)
 
   @@unique([magazineId, sortOrder])
   @@index([magazineId, sortOrder])
@@ -72,49 +71,6 @@ model MagazineTocEntry {
   magazine   Magazine @relation(fields: [magazineId], references: [id], onDelete: Cascade)
 
   @@index([magazineId, sortOrder])
-}
-
-model MagazineArticle {
-  id           String         @id @default(cuid())
-  magazineId   String
-  title        String
-  slug         String
-  content      String         @default("") @db.Text
-  author       String         @default("")
-  section      String         @default("") // eBook 뷰어 표시용 편집 라벨(코너): 커버스토리·오페라산책 등
-  genre        String?        // 대분류(장르) — 목록 필터/카드용, Article과 공유 택소노미
-  subCategory  String?        // 소분류(유형) — 목록 필터/카드용
-  thumbnailUrl String?
-  // 배경 이미지 오버레이 모드 등 페이지 표시 설정(JSONB). null = 기본(텍스트) 레이아웃.
-  // { bgMode, bgImageUrl, bgDarkness(0~90), titleColor, bodyColor, labelColor }
-  layoutOptions Json?
-  sortOrder    Int
-  isCoverStory Boolean        @default(false)
-  status       BlogPostStatus @default(draft)
-  publishedAt  DateTime?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  magazine     Magazine       @relation(fields: [magazineId], references: [id], onDelete: Cascade)
-  chunks       MagazineArticleChunk[]
-  pages        MagazinePage[] // 이 기사가 실린 매거진 페이지(들) — 기사↔페이지 연동
-
-  @@unique([magazineId, slug])
-  @@index([magazineId, sortOrder])
-  @@index([genre])
-}
-
-// 매거진 아티클 RAG 임베딩 청크 (pgvector). HNSW 인덱스는 마이그레이션 raw SQL로 생성(Prisma 미표현).
-model MagazineArticleChunk {
-  id         String                       @id @default(dbgenerated("gen_random_uuid()::text"))
-  articleId  String
-  chunkIndex Int
-  title      String
-  content    String                       @db.Text
-  embedding  Unsupported("vector(1024)")?
-  createdAt  DateTime                     @default(now())
-  article    MagazineArticle              @relation(fields: [articleId], references: [id], onDelete: Cascade)
-
-  @@index([articleId])
 }
 
 enum BlogPostStatus {
@@ -188,6 +144,7 @@ model Article {
   updatedAt    DateTime       @updatedAt
   bookmarks    Bookmark[]
   chunks       ArticleChunk[]
+  magazinePages MagazinePage[] // 이 기사를 싣는 매거진 페이지(들) — "실린 곳"
 
   @@index([status, publishedAt(sort: Desc)])
   @@index([category])

@@ -87,46 +87,7 @@ export async function generateEmbeddings(
   }
 }
 
-// 매거진 아티클(MagazineArticle) 본문을 청크·임베딩하여 MagazineArticleChunk에 저장.
-// (MagazineArticle에는 embeddingStatus가 없어 상태 추적 없이 best-effort로 동작)
-export async function generateMagazineArticleEmbeddings(
-  articleId: string,
-): Promise<void> {
-  const article = await prisma.magazineArticle.findUnique({
-    where: { id: articleId },
-    select: { id: true, title: true, content: true },
-  });
-  if (!article || !article.content) return;
-
-  const chunks = chunkBlogContent(article.content, article.title);
-
-  await prisma.$queryRawUnsafe(
-    `DELETE FROM "MagazineArticleChunk" WHERE "articleId" = $1`,
-    articleId,
-  );
-
-  if (chunks.length > 0) {
-    const embeddings = await embedDocuments(chunks.map((c) => c.content));
-    for (let i = 0; i < chunks.length; i++) {
-      const vec = `[${embeddings[i].join(",")}]`;
-      await prisma.$queryRawUnsafe(
-        `INSERT INTO "MagazineArticleChunk" ("id", "articleId", "chunkIndex", "title", "content", "embedding")
-         VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5::vector)`,
-        articleId,
-        chunks[i].chunkIndex,
-        chunks[i].title,
-        chunks[i].content,
-        vec,
-      );
-    }
-  }
-
-  console.log(
-    `[RAG] Generated ${chunks.length} magazine chunks for "${article.title}"`,
-  );
-}
-
-// 단독 기사(Article) 임베딩. aiIndexable=false거나 본문 없으면 청크를 제거하고 종료.
+// 기사(Article) 임베딩. aiIndexable=false거나 본문 없으면 청크를 제거하고 종료.
 export async function generateArticleEmbeddings(
   articleId: string,
 ): Promise<void> {

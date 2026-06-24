@@ -9,14 +9,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [magazines, blogPosts, articles, cultureEvents] = await Promise.all([
     prisma.magazine.findMany({
       where: { status: "published" },
-      select: {
-        id: true,
-        updatedAt: true,
-        articles: {
-          where: { status: "published" },
-          select: { slug: true, updatedAt: true },
-        },
-      },
+      select: { id: true, updatedAt: true },
     }),
     prisma.blogPost.findMany({
       where: { status: "published" },
@@ -98,20 +91,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
-  const magazineRoutes: MetadataRoute.Sitemap = magazines.flatMap((m) => [
-    {
-      url: `${SITE_URL}/magazines/${m.id}`,
-      lastModified: m.updatedAt,
-      changeFrequency: "monthly" as const,
-      priority: 0.7,
-    },
-    ...m.articles.map((a) => ({
-      url: `${SITE_URL}/magazines/${m.id}/${a.slug}`,
-      lastModified: a.updatedAt,
-      changeFrequency: "monthly" as const,
-      priority: 0.6,
-    })),
-  ]);
+  // 매거진 뷰어 URL만(매거진기사는 단일 Article로 병합 → 아래 articleRoutes가 커버).
+  const magazineRoutes: MetadataRoute.Sitemap = magazines.map((m) => ({
+    url: `${SITE_URL}/magazines/${m.id}`,
+    lastModified: m.updatedAt,
+    changeFrequency: "monthly" as const,
+    priority: 0.7,
+  }));
 
   const blogRoutes: MetadataRoute.Sitemap = blogPosts.map((p) => ({
     url: `${SITE_URL}/blog/${p.slug}`,

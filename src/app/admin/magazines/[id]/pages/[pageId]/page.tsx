@@ -13,10 +13,10 @@ export default async function ComposedPageEditorRoute({
   const { id, pageId } = await params;
   const [page, articles] = await Promise.all([
     prisma.magazinePage.findUnique({ where: { id: pageId } }),
-    prisma.magazineArticle.findMany({
-      where: { magazineId: id },
-      orderBy: { sortOrder: "asc" },
-      select: { id: true, title: true, section: true },
+    // 페이지가 "싣는 기사"로 연동할 후보 — 단일 Article 모델(전체). 최신순.
+    prisma.article.findMany({
+      orderBy: { createdAt: "desc" },
+      select: { id: true, title: true, genre: true, subCategory: true },
     }),
   ]);
   if (!page || page.magazineId !== id) notFound();
