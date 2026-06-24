@@ -165,7 +165,7 @@ export function ArticleForm({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="genre">대분류 (장르)</Label>
+                <Label htmlFor="genre">장르</Label>
                 <select
                   id="genre"
                   name="genre"
@@ -181,7 +181,7 @@ export function ArticleForm({
                 </select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="subCategory">소분류 (형식)</Label>
+                <Label htmlFor="subCategory">유형</Label>
                 <Input
                   id="subCategory"
                   name="subCategory"

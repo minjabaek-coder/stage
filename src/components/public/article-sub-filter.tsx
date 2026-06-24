@@ -6,8 +6,8 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { ChevronDownIcon } from "lucide-react";
 import { ARTICLE_SUBCATEGORIES } from "@/lib/article-taxonomy";
 
-// 소분류(형식) 필터 — "N개의 기사" 라인 우측에서 클릭하면 펼쳐지는 칩 목록.
-// 현재 대분류(?genre=)는 유지하고 ?sub= 만 토글(AND 결합).
+// 기사 유형(소분류/subCategory) 필터 — "N개의 기사" 라인 우측에서 펼쳐지는 칩.
+// 사용자 노출 라벨은 "유형"(내부 용어 소분류 대신). 장르(?genre=)는 유지하고 ?sub= 만 토글(AND).
 export function ArticleSubFilter() {
   const pathname = usePathname();
   const params = useSearchParams();
@@ -29,7 +29,7 @@ export function ArticleSubFilter() {
         aria-expanded={open}
         className="inline-flex items-center gap-1 font-label text-[11px] uppercase tracking-wider text-ink/60 transition-colors hover:text-gold-deep"
       >
-        {activeSub ?? "소분류"}
+        {activeSub ?? "유형"}
         <ChevronDownIcon
           className={`size-3.5 transition-transform ${open ? "rotate-180" : ""}`}
         />
