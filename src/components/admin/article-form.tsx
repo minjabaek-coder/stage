@@ -286,16 +286,15 @@ export function ArticleForm({
                 {uploading ? (
                   <p className="text-sm text-gray-500">업로드 중...</p>
                 ) : thumbnailUrl ? (
-                  <div className="relative mx-auto aspect-video w-full max-w-xs overflow-hidden rounded">
+                  <div className="relative mx-auto aspect-video w-full max-w-xs overflow-hidden rounded bg-gray-50">
                     <img
                       src={thumbnailUrl}
-                      alt="썸네일 미리보기 (카드 16:9)"
-                      className="absolute inset-0 h-full w-full object-cover"
-                      style={{
-                        objectPosition: `${focusX}% ${focusY}%`,
-                        transform: zoom !== 1 ? `scale(${zoom})` : undefined,
-                      }}
+                      alt="업로드된 원본"
+                      className="absolute inset-0 h-full w-full object-contain"
                     />
+                    <span className="absolute bottom-1 left-1 rounded bg-black/50 px-1.5 py-0.5 text-[10px] text-white">
+                      원본 (클릭해 교체)
+                    </span>
                   </div>
                 ) : (
                   <div className="space-y-1">
@@ -322,6 +321,50 @@ export function ArticleForm({
                     }}
                     onZoomChange={setZoom}
                   />
+
+                  {/* 결과 미리보기 — 같은 초점·줌이 비율이 다른 두 곳에 어떻게 적용되는지 */}
+                  <div className="space-y-1.5">
+                    <span className="block text-xs font-medium text-gray-600">
+                      결과 미리보기 (목록 카드 · 상세 히어로)
+                    </span>
+                    <div className="flex gap-2">
+                      <div className="w-1/2 space-y-0.5">
+                        <span className="block text-[10px] text-gray-400">
+                          목록 카드 (16:9)
+                        </span>
+                        <div className="aspect-video w-full overflow-hidden rounded border bg-gray-100">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={thumbnailUrl}
+                            alt="카드 미리보기"
+                            className="h-full w-full object-cover"
+                            style={{
+                              objectPosition: `${focusX}% ${focusY}%`,
+                              transform: zoom !== 1 ? `scale(${zoom})` : undefined,
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <div className="w-1/2 space-y-0.5">
+                        <span className="block text-[10px] text-gray-400">
+                          상세 히어로 (와이드)
+                        </span>
+                        <div className="aspect-[5/2] w-full overflow-hidden rounded border bg-gray-100">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={thumbnailUrl}
+                            alt="히어로 미리보기"
+                            className="h-full w-full object-cover"
+                            style={{
+                              objectPosition: `${focusX}% ${focusY}%`,
+                              transform: zoom !== 1 ? `scale(${zoom})` : undefined,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   <p className="text-[11px] text-gray-400">
                     초점·줌은 카드/상세 썸네일 크롭에만 적용되며 원본은 보존됩니다.
                   </p>
