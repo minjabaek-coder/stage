@@ -15,6 +15,7 @@ import {
   ARTICLE_GENRES,
   ARTICLE_SUBCATEGORIES,
 } from "@/lib/article-taxonomy";
+import { FocusPicker } from "@/components/admin/focus-picker";
 
 type FormState = { error?: string; success?: boolean } | undefined;
 
@@ -46,6 +47,9 @@ export function ArticleForm({
     tags?: string[];
     content?: string;
     thumbnailUrl?: string | null;
+    thumbnailFocusX?: number | null;
+    thumbnailFocusY?: number | null;
+    thumbnailZoom?: number | null;
     isFeatured?: boolean;
     isPremium?: boolean;
     aiIndexable?: boolean;
@@ -62,6 +66,10 @@ export function ArticleForm({
   const [slug, setSlug] = useState(defaultValues?.slug || "");
   const [title, setTitle] = useState(defaultValues?.title || "");
   const [uploading, setUploading] = useState(false);
+  // 썸네일 비파괴 크롭(초점+줌)
+  const [focusX, setFocusX] = useState(defaultValues?.thumbnailFocusX ?? 50);
+  const [focusY, setFocusY] = useState(defaultValues?.thumbnailFocusY ?? 50);
+  const [zoom, setZoom] = useState(defaultValues?.thumbnailZoom ?? 1);
 
   useEffect(() => {
     if (state?.success) {
@@ -78,6 +86,10 @@ export function ArticleForm({
     try {
       const url = await uploadBlogImage(file);
       setThumbnailUrl(url);
+      // 새 이미지 업로드 시 크롭 초기화
+      setFocusX(50);
+      setFocusY(50);
+      setZoom(1);
     } catch (e) {
       toast.error(
         e instanceof Error ? e.message : "업로드 중 오류가 발생했습니다"
@@ -116,6 +128,9 @@ export function ArticleForm({
           <form id={formId} action={formAction} className="space-y-4">
             <input type="hidden" name="content" value={content} />
             <input type="hidden" name="thumbnailUrl" value={thumbnailUrl} />
+            <input type="hidden" name="thumbnailFocusX" value={focusX} />
+            <input type="hidden" name="thumbnailFocusY" value={focusY} />
+            <input type="hidden" name="thumbnailZoom" value={zoom} />
 
             <div className="space-y-2">
               <Label htmlFor="title">제목</Label>
@@ -274,8 +289,12 @@ export function ArticleForm({
                   <div className="relative mx-auto aspect-video w-full max-w-xs overflow-hidden rounded">
                     <img
                       src={thumbnailUrl}
-                      alt="썸네일 미리보기"
+                      alt="썸네일 미리보기 (카드 16:9)"
                       className="absolute inset-0 h-full w-full object-cover"
+                      style={{
+                        objectPosition: `${focusX}% ${focusY}%`,
+                        transform: zoom !== 1 ? `scale(${zoom})` : undefined,
+                      }}
                     />
                   </div>
                 ) : (
@@ -291,14 +310,44 @@ export function ArticleForm({
                 )}
               </div>
               {thumbnailUrl && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setThumbnailUrl("")}
-                >
-                  썸네일 제거
-                </Button>
+                <div className="space-y-3 rounded-lg border border-gray-200 p-3">
+                  <FocusPicker
+                    src={thumbnailUrl}
+                    focusX={focusX}
+                    focusY={focusY}
+                    zoom={zoom}
+                    onChange={(x, y) => {
+                      setFocusX(x);
+                      setFocusY(y);
+                    }}
+                    onZoomChange={setZoom}
+                  />
+                  <p className="text-[11px] text-gray-400">
+                    초점·줌은 카드/상세 썸네일 크롭에만 적용되며 원본은 보존됩니다.
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setFocusX(50);
+                        setFocusY(50);
+                        setZoom(1);
+                      }}
+                    >
+                      크롭 초기화
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setThumbnailUrl("")}
+                    >
+                      썸네일 제거
+                    </Button>
+                  </div>
+                </div>
               )}
             </div>
 

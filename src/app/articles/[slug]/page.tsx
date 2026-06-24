@@ -31,6 +31,9 @@ const getArticleMeta = cache(async (slug: string) => {
       category: true,
       tags: true,
       thumbnailUrl: true,
+      thumbnailFocusX: true,
+      thumbnailFocusY: true,
+      thumbnailZoom: true,
       isPremium: true,
       publishedAt: true,
     },
@@ -136,6 +139,12 @@ export default async function ArticlePage({
             src={article.thumbnailUrl}
             alt={article.title}
             className="absolute inset-0 h-full w-full object-cover"
+            style={{
+              objectPosition: `${article.thumbnailFocusX ?? 50}% ${article.thumbnailFocusY ?? 50}%`,
+              ...(article.thumbnailZoom && article.thumbnailZoom !== 1
+                ? { transform: `scale(${article.thumbnailZoom})` }
+                : {}),
+            }}
           />
         </div>
       )}

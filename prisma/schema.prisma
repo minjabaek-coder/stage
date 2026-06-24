@@ -134,6 +134,9 @@ model Article {
   subCategory  String?        // 소분류(형식): 리뷰·프리뷰·인터뷰·공연소식·전시소식·칼럼·에세이·현장스케치·기획
   tags         String[]
   thumbnailUrl String?
+  thumbnailFocusX Float?      // 썸네일 크롭 초점 X%(null=50) — 비파괴 크롭(objectPosition)
+  thumbnailFocusY Float?      // 썸네일 크롭 초점 Y%(null=50)
+  thumbnailZoom   Float?      // 썸네일 줌 배율(null=1)
   isFeatured   Boolean        @default(false)
   isPremium    Boolean        @default(false)
   aiIndexable  Boolean        @default(true)

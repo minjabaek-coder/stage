@@ -16,6 +16,10 @@ type ArticleCardData = Pick<
   // 택소노미: 대분류(genre)·소분류(subCategory) — 단독기사
   genre?: string | null;
   subCategory?: string | null;
+  // 썸네일 비파괴 크롭(초점+줌)
+  thumbnailFocusX?: number | null;
+  thumbnailFocusY?: number | null;
+  thumbnailZoom?: number | null;
   // 매거진 기사 병합 노출용 — 링크 경로 오버라이드 및 호수 라벨(선택)
   href?: string;
   issueLabel?: string | null;
@@ -37,6 +41,12 @@ export function ArticleCard({ article }: { article: ArticleCardData }) {
             src={article.thumbnailUrl}
             alt={article.title}
             className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            style={{
+              objectPosition: `${article.thumbnailFocusX ?? 50}% ${article.thumbnailFocusY ?? 50}%`,
+              ...(article.thumbnailZoom && article.thumbnailZoom !== 1
+                ? { transform: `scale(${article.thumbnailZoom})` }
+                : {}),
+            }}
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center">

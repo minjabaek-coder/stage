@@ -42,6 +42,9 @@ export default async function ArticlesPage({
       subCategory: true,
       publishedAt: true,
       thumbnailUrl: true,
+      thumbnailFocusX: true,
+      thumbnailFocusY: true,
+      thumbnailZoom: true,
       isPremium: true,
     },
   });
