@@ -55,6 +55,7 @@ export default async function EditArticlePage({
             thumbnailFocusX: article.thumbnailFocusX,
             thumbnailFocusY: article.thumbnailFocusY,
             thumbnailZoom: article.thumbnailZoom,
+            heroAspect: article.heroAspect,
             isFeatured: article.isFeatured,
             isPremium: article.isPremium,
             aiIndexable: article.aiIndexable,

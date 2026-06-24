@@ -14,6 +14,8 @@ import { uploadBlogImage } from "@/lib/upload-client";
 import {
   ARTICLE_GENRES,
   ARTICLE_SUBCATEGORIES,
+  ARTICLE_HERO_ASPECTS,
+  heroAspectRatio,
 } from "@/lib/article-taxonomy";
 import { FocusPicker } from "@/components/admin/focus-picker";
 
@@ -50,6 +52,7 @@ export function ArticleForm({
     thumbnailFocusX?: number | null;
     thumbnailFocusY?: number | null;
     thumbnailZoom?: number | null;
+    heroAspect?: string | null;
     isFeatured?: boolean;
     isPremium?: boolean;
     aiIndexable?: boolean;
@@ -70,6 +73,9 @@ export function ArticleForm({
   const [focusX, setFocusX] = useState(defaultValues?.thumbnailFocusX ?? 50);
   const [focusY, setFocusY] = useState(defaultValues?.thumbnailFocusY ?? 50);
   const [zoom, setZoom] = useState(defaultValues?.thumbnailZoom ?? 1);
+  const [heroAspect, setHeroAspect] = useState(
+    defaultValues?.heroAspect ?? "standard",
+  );
 
   useEffect(() => {
     if (state?.success) {
@@ -131,6 +137,7 @@ export function ArticleForm({
             <input type="hidden" name="thumbnailFocusX" value={focusX} />
             <input type="hidden" name="thumbnailFocusY" value={focusY} />
             <input type="hidden" name="thumbnailZoom" value={zoom} />
+            <input type="hidden" name="heroAspect" value={heroAspect} />
 
             <div className="space-y-2">
               <Label htmlFor="title">제목</Label>
@@ -346,10 +353,27 @@ export function ArticleForm({
                         </div>
                       </div>
                       <div className="w-1/2 space-y-0.5">
-                        <span className="block text-[10px] text-gray-400">
-                          상세 히어로 (와이드)
-                        </span>
-                        <div className="aspect-[5/2] w-full overflow-hidden rounded border bg-gray-100">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-gray-400">
+                            상세 히어로
+                          </span>
+                          <select
+                            value={heroAspect}
+                            onChange={(e) => setHeroAspect(e.target.value)}
+                            className="rounded border px-1 py-0.5 text-[10px]"
+                            aria-label="히어로 비율"
+                          >
+                            {ARTICLE_HERO_ASPECTS.map((a) => (
+                              <option key={a.key} value={a.key}>
+                                {a.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div
+                          className="w-full overflow-hidden rounded border bg-gray-100"
+                          style={{ aspectRatio: heroAspectRatio(heroAspect) }}
+                        >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={thumbnailUrl}

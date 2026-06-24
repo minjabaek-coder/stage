@@ -13,6 +13,7 @@ import { BookmarkButton } from "@/components/public/bookmark-button";
 import { ArticleMaestroWidget } from "@/components/public/article-maestro-widget";
 import { DocentChatFAB } from "@/components/public/docent-chat";
 import { formatKSTDate } from "@/lib/format";
+import { heroAspectRatio } from "@/lib/article-taxonomy";
 
 // 비프로덕션(preview·로컬)에서는 미발행(draft) 기사도 열람 허용 — 목록 정책과 동일.
 const ALLOW_DRAFT = process.env.VERCEL_ENV !== "production";
@@ -36,6 +37,7 @@ const getArticleMeta = cache(async (slug: string) => {
       thumbnailFocusX: true,
       thumbnailFocusY: true,
       thumbnailZoom: true,
+      heroAspect: true,
       isPremium: true,
       publishedAt: true,
     },
@@ -141,7 +143,13 @@ export default async function ArticlePage({
       <SiteHeader />
 
       {article.thumbnailUrl && (
-        <div className="relative h-60 w-full sm:h-80 md:h-[26rem]">
+        <div
+          className="relative w-full overflow-hidden"
+          style={{
+            aspectRatio: heroAspectRatio(article.heroAspect),
+            maxHeight: "70vh",
+          }}
+        >
           <img
             src={article.thumbnailUrl}
             alt={article.title}

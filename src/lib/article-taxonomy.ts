@@ -32,3 +32,19 @@ export type ArticleSubCategory = (typeof ARTICLE_SUBCATEGORIES)[number];
 export function isArticleGenre(v: string): v is ArticleGenre {
   return (ARTICLE_GENRES as readonly string[]).includes(v);
 }
+
+// 기사 상세 히어로 비율 프리셋 — 어드민 선택 + 상세 렌더 + 어드민 미리보기 공유.
+export const ARTICLE_HERO_ASPECTS = [
+  { key: "wide", label: "와이드 (21:9)", ratio: "21 / 9" },
+  { key: "standard", label: "표준 (16:9)", ratio: "16 / 9" },
+  { key: "tall", label: "톨 (3:2)", ratio: "3 / 2" },
+] as const;
+
+export const DEFAULT_HERO_ASPECT = "standard";
+
+/** heroAspect 키 → CSS aspect-ratio 값(미지정/미일치는 표준 16:9). */
+export function heroAspectRatio(key: string | null | undefined): string {
+  return (
+    ARTICLE_HERO_ASPECTS.find((a) => a.key === key)?.ratio ?? "16 / 9"
+  );
+}

@@ -137,6 +137,7 @@ model Article {
   thumbnailFocusX Float?      // 썸네일 크롭 초점 X%(null=50) — 비파괴 크롭(objectPosition)
   thumbnailFocusY Float?      // 썸네일 크롭 초점 Y%(null=50)
   thumbnailZoom   Float?      // 썸네일 줌 배율(null=1)
+  heroAspect      String?     // 상세 히어로 비율 프리셋(wide/standard/tall, null=standard)
   isFeatured   Boolean        @default(false)
   isPremium    Boolean        @default(false)
   aiIndexable  Boolean        @default(true)
