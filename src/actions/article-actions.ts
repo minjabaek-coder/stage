@@ -30,7 +30,8 @@ const articleSchema = z.object({
     .regex(/^[a-z0-9-]+$/, "슬러그는 소문자, 숫자, 하이픈만 사용 가능합니다"),
   excerpt: z.string().optional().default(""),
   author: z.string().optional().default(""),
-  category: z.string().optional().default(""),
+  genre: z.string().optional().default(""), // 대분류(예술 장르)
+  subCategory: z.string().optional().default(""), // 소분류(형식)
   tags: z.string().optional().default(""),
   content: z.string().optional().default(""),
   thumbnailUrl: z.string().optional().default(""),
@@ -46,7 +47,8 @@ function readForm(formData: FormData) {
     slug: formData.get("slug"),
     excerpt: formData.get("excerpt"),
     author: formData.get("author"),
-    category: formData.get("category"),
+    genre: formData.get("genre"),
+    subCategory: formData.get("subCategory"),
     tags: formData.get("tags"),
     content: formData.get("content"),
     thumbnailUrl: formData.get("thumbnailUrl"),
@@ -74,7 +76,9 @@ export async function createArticle(formData: FormData) {
       slug: parsed.data.slug,
       excerpt: parsed.data.excerpt || null,
       author: parsed.data.author || "",
-      category: parsed.data.category || "",
+      genre: parsed.data.genre || null,
+      subCategory: parsed.data.subCategory || null,
+      category: parsed.data.subCategory || "", // 레거시 미러(소분류)
       tags: parseTags(parsed.data.tags),
       content: parsed.data.content || "",
       thumbnailUrl: parsed.data.thumbnailUrl || null,
@@ -115,7 +119,9 @@ export async function updateArticle(id: string, formData: FormData) {
       slug: parsed.data.slug,
       excerpt: parsed.data.excerpt || null,
       author: parsed.data.author || "",
-      category: parsed.data.category || "",
+      genre: parsed.data.genre || null,
+      subCategory: parsed.data.subCategory || null,
+      category: parsed.data.subCategory || "", // 레거시 미러(소분류)
       tags: parseTags(parsed.data.tags),
       content: parsed.data.content || "",
       thumbnailUrl: newThumbnail,

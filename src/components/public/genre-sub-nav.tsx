@@ -2,21 +2,11 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import { ARTICLE_GENRES } from "@/lib/article-taxonomy";
 
-// v2 장르 서브내비 (global-chrome §4). 기사 장르 필터로 활용.
-// 탭: 전체 + 8장르(그대로). NEW/AI추천은 후속(데이터·AI 큐레이션 필요).
-// 실제 필터 연동(?genre= → 목록)은 Phase 3 기사 페이지에서.
-const GENRES = [
-  "전체",
-  "클래식",
-  "오페라",
-  "무용",
-  "연극",
-  "뮤지컬",
-  "국악",
-  "전시",
-  "교육",
-];
+// v2 장르 서브내비 (global-chrome §4). 기사 대분류(장르) 필터로 연동.
+// 탭: 전체 + 8장르(공유 상수). 클릭 시 ?genre= 로 목록 필터.
+const GENRES = ["전체", ...ARTICLE_GENRES];
 
 export function GenreSubNav() {
   const pathname = usePathname();

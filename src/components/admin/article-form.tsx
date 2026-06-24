@@ -11,6 +11,10 @@ import { RichTextEditor } from "./rich-text-editor";
 import { toast } from "sonner";
 import { ACCEPTED_IMAGE_TYPES, MAX_FILE_SIZE } from "@/lib/constants";
 import { uploadBlogImage } from "@/lib/upload-client";
+import {
+  ARTICLE_GENRES,
+  ARTICLE_SUBCATEGORIES,
+} from "@/lib/article-taxonomy";
 
 type FormState = { error?: string; success?: boolean } | undefined;
 
@@ -37,7 +41,8 @@ export function ArticleForm({
     slug?: string;
     excerpt?: string | null;
     author?: string;
-    category?: string;
+    genre?: string | null;
+    subCategory?: string | null;
     tags?: string[];
     content?: string;
     thumbnailUrl?: string | null;
@@ -150,7 +155,7 @@ export function ArticleForm({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="author">작성자</Label>
                 <Input
@@ -160,13 +165,35 @@ export function ArticleForm({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="category">카테고리</Label>
+                <Label htmlFor="genre">대분류 (장르)</Label>
+                <select
+                  id="genre"
+                  name="genre"
+                  defaultValue={defaultValues?.genre ?? ""}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  <option value="">선택 안 함</option>
+                  {ARTICLE_GENRES.map((g) => (
+                    <option key={g} value={g}>
+                      {g}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="subCategory">소분류 (형식)</Label>
                 <Input
-                  id="category"
-                  name="category"
-                  defaultValue={defaultValues?.category}
-                  placeholder="예: 리뷰, 인터뷰, 칼럼"
+                  id="subCategory"
+                  name="subCategory"
+                  list="article-subcats"
+                  defaultValue={defaultValues?.subCategory ?? ""}
+                  placeholder="리뷰·인터뷰·칼럼 등 (직접입력 가능)"
                 />
+                <datalist id="article-subcats">
+                  {ARTICLE_SUBCATEGORIES.map((s) => (
+                    <option key={s} value={s} />
+                  ))}
+                </datalist>
               </div>
             </div>
 

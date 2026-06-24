@@ -171,6 +171,8 @@ model Article {
   content      String         @default("") @db.Text
   author       String         @default("")
   category     String         @default("")
+  genre        String?        // 대분류(예술 장르): 클래식·오페라·무용·연극·뮤지컬·국악·전시·교육
+  subCategory  String?        // 소분류(형식): 리뷰·프리뷰·인터뷰·공연소식·전시소식·칼럼·에세이·현장스케치·기획
   tags         String[]
   thumbnailUrl String?
   isFeatured   Boolean        @default(false)
@@ -186,6 +188,7 @@ model Article {
 
   @@index([status, publishedAt(sort: Desc)])
   @@index([category])
+  @@index([genre])
 }
 
 // 단독 기사 RAG 임베딩 청크 (pgvector). aiIndexable=true인 발행 기사만 임베딩.

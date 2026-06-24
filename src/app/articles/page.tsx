@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { MainLayout } from "@/components/layouts/main-layout";
 import { ArticleCard } from "@/components/public/article-card";
+import { ArticleSubFilter } from "@/components/public/article-sub-filter";
 import { AdSlot } from "@/components/public/ad-slot";
 
 export const metadata: Metadata = {
@@ -27,6 +28,8 @@ type CardItem = {
   excerpt: string | null;
   author: string;
   category: string;
+  genre?: string | null;
+  subCategory?: string | null;
   publishedAt: Date | null;
   thumbnailUrl: string | null;
   isPremium: boolean;
@@ -37,15 +40,16 @@ type CardItem = {
 export default async function ArticlesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ genre?: string }>;
+  searchParams: Promise<{ genre?: string; sub?: string }>;
 }) {
-  const { genre } = await searchParams;
+  const { genre, sub } = await searchParams;
 
   const [standalone, magArticles] = await Promise.all([
     prisma.article.findMany({
       where: {
         status: "published",
-        ...(genre ? { tags: { has: genre } } : {}),
+        ...(genre ? { genre } : {}),
+        ...(sub ? { subCategory: sub } : {}),
       },
       orderBy: { publishedAt: "desc" },
       select: {
@@ -55,6 +59,8 @@ export default async function ArticlesPage({
         excerpt: true,
         author: true,
         category: true,
+        genre: true,
+        subCategory: true,
         publishedAt: true,
         thumbnailUrl: true,
         isPremium: true,
@@ -80,8 +86,9 @@ export default async function ArticlesPage({
     }),
   ]);
 
-  // 매거진 기사를 카드 형태로 정규화. 장르 필터는 tags가 없어 section 포함 여부로 근사.
-  const magCards: CardItem[] = magArticles
+  // 매거진 기사를 카드 형태로 정규화. 대분류(장르)는 section 포함으로 근사.
+  // 소분류(?sub=)는 매거진 기사에 없으므로 sub 필터가 켜지면 매거진 기사는 제외(단독기사 전용).
+  const magCards: CardItem[] = (sub ? [] : magArticles)
     .filter((m) => !genre || (m.section ?? "").includes(genre))
     .map((m) => ({
       id: m.id,
@@ -109,15 +116,19 @@ export default async function ArticlesPage({
       <h1 className="font-headline mt-2 text-3xl font-bold tracking-tight text-ink sm:text-4xl">
         기사
       </h1>
-      <p className="mt-2 text-sm text-taupe">
-        {genre ? `${genre} · ` : ""}
-        {articles.length}개의 기사
-      </p>
+      <div className="mt-3 flex items-start justify-between gap-4 border-b border-ink/10 pb-3">
+        <p className="text-sm text-taupe">
+          {[genre, sub].filter(Boolean).join(" · ")}
+          {(genre || sub) && " · "}
+          {articles.length}개의 기사
+        </p>
+        <ArticleSubFilter />
+      </div>
 
       {articles.length === 0 ? (
         <div className="mt-24 text-center text-taupe">
-          {genre
-            ? `'${genre}' 장르의 기사가 없습니다.`
+          {genre || sub
+            ? `해당 분류의 기사가 없습니다.`
             : "아직 발행된 기사가 없습니다."}
         </div>
       ) : (

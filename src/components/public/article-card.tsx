@@ -13,6 +13,9 @@ type ArticleCardData = Pick<
   | "thumbnailUrl"
   | "isPremium"
 > & {
+  // 택소노미: 대분류(genre)·소분류(subCategory) — 단독기사
+  genre?: string | null;
+  subCategory?: string | null;
   // 매거진 기사 병합 노출용 — 링크 경로 오버라이드 및 호수 라벨(선택)
   href?: string;
   issueLabel?: string | null;
@@ -44,14 +47,14 @@ export function ArticleCard({ article }: { article: ArticleCardData }) {
       </div>
       <div className="mt-3">
         <span className="flex items-center gap-1.5">
-          {article.category && (
+          {(article.genre || article.category) && (
             <span className="font-label text-[11px] font-bold uppercase tracking-[0.15em] text-gold-deep">
-              {article.category}
+              {article.genre || article.category}
             </span>
           )}
-          {article.issueLabel && (
+          {(article.subCategory || article.issueLabel) && (
             <span className="font-label text-[11px] font-semibold tracking-wide text-taupe">
-              · {article.issueLabel}
+              · {article.subCategory || article.issueLabel}
             </span>
           )}
         </span>

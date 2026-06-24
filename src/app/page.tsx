@@ -54,6 +54,8 @@ export default async function HomePage() {
         excerpt: true,
         author: true,
         category: true,
+        genre: true,
+        subCategory: true,
         publishedAt: true,
         thumbnailUrl: true,
         isPremium: true,
