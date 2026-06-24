@@ -103,20 +103,25 @@ export default async function ArticlesPage({
 
   return (
     <MainLayout>
-      <h1 className="text-3xl font-bold tracking-tight">기사</h1>
-      <p className="mt-2 text-gray-500">
+      <span className="font-label text-[10px] font-bold uppercase tracking-[0.25em] text-gold-deep">
+        Journal
+      </span>
+      <h1 className="font-headline mt-2 text-3xl font-bold tracking-tight text-ink sm:text-4xl">
+        기사
+      </h1>
+      <p className="mt-2 text-sm text-taupe">
         {genre ? `${genre} · ` : ""}
         {articles.length}개의 기사
       </p>
 
       {articles.length === 0 ? (
-        <div className="mt-24 text-center text-gray-400">
+        <div className="mt-24 text-center text-taupe">
           {genre
             ? `'${genre}' 장르의 기사가 없습니다.`
             : "아직 발행된 기사가 없습니다."}
         </div>
       ) : (
-        <div className="mt-10 grid grid-cols-1 gap-8 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-10 grid grid-cols-1 gap-x-6 gap-y-9 sm:grid-cols-2 xl:grid-cols-3">
           {articles.map((article) => (
             <ArticleCard key={article.id} article={article} />
           ))}
