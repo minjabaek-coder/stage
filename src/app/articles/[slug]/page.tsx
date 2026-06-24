@@ -14,11 +14,14 @@ import { BookmarkButton } from "@/components/public/bookmark-button";
 import { ArticleMaestroWidget } from "@/components/public/article-maestro-widget";
 import { DocentChatFAB } from "@/components/public/docent-chat";
 
+// 비프로덕션(preview·로컬)에서는 미발행(draft) 기사도 열람 허용 — 목록 정책과 동일.
+const ALLOW_DRAFT = process.env.VERCEL_ENV !== "production";
+
 // 본문(content)은 절대 포함하지 않는다 — 프리미엄 잠김 시 content가 서버 컴포넌트
 // 스코프/ RSC 페이로드에 존재하지 못하게(누수 방지) 메타 필드만 조회.
 const getArticleMeta = cache(async (slug: string) => {
   return prisma.article.findFirst({
-    where: { slug, status: "published" },
+    where: { slug, ...(ALLOW_DRAFT ? {} : { status: "published" }) },
     select: {
       id: true,
       title: true,
@@ -96,6 +99,17 @@ export default async function ArticlePage({
   const article = await getArticleMeta(slug);
   if (!article) notFound();
 
+  // 실린 곳: 이 기사를 싣는 매거진 페이지(있으면). 첫 페이지로 딥링크.
+  const placement = await prisma.magazinePage.findFirst({
+    where: { articleId: article.id },
+    orderBy: { pageNumber: "asc" },
+    select: {
+      pageNumber: true,
+      magazineId: true,
+      magazine: { select: { issueNumber: true } },
+    },
+  });
+
   const user = await getCurrentUser();
   // 프리미엄 기사는 로그인 회원만 본문 열람. 비회원(미로그인)은 미리보기.
   const locked = article.isPremium && !user;
@@ -157,6 +171,15 @@ export default async function ArticlePage({
             </>
           )}
         </div>
+
+        {placement && (
+          <Link
+            href={`/magazines/${placement.magazineId}?page=${placement.pageNumber}`}
+            className="mt-5 inline-flex items-center gap-1.5 rounded-full border border-[#6f5c24]/30 bg-[#6f5c24]/5 px-3.5 py-1.5 font-label text-xs font-semibold text-[#6f5c24] transition-colors hover:bg-[#6f5c24]/10"
+          >
+            실린 곳 · STAGE {placement.magazine.issueNumber}호 {placement.pageNumber}페이지에서 보기 →
+          </Link>
+        )}
 
         {article.tags.length > 0 && (
           <div className="mt-4 flex flex-wrap gap-1">

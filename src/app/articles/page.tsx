@@ -12,30 +12,8 @@ export const metadata: Metadata = {
   description: "STAGE의 기사 — 리뷰·인터뷰·칼럼과 매거진 수록 기사.",
 };
 
-// 비프로덕션(preview·로컬)에서는 미발행 매거진의 기사도 노출 — 상세 페이지 정책과 동일.
+// 비프로덕션(preview·로컬)에서는 미발행(draft) 기사도 노출 — 상세 페이지 정책과 동일.
 const ALLOW_DRAFT = process.env.VERCEL_ENV !== "production";
-
-// 매거진 기사는 excerpt 필드가 없어 본문 HTML에서 발췌 생성.
-function excerptFromHtml(html: string, n = 140): string {
-  const t = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  return t.length > n ? t.slice(0, n).trim() + "…" : t;
-}
-
-type CardItem = {
-  id: string;
-  slug: string;
-  title: string;
-  excerpt: string | null;
-  author: string;
-  category: string;
-  genre?: string | null;
-  subCategory?: string | null;
-  publishedAt: Date | null;
-  thumbnailUrl: string | null;
-  isPremium: boolean;
-  href?: string;
-  issueLabel?: string | null;
-};
 
 export default async function ArticlesPage({
   searchParams,
@@ -44,76 +22,50 @@ export default async function ArticlesPage({
 }) {
   const { genre, sub } = await searchParams;
 
-  const [standalone, magArticles] = await Promise.all([
-    prisma.article.findMany({
-      where: {
-        status: "published",
-        ...(genre ? { genre } : {}),
-        ...(sub ? { subCategory: sub } : {}),
-      },
-      orderBy: { publishedAt: "desc" },
-      select: {
-        id: true,
-        slug: true,
-        title: true,
-        excerpt: true,
-        author: true,
-        category: true,
-        genre: true,
-        subCategory: true,
-        publishedAt: true,
-        thumbnailUrl: true,
-        isPremium: true,
-      },
-    }),
-    prisma.magazineArticle.findMany({
-      where: ALLOW_DRAFT
-        ? {}
-        : { status: "published", magazine: { status: "published" } },
-      orderBy: { publishedAt: "desc" },
-      select: {
-        id: true,
-        slug: true,
-        title: true,
-        content: true,
-        author: true,
-        section: true,
-        genre: true,
-        subCategory: true,
-        publishedAt: true,
-        thumbnailUrl: true,
-        magazineId: true,
-        magazine: { select: { issueNumber: true } },
-      },
-    }),
-  ]);
+  // 단일 Article 모델(단독기사 + 매거진에서 이전된 기사 모두). 매거진 소속은
+  // MagazinePage.articleId 역조회로 "실린 곳" 배지를 부여한다.
+  const articles = await prisma.article.findMany({
+    where: {
+      ...(ALLOW_DRAFT ? {} : { status: "published" }),
+      ...(genre ? { genre } : {}),
+      ...(sub ? { subCategory: sub } : {}),
+    },
+    orderBy: [{ publishedAt: { sort: "desc", nulls: "last" } }],
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+      excerpt: true,
+      author: true,
+      category: true,
+      genre: true,
+      subCategory: true,
+      publishedAt: true,
+      thumbnailUrl: true,
+      isPremium: true,
+    },
+  });
 
-  // 매거진 기사도 단독기사와 동일 택소노미(genre·subCategory)로 필터.
-  // 카드 키커는 장르 · 유형(· 호수). 장르/유형 미지정 시 섹션을 키커 폴백으로.
-  const magCards: CardItem[] = magArticles
-    .filter(
-      (m) =>
-        (!genre || m.genre === genre) && (!sub || m.subCategory === sub)
-    )
-    .map((m) => ({
-      id: m.id,
-      slug: m.slug,
-      title: m.title,
-      excerpt: excerptFromHtml(m.content),
-      author: m.author ?? "",
-      category: m.section ?? "",
-      genre: m.genre,
-      subCategory: m.subCategory,
-      publishedAt: m.publishedAt,
-      thumbnailUrl: m.thumbnailUrl,
-      isPremium: false,
-      href: `/magazines/${m.magazineId}/${m.slug}`,
-      issueLabel: `STAGE ${m.magazine.issueNumber}호`,
-    }));
+  // 실린 곳: 이 기사를 싣는 매거진 페이지가 있으면 호수 배지 부여(기사당 첫 호).
+  const placements = articles.length
+    ? await prisma.magazinePage.findMany({
+        where: { articleId: { in: articles.map((a) => a.id) } },
+        select: { articleId: true, magazine: { select: { issueNumber: true } } },
+      })
+    : [];
+  const issueByArticle = new Map<string, number>();
+  for (const p of placements) {
+    if (p.articleId && !issueByArticle.has(p.articleId)) {
+      issueByArticle.set(p.articleId, p.magazine.issueNumber);
+    }
+  }
 
-  const articles: CardItem[] = [...standalone, ...magCards].sort(
-    (a, b) => (b.publishedAt?.getTime() ?? 0) - (a.publishedAt?.getTime() ?? 0)
-  );
+  const cards = articles.map((a) => ({
+    ...a,
+    issueLabel: issueByArticle.has(a.id)
+      ? `STAGE ${issueByArticle.get(a.id)}호`
+      : null,
+  }));
 
   return (
     <MainLayout>
@@ -127,12 +79,12 @@ export default async function ArticlesPage({
         <p className="text-sm text-taupe">
           {[genre, sub].filter(Boolean).join(" · ")}
           {(genre || sub) && " · "}
-          {articles.length}개의 기사
+          {cards.length}개의 기사
         </p>
         <ArticleSubFilter />
       </div>
 
-      {articles.length === 0 ? (
+      {cards.length === 0 ? (
         <div className="mt-24 text-center text-taupe">
           {genre || sub
             ? `해당 분류의 기사가 없습니다.`
@@ -140,7 +92,7 @@ export default async function ArticlesPage({
         </div>
       ) : (
         <div className="mt-10 grid grid-cols-1 gap-x-6 gap-y-9 sm:grid-cols-2 xl:grid-cols-3">
-          {articles.map((article) => (
+          {cards.map((article) => (
             <ArticleCard key={article.id} article={article} />
           ))}
         </div>

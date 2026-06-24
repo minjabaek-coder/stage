@@ -188,8 +188,10 @@ export async function searchChunks(
   const queryEmbedding = await embedQuery(query);
   const vec = `[${queryEmbedding.join(",")}]`;
 
-  // 블로그 + 매거진 아티클 + 단독 기사 청크를 각각 검색한 뒤 유사도로 합쳐 상위 topK.
-  const [blog, magazine, article] = await Promise.all([
+  // 블로그 + 기사 청크를 각각 검색한 뒤 유사도로 합쳐 상위 topK.
+  // (매거진기사는 단일 Article로 병합됨 → ArticleChunk로 통합. 매거진 자체 텍스트
+  //  색인은 후속에서 페이지 블록 기반으로 추가 예정.)
+  const [blog, article] = await Promise.all([
     prisma.$queryRawUnsafe<RawChunk[]>(
       `SELECT c."id", c."title", c."content",
               1 - (c."embedding" <=> $1::vector) AS similarity,
@@ -197,19 +199,6 @@ export async function searchChunks(
        FROM "BlogPostChunk" c
        JOIN "BlogPost" p ON p."id" = c."blogPostId"
        WHERE p."status" = 'published'
-       ORDER BY c."embedding" <=> $1::vector
-       LIMIT $2`,
-      vec,
-      topK
-    ),
-    prisma.$queryRawUnsafe<RawChunk[]>(
-      `SELECT c."id", c."title", c."content",
-              1 - (c."embedding" <=> $1::vector) AS similarity,
-              a."slug", a."magazineId", 'magazine' AS source
-       FROM "MagazineArticleChunk" c
-       JOIN "MagazineArticle" a ON a."id" = c."articleId"
-       JOIN "Magazine" m ON m."id" = a."magazineId"
-       WHERE a."status" = 'published' AND m."status" = 'published'
        ORDER BY c."embedding" <=> $1::vector
        LIMIT $2`,
       vec,
@@ -230,13 +219,9 @@ export async function searchChunks(
   ]);
 
   const hrefOf = (r: RawChunk): string =>
-    r.source === "magazine"
-      ? `/magazines/${r.magazineId}/${r.slug}`
-      : r.source === "article"
-        ? `/articles/${r.slug}`
-        : `/blog/${r.slug}`;
+    r.source === "article" ? `/articles/${r.slug}` : `/blog/${r.slug}`;
 
-  const merged: ChunkResult[] = [...blog, ...magazine, ...article].map((r) => ({
+  const merged: ChunkResult[] = [...blog, ...article].map((r) => ({
     id: r.id,
     title: r.title,
     content: r.content,

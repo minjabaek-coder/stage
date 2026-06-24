@@ -63,7 +63,7 @@ export function ArticleCard({ article }: { article: ArticleCardData }) {
               key={i}
               className="font-label text-[11px] font-semibold tracking-wide text-taupe"
             >
-              · {part}
+              {i === 0 && !primary ? part : `· ${part}`}
             </span>
           ))}
         </span>
