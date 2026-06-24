@@ -12,6 +12,8 @@ export function StageOsBanner() {
   const [dismissed, setDismissed] = useState(true);
 
   useEffect(() => {
+    // 마운트 후 세션 스토리지 1회 동기화(SSR 깜빡임 방지) — 의도된 패턴
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDismissed(sessionStorage.getItem(DISMISS_KEY) === "1");
   }, []);
 
