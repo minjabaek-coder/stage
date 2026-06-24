@@ -15,31 +15,31 @@ import {
 export default async function AdminDashboardPage() {
   const [
     magazineStats,
-    blogStats,
+    articleStats,
     topMagazines,
-    topBlogPosts,
+    topArticles,
     magazineCount,
-    blogPostCount,
+    articleCount,
   ] = await Promise.all([
     prisma.magazine.aggregate({ _sum: { viewCount: true } }),
-    prisma.blogPost.aggregate({ _sum: { viewCount: true } }),
+    prisma.article.aggregate({ _sum: { viewCount: true } }),
     prisma.magazine.findMany({
       where: { status: "published" },
       orderBy: { viewCount: "desc" },
       take: 5,
     }),
-    prisma.blogPost.findMany({
+    prisma.article.findMany({
       where: { status: "published" },
       orderBy: { viewCount: "desc" },
       take: 5,
     }),
     prisma.magazine.count({ where: { status: "published" } }),
-    prisma.blogPost.count({ where: { status: "published" } }),
+    prisma.article.count({ where: { status: "published" } }),
   ]);
 
   const totalMagazineViews = magazineStats._sum.viewCount ?? 0;
-  const totalBlogViews = blogStats._sum.viewCount ?? 0;
-  const totalViews = totalMagazineViews + totalBlogViews;
+  const totalArticleViews = articleStats._sum.viewCount ?? 0;
+  const totalViews = totalMagazineViews + totalArticleViews;
 
   return (
     <div className="space-y-6">
@@ -75,15 +75,15 @@ export default async function AdminDashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-gray-500">
-              블로그
+              기사
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">
-              {totalBlogViews.toLocaleString()}
+              {totalArticleViews.toLocaleString()}
             </p>
             <p className="text-sm text-gray-500">
-              {blogPostCount}개 발행
+              {articleCount}개 발행
             </p>
           </CardContent>
         </Card>
@@ -138,9 +138,9 @@ export default async function AdminDashboardPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>인기 블로그 Top 5</CardTitle>
+              <CardTitle>인기 기사 Top 5</CardTitle>
               <Link
-                href="/admin/blog"
+                href="/admin/articles"
                 className="text-sm text-gray-500 hover:text-gray-900"
               >
                 전체보기
@@ -148,7 +148,7 @@ export default async function AdminDashboardPage() {
             </div>
           </CardHeader>
           <CardContent>
-            {topBlogPosts.length === 0 ? (
+            {topArticles.length === 0 ? (
               <p className="py-4 text-center text-sm text-gray-400">
                 데이터 없음
               </p>
@@ -162,14 +162,14 @@ export default async function AdminDashboardPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {topBlogPosts.map((post, i) => (
-                    <TableRow key={post.id}>
+                  {topArticles.map((article, i) => (
+                    <TableRow key={article.id}>
                       <TableCell className="text-gray-400">{i + 1}</TableCell>
                       <TableCell className="font-medium truncate max-w-[200px]">
-                        {post.title}
+                        {article.title}
                       </TableCell>
                       <TableCell className="text-right text-sm text-gray-500">
-                        {post.viewCount.toLocaleString()}
+                        {article.viewCount.toLocaleString()}
                       </TableCell>
                     </TableRow>
                   ))}

@@ -43,12 +43,6 @@ export default async function AdminLayout({
                 매거진
               </Link>
               <Link
-                href="/admin/blog"
-                className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                블로그
-              </Link>
-              <Link
                 href="/admin/articles"
                 className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
               >
