@@ -29,18 +29,18 @@ const BENEFITS = [
 
 export default function MembershipPage() {
   return (
-    <div className="min-h-screen bg-[#fcf9f8] text-[#1c1b1b]">
+    <div className="min-h-screen bg-paper text-ink">
       <SiteHeader />
 
       <main className="mx-auto max-w-3xl px-6 py-20">
         <div className="text-center">
-          <span className="font-label text-[11px] font-bold uppercase tracking-[0.3em] text-[#6f5c24]">
+          <span className="font-label text-[11px] font-bold uppercase tracking-[0.3em] text-gold-deep">
             Membership
           </span>
-          <h1 className="font-headline mt-6 text-5xl tracking-tight md:text-6xl">
+          <h1 className="font-headline mt-6 text-5xl tracking-tight text-ink md:text-6xl">
             STAGE Pro
           </h1>
-          <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-[#444748]">
+          <p className="mx-auto mt-5 max-w-xl text-lg leading-[1.85] text-ink-muted">
             문화예술을 더 깊이, 더 가까이. 프리미엄 콘텐츠와 AI 마에스트로,
             티켓 혜택을 한 번에 누리는 STAGE Pro 멤버십을 준비하고 있습니다.
           </p>
@@ -51,21 +51,21 @@ export default function MembershipPage() {
           {BENEFITS.map((b) => (
             <div
               key={b.title}
-              className="rounded-2xl border border-[#1c1b1b]/10 bg-white p-7"
+              className="border border-ink/10 bg-surface-warm p-7"
             >
-              <h3 className="font-headline text-2xl">{b.title}</h3>
-              <p className="mt-2 leading-relaxed text-[#444748]">{b.desc}</p>
+              <h3 className="font-headline text-2xl text-ink">{b.title}</h3>
+              <p className="mt-2 leading-relaxed text-ink-muted">{b.desc}</p>
             </div>
           ))}
         </div>
 
         {/* 가격(공개 예정) + 출시 알림 */}
-        <div className="mt-12 rounded-2xl border border-[#6f5c24]/20 bg-[#faf7f2] p-10 text-center">
-          <span className="rounded-full bg-[#6f5c24] px-3 py-1 font-label text-[10px] font-bold uppercase tracking-widest text-white">
+        <div className="mt-12 border border-gold-deep/25 bg-gold/5 p-10 text-center">
+          <span className="bg-gold-deep px-3 py-1 font-label text-[10px] font-bold uppercase tracking-widest text-white">
             공개 예정
           </span>
-          <p className="mt-5 font-headline text-3xl">요금제 준비 중</p>
-          <p className="mt-3 text-sm text-[#444748]">
+          <p className="mt-5 font-headline text-3xl text-ink">요금제 준비 중</p>
+          <p className="mt-3 text-sm text-ink-muted">
             합리적인 월·연 구독 요금제를 준비하고 있습니다. 출시되면 가장 먼저
             알려드릴게요.
           </p>
