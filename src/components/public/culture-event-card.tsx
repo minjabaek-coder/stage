@@ -23,42 +23,43 @@ function dateRange(start: Date, end: Date | null): string {
 export function CultureEventCard({ event }: { event: CardData }) {
   return (
     <Link href={`/culture-events/${event.slug}`} className="group block">
-      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-gray-100">
+      <div className="relative aspect-[4/3] w-full overflow-hidden bg-ink-deep">
         {event.thumbnailUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={event.thumbnailUrl}
             alt={event.title}
-            className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-800 to-gray-950">
-            <span className="text-lg font-bold tracking-widest text-white/80">
+          <div className="flex h-full w-full items-center justify-center">
+            <span className="font-headline text-lg font-black tracking-widest text-white/30">
               STAGE
             </span>
           </div>
         )}
-        <span className="absolute left-2 top-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+        <span className="absolute left-2 top-2 bg-ink/70 px-1.5 py-0.5 font-label text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-sm">
           {event.type}
         </span>
         {event.memberDiscount > 0 && (
-          <span className="absolute right-2 top-2 rounded bg-[#6f5c24] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+          <span className="absolute right-2 top-2 bg-terra px-1.5 py-0.5 font-label text-[10px] font-bold uppercase tracking-wider text-white">
             회원 {event.memberDiscount}%
           </span>
         )}
       </div>
       <div className="mt-3">
         {event.genre.length > 0 && (
-          <span className="font-label text-[11px] font-bold uppercase tracking-[0.15em] text-[#6f5c24]">
+          <span className="font-label text-[11px] font-bold uppercase tracking-[0.15em] text-gold-deep">
             {event.genre.join(" · ")}
           </span>
         )}
-        <h3 className="mt-1 font-semibold line-clamp-2 group-hover:underline">
+        <h3 className="mt-1 line-clamp-2 font-semibold text-ink transition-colors group-hover:text-terra">
           {event.title}
         </h3>
-        <div className="mt-1 text-sm text-gray-500">
+        <div className="mt-1 text-sm text-taupe">
           {event.venue && <span>{event.venue}</span>}
         </div>
-        <div className="mt-0.5 text-sm text-gray-400">
+        <div className="mt-0.5 font-label text-xs tracking-wide text-date">
           {dateRange(event.startDate, event.endDate)}
         </div>
       </div>
