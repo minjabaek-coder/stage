@@ -181,6 +181,12 @@ export async function publishArticle(id: string) {
     },
   });
 
+  // 발행 = 기고자 토큰 무효화(자동). 재발급은 관리자 수동(#7).
+  await prisma.articleEditToken.updateMany({
+    where: { articleId: id, revokedAt: null },
+    data: { revokedAt: new Date() },
+  });
+
   // RAG: 발행 시 본문 임베딩(aiIndexable=true인 경우). best-effort.
   generateArticleEmbeddings(id).catch((err) =>
     console.error("[RAG] Article embedding failed:", err)
