@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { MagazineForm } from "@/components/admin/magazine-form";
 import { PageUploadZone } from "@/components/admin/page-upload-zone";
 import { PageListSortable } from "@/components/admin/page-list-sortable";
-import { ComposedPageManager } from "@/components/admin/composed-page-manager";
+import { MagazineEditorShell } from "@/components/admin/magazine-editor-shell";
 import { StatusActions } from "@/components/admin/status-actions";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { TocEditor } from "@/components/admin/toc-editor";
@@ -19,13 +19,20 @@ export default async function EditMagazinePage({
 }) {
   const { id } = await params;
 
-  const magazine = await prisma.magazine.findUnique({
-    where: { id },
-    include: {
-      pages: { orderBy: { sortOrder: "asc" } },
-      tocEntries: { orderBy: { sortOrder: "asc" } },
-    },
-  });
+  const [magazine, articles] = await Promise.all([
+    prisma.magazine.findUnique({
+      where: { id },
+      include: {
+        pages: { orderBy: { sortOrder: "asc" } },
+        tocEntries: { orderBy: { sortOrder: "asc" } },
+      },
+    }),
+    // 구성형 페이지의 "싣는 기사" 연동 후보 — 단일 Article 모델(전체), 최신순
+    prisma.article.findMany({
+      orderBy: { createdAt: "desc" },
+      select: { id: true, title: true, genre: true, subCategory: true },
+    }),
+  ]);
 
   if (!magazine) notFound();
 
@@ -58,7 +65,8 @@ export default async function EditMagazinePage({
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_2fr]">
+      {isComposed ? (
+        // 구성형: 매거진 정보(상단) + 단일 에디터 셸(페이지 패널 + 활성 페이지 편집) 풀폭
         <div className="space-y-6">
           <MagazineForm
             action={action}
@@ -70,56 +78,59 @@ export default async function EditMagazinePage({
             }}
             formId="magazine-edit-form"
           />
-
-          {/* TOC editor only applies to image-based page magazines */}
-          {!isWeb && !isComposed && (
-            <Card>
-              <CardHeader>
-                <CardTitle>목차 관리</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <TocEditor
-                  magazineId={magazine.id}
-                  initialEntries={magazine.tocEntries}
-                  totalPages={magazine.pages.length}
-                />
-              </CardContent>
-            </Card>
-          )}
+          <MagazineEditorShell
+            magazineId={magazine.id}
+            pages={magazine.pages.map((p) => ({
+              id: p.id,
+              pageNumber: p.pageNumber,
+              layout: p.layout,
+              articleId: p.articleId,
+            }))}
+            articles={articles}
+          />
         </div>
+      ) : (
+        <div className="grid gap-6 lg:grid-cols-[1fr_2fr]">
+          <div className="space-y-6">
+            <MagazineForm
+              action={action}
+              defaultValues={{
+                issueNumber: magazine.issueNumber,
+                title: magazine.title,
+                description: magazine.description,
+                publishedAt: magazine.publishedAt,
+              }}
+              formId="magazine-edit-form"
+            />
 
-        {isComposed ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>페이지 구성 (자유배치)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ComposedPageManager
-                magazineId={magazine.id}
-                pages={magazine.pages.map((p) => ({
-                  id: p.id,
-                  pageNumber: p.pageNumber,
-                  layout: p.layout,
-                  articleId: p.articleId,
-                }))}
-              />
-            </CardContent>
-          </Card>
-        ) : (
+            {/* TOC editor only applies to image-based page magazines */}
+            {!isWeb && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>목차 관리</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <TocEditor
+                    magazineId={magazine.id}
+                    initialEntries={magazine.tocEntries}
+                    totalPages={magazine.pages.length}
+                  />
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
           <Card>
             <CardHeader>
               <CardTitle>페이지 관리</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <PageUploadZone magazineId={magazine.id} />
-              <PageListSortable
-                pages={magazine.pages}
-                magazineId={magazine.id}
-              />
+              <PageListSortable pages={magazine.pages} magazineId={magazine.id} />
             </CardContent>
           </Card>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

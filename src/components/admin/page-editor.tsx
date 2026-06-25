@@ -45,6 +45,7 @@ export function PageEditor({
   initialLayout,
   initialArticleId,
   articles,
+  embedded = false,
 }: {
   magazineId: string;
   pageId: string;
@@ -52,6 +53,7 @@ export function PageEditor({
   initialLayout: PageLayout;
   initialArticleId: string | null;
   articles: ArticleOpt[];
+  embedded?: boolean; // 단일 에디터 셸에 임베드 시 '← 매거진' 백링크 숨김
 }) {
   const router = useRouter();
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -176,12 +178,14 @@ export function PageEditor({
     <div className="space-y-4">
       {/* 툴바 */}
       <div className="flex flex-wrap items-center gap-2">
-        <Link
-          href={`/admin/magazines/${magazineId}/edit`}
-          className="text-sm text-muted-foreground hover:underline"
-        >
-          ← 매거진
-        </Link>
+        {!embedded && (
+          <Link
+            href={`/admin/magazines/${magazineId}/edit`}
+            className="text-sm text-muted-foreground hover:underline"
+          >
+            ← 매거진
+          </Link>
+        )}
         <span className="text-sm font-semibold">P.{pageNumber} 편집</span>
         <div className="mx-2 h-5 w-px bg-border" />
         <button type="button" onClick={addText} className="rounded border px-3 py-1.5 text-sm hover:bg-accent">+ 텍스트</button>
