@@ -188,3 +188,42 @@
 }
 
 /* react-pageflip: no overrides on internal layout */
+/* ── 매거진 구성형 에디터 (editor.html 목업 정합) ── */
+.tbtn {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid #d4d4d8; background: #fff; border-radius: 7px;
+  padding: 6px 11px; font-size: 12px; color: #18181b; cursor: pointer;
+}
+.tbtn:hover { border-color: #a1a1aa; }
+.tbtn.ghost { border-color: transparent; background: transparent; color: #71717a; }
+.tbtn.ghost:hover { color: #18181b; }
+.tbtn:disabled { opacity: .4; cursor: default; }
+.tbsep { display: inline-block; width: 1px; height: 22px; background: #e4e4e7; margin: 0 4px; }
+
+/* 속성 패널 알약형 필드 */
+.ed-field {
+  display: flex; align-items: center; gap: 6px;
+  border: 1px solid #d4d4d8; border-radius: 6px; padding: 5px 8px; background: #fff;
+}
+.ed-field .k { font-family: var(--font-label), monospace; font-size: 10px; color: #a1a1aa; flex-shrink: 0; }
+.ed-field input {
+  border: 0; outline: 0; width: 100%; padding: 0; background: transparent;
+  font-size: 12px; font-family: var(--font-label), monospace; color: #18181b;
+}
+.ed-field .u { font-size: 10px; color: #a1a1aa; flex-shrink: 0; }
+
+/* 정렬/레이어 아이콘 행 */
+.ed-iconrow button {
+  flex: 1; border: 1px solid #d4d4d8; background: #fff; border-radius: 6px;
+  padding: 6px 0; cursor: pointer; font-size: 12px; color: #71717a;
+}
+.ed-iconrow button:hover { border-color: #a1a1aa; }
+.ed-iconrow button.on { border-color: #2563eb; color: #2563eb; background: rgba(37,99,235,.08); }
+
+/* 비율 잠금 버튼 */
+.ed-lockbtn { border: 1px solid #d4d4d8; background: #fff; border-radius: 6px; padding: 5px 9px; cursor: pointer; font-size: 12px; color: #18181b; white-space: nowrap; }
+.ed-lockbtn.on { border-color: #2563eb; color: #2563eb; background: rgba(37,99,235,.08); }
+
+/* 속성 그룹 라벨 + typetag */
+.ed-grouplabel { font-size: 11px; color: #71717a; margin-bottom: 8px; }
+.ed-typetag { background: rgba(37,99,235,.08); color: #2563eb; border-radius: 4px; padding: 1px 6px; font-size: 10px; }

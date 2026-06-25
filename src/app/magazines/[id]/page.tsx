@@ -1,7 +1,6 @@
 export const dynamic = "force-dynamic";
 
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { MagazineReader } from "@/components/public/magazine-reader";
 import { ViewTracker } from "@/components/public/view-tracker";
@@ -66,58 +65,21 @@ export default async function MagazineViewerPage({ params, searchParams }: Props
     notFound();
   }
 
-  // 모든 매거진(이미지형 1~38호 · 구성형 39호~)을 동일한 플립 뷰어로 표시.
+  // 모든 매거진(이미지형 1~38호 · 구성형 39호~)을 동일한 통합 뷰어로 표시.
+  // 헤더(Issue·제목·닫기)·컨트롤·진행률은 뷰어가 소유(rev.3 리더 크롬).
   return (
-    <div className="flex h-dvh flex-col bg-ink-deep" style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}>
+    <div
+      className="flex h-dvh flex-col bg-ink-deep"
+      style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}
+    >
       <ViewTracker type="magazine" id={magazine.id} />
-      <header className="hidden md:flex h-12 flex-shrink-0 items-center justify-between px-5">
-        <Link
-          href="/"
-          className="font-label text-sm font-bold uppercase tracking-[0.2em] text-white transition-colors hover:text-gold"
-        >
-          STAGE
-        </Link>
-        <div className="flex items-baseline gap-3">
-          <span className="font-label text-[10px] font-bold uppercase tracking-[0.2em] text-gold">
-            Issue {String(magazine.issueNumber).padStart(2, "0")}
-          </span>
-          <span className="font-headline text-sm text-white/80">
-            {magazine.title}
-          </span>
-        </div>
-      </header>
-      <div className="relative flex-1 overflow-hidden">
-        <MagazineReader pages={magazine.pages} tocEntries={magazine.tocEntries} initialPage={initialPage} />
-        <div className="absolute bottom-4 left-0 right-0 flex md:hidden items-center justify-center gap-3">
-          <Link
-            href="/"
-            className="rounded-full bg-ink/70 px-4 py-1.5 text-xs text-white/70 backdrop-blur-sm transition-colors hover:text-gold"
-          >
-            &larr; 메인으로
-          </Link>
-          <Link
-            href="/magazines"
-            className="rounded-full bg-ink/70 px-4 py-1.5 text-xs text-white/70 backdrop-blur-sm transition-colors hover:text-gold"
-          >
-            매거진 목록
-          </Link>
-        </div>
-      </div>
-      <div className="hidden md:flex flex-shrink-0 items-center justify-center gap-4 border-t border-white/10 py-3 px-4">
-        <Link
-          href="/"
-          className="font-label text-xs uppercase tracking-wider text-white/55 transition-colors hover:text-gold"
-        >
-          &larr; 메인으로
-        </Link>
-        <span className="text-white/20">|</span>
-        <Link
-          href="/magazines"
-          className="font-label text-xs uppercase tracking-wider text-white/55 transition-colors hover:text-gold"
-        >
-          매거진 목록
-        </Link>
-      </div>
+      <MagazineReader
+        pages={magazine.pages}
+        tocEntries={magazine.tocEntries}
+        initialPage={initialPage}
+        issueNumber={magazine.issueNumber}
+        title={magazine.title}
+      />
     </div>
   );
 }
