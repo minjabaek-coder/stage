@@ -865,8 +865,21 @@ export function MagazineViewer({
         {ready && (
           <div
             ref={zoomContainerRef}
+            onClick={
+              // 넘김 효과 OFF(데스크톱·미줌): 좌측 절반=이전, 우측 절반=다음
+              !dims.isMobile && !flipEffect && deskScale <= 1
+                ? (e) => {
+                    const el = zoomContainerRef.current;
+                    if (!el) return;
+                    const r = el.getBoundingClientRect();
+                    if ((e.clientX - r.left) / r.width < 0.5) flipPrev();
+                    else flipNext();
+                  }
+                : undefined
+            }
             onDoubleClick={
-              !dims.isMobile && canZoom
+              // 넘김 효과 ON에서만 더블클릭 줌(OFF는 클릭 이동과 충돌 방지)
+              !dims.isMobile && canZoom && flipEffect
                 ? () => setDeskZoom(deskScale > 1 ? 1 : 2)
                 : undefined
             }
@@ -879,6 +892,10 @@ export function MagazineViewer({
               width: dims.single ? dims.pageW : dims.wrapW,
               height: dims.wrapH,
               touchAction: dims.isMobile ? "none" : "auto",
+              cursor:
+                !dims.isMobile && !flipEffect && deskScale <= 1
+                  ? "pointer"
+                  : undefined,
             }}
             className="relative flex-shrink-0"
           >
