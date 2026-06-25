@@ -3,6 +3,7 @@
 import {
   useRef,
   useState,
+  type CSSProperties,
   type PointerEvent as ReactPointerEvent,
   type ChangeEvent as ReactChangeEvent,
 } from "react";
@@ -95,13 +96,38 @@ export function PageEditor({
     setSelectedId(null);
   }
 
-  // ── 드래그 이동 / 리사이즈 (pointer capture) ──
+  // ── 드래그 이동 / 8방향 리사이즈 (pointer capture) + 스냅 가이드 ──
+  const [snap, setSnap] = useState<{ v: number | null; h: number | null }>({
+    v: null,
+    h: null,
+  });
   const drag = useRef<{
     mode: "move" | "resize";
     id: string;
     sx: number; sy: number;
     bx: number; by: number; bw: number; bh: number;
+    dx?: -1 | 0 | 1; // 리사이즈 방향(가로)
+    dy?: -1 | 0 | 1; // 리사이즈 방향(세로)
   } | null>(null);
+
+  const SNAP = 1.5; // % 스냅 임계
+  const SNAP_TARGETS = [0, 50, 100];
+  // 이동 시 좌/중앙/우(상/중앙/하)를 캔버스 0·50·100에 스냅 + 가이드 표시
+  function snapMove(nx: number, ny: number, bw: number, bh: number) {
+    let gv: number | null = null;
+    let gh: number | null = null;
+    for (const t of SNAP_TARGETS) {
+      if (Math.abs(nx - t) < SNAP) { nx = t; gv = t; break; }
+      if (Math.abs(nx + bw / 2 - t) < SNAP) { nx = t - bw / 2; gv = t; break; }
+      if (Math.abs(nx + bw - t) < SNAP) { nx = t - bw; gv = t; break; }
+    }
+    for (const t of SNAP_TARGETS) {
+      if (Math.abs(ny - t) < SNAP) { ny = t; gh = t; break; }
+      if (Math.abs(ny + bh / 2 - t) < SNAP) { ny = t - bh / 2; gh = t; break; }
+      if (Math.abs(ny + bh - t) < SNAP) { ny = t - bh; gh = t; break; }
+    }
+    return { nx, ny, gv, gh };
+  }
 
   function rectWH() {
     const r = canvasRef.current?.getBoundingClientRect();
@@ -115,11 +141,16 @@ export function PageEditor({
     e.currentTarget.setPointerCapture(e.pointerId);
     drag.current = { mode: "move", id: b.id, sx: e.clientX, sy: e.clientY, bx: b.x, by: b.y, bw: b.w, bh: b.h };
   }
-  function onHandlePointerDown(e: ReactPointerEvent, b: Block) {
+  function onHandlePointerDown(
+    e: ReactPointerEvent,
+    b: Block,
+    dx: -1 | 0 | 1,
+    dy: -1 | 0 | 1,
+  ) {
     e.stopPropagation();
     setSelectedId(b.id);
     e.currentTarget.setPointerCapture(e.pointerId);
-    drag.current = { mode: "resize", id: b.id, sx: e.clientX, sy: e.clientY, bx: b.x, by: b.y, bw: b.w, bh: b.h };
+    drag.current = { mode: "resize", id: b.id, sx: e.clientX, sy: e.clientY, bx: b.x, by: b.y, bw: b.w, bh: b.h, dx, dy };
   }
   function onDragMove(e: ReactPointerEvent) {
     const d = drag.current;
@@ -127,19 +158,69 @@ export function PageEditor({
     const { w, h } = rectWH();
     const dxPct = ((e.clientX - d.sx) / w) * 100;
     const dyPct = ((e.clientY - d.sy) / h) * 100;
-    const clamp = (v: number) => Math.max(0, Math.min(100, v));
+
     if (d.mode === "move") {
-      patch(d.id, { x: clamp(d.bx + dxPct), y: clamp(d.by + dyPct) });
-    } else {
-      patch(d.id, {
-        w: Math.max(4, Math.min(100 - d.bx, d.bw + dxPct)),
-        h: Math.max(3, Math.min(100 - d.by, d.bh + dyPct)),
-      });
+      let nx = Math.max(0, Math.min(100 - d.bw, d.bx + dxPct));
+      let ny = Math.max(0, Math.min(100 - d.bh, d.by + dyPct));
+      const s = snapMove(nx, ny, d.bw, d.bh);
+      nx = Math.max(0, Math.min(100 - d.bw, s.nx));
+      ny = Math.max(0, Math.min(100 - d.bh, s.ny));
+      setSnap({ v: s.gv, h: s.gh });
+      patch(d.id, { x: nx, y: ny });
+      return;
     }
+
+    // 8방향 리사이즈
+    let nx = d.bx, ny = d.by, nw = d.bw, nh = d.bh;
+    if (d.dx === 1) nw = d.bw + dxPct;
+    else if (d.dx === -1) { nx = d.bx + dxPct; nw = d.bw - dxPct; }
+    if (d.dy === 1) nh = d.bh + dyPct;
+    else if (d.dy === -1) { ny = d.by + dyPct; nh = d.bh - dyPct; }
+    // 최소 크기
+    if (nw < 4) { if (d.dx === -1) nx = d.bx + d.bw - 4; nw = 4; }
+    if (nh < 3) { if (d.dy === -1) ny = d.by + d.bh - 3; nh = 3; }
+    // 경계
+    if (nx < 0) { nw += nx; nx = 0; }
+    if (ny < 0) { nh += ny; ny = 0; }
+    if (nx + nw > 100) nw = 100 - nx;
+    if (ny + nh > 100) nh = 100 - ny;
+    // 움직이는 모서리 스냅 + 가이드
+    let gv: number | null = null, gh: number | null = null;
+    if (d.dx !== 0) {
+      const edge = d.dx === 1 ? nx + nw : nx;
+      for (const t of SNAP_TARGETS) if (Math.abs(edge - t) < SNAP) {
+        if (d.dx === 1) nw = t - nx; else { nw = nx + nw - t; nx = t; }
+        gv = t; break;
+      }
+    }
+    if (d.dy !== 0) {
+      const edge = d.dy === 1 ? ny + nh : ny;
+      for (const t of SNAP_TARGETS) if (Math.abs(edge - t) < SNAP) {
+        if (d.dy === 1) nh = t - ny; else { nh = ny + nh - t; ny = t; }
+        gh = t; break;
+      }
+    }
+    setSnap({ v: gv, h: gh });
+    patch(d.id, { x: nx, y: ny, w: Math.max(4, nw), h: Math.max(3, nh) });
   }
   function onDragEnd() {
     drag.current = null;
+    setSnap({ v: null, h: null });
   }
+
+  // 8방향 핸들 정의(방향 + 커서 + 위치)
+  const HANDLES: {
+    dx: -1 | 0 | 1; dy: -1 | 0 | 1; cursor: string; pos: CSSProperties;
+  }[] = [
+    { dx: -1, dy: -1, cursor: "nwse-resize", pos: { left: -6, top: -6 } },
+    { dx: 0, dy: -1, cursor: "ns-resize", pos: { left: "calc(50% - 7px)", top: -6 } },
+    { dx: 1, dy: -1, cursor: "nesw-resize", pos: { right: -6, top: -6 } },
+    { dx: -1, dy: 0, cursor: "ew-resize", pos: { left: -6, top: "calc(50% - 7px)" } },
+    { dx: 1, dy: 0, cursor: "ew-resize", pos: { right: -6, top: "calc(50% - 7px)" } },
+    { dx: -1, dy: 1, cursor: "nesw-resize", pos: { left: -6, bottom: -6 } },
+    { dx: 0, dy: 1, cursor: "ns-resize", pos: { left: "calc(50% - 7px)", bottom: -6 } },
+    { dx: 1, dy: 1, cursor: "nwse-resize", pos: { right: -6, bottom: -6 } },
+  ];
 
   // 네이티브 label→input 업로드(프로그램적 click 미사용)
   async function handleFileFor(
@@ -242,7 +323,7 @@ export function PageEditor({
                   transform: b.rotation ? `rotate(${b.rotation}deg)` : undefined,
                   opacity: b.opacity ?? 1,
                   zIndex: b.z,
-                  outline: isSel ? "2px solid #1f6f72" : "1px dashed rgba(0,0,0,.25)",
+                  outline: isSel ? "1.5px solid #2563eb" : "1px dashed rgba(0,0,0,.25)",
                   cursor: "move",
                 }}
               >
@@ -255,22 +336,31 @@ export function PageEditor({
                 ) : (
                   <ComposedBlockBody block={b} />
                 )}
-                {isSel && (
-                  <div
-                    onPointerDown={(e) => onHandlePointerDown(e, b)}
-                    onPointerMove={onDragMove}
-                    onPointerUp={onDragEnd}
-                    title="크기 조절"
-                    style={{
-                      position: "absolute", right: -6, bottom: -6, width: 14, height: 14,
-                      background: "#fff", border: "2px solid #1f6f72", borderRadius: 3,
-                      cursor: "nwse-resize", zIndex: 999,
-                    }}
-                  />
-                )}
+                {isSel &&
+                  HANDLES.map((hd) => (
+                    <div
+                      key={`${hd.dx},${hd.dy}`}
+                      onPointerDown={(e) => onHandlePointerDown(e, b, hd.dx, hd.dy)}
+                      onPointerMove={onDragMove}
+                      onPointerUp={onDragEnd}
+                      style={{
+                        position: "absolute", width: 12, height: 12,
+                        background: "#fff", border: "2px solid #2563eb", borderRadius: 2,
+                        cursor: hd.cursor, zIndex: 999, ...hd.pos,
+                      }}
+                    />
+                  ))}
               </div>
             );
           })}
+
+          {/* 스냅 가이드 라인 */}
+          {snap.v != null && (
+            <div style={{ position: "absolute", left: `${snap.v}%`, top: 0, bottom: 0, width: 1, background: "#ec4899", zIndex: 1000, pointerEvents: "none" }} />
+          )}
+          {snap.h != null && (
+            <div style={{ position: "absolute", top: `${snap.h}%`, left: 0, right: 0, height: 1, background: "#ec4899", zIndex: 1000, pointerEvents: "none" }} />
+          )}
         </div>
 
         {/* 속성 패널 */}
