@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -65,9 +66,10 @@ export function PageEditor({
   const [pageBg, setPageBg] = useState(initialLayout.pageBg ?? "#ffffff");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [articleId, setArticleId] = useState<string | null>(initialArticleId);
-  const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [ratioLock, setRatioLock] = useState(false); // 비율 잠금(W/H 동시 변경)
+  // 저장 상태(E2.6): idle(초기) → dirty(변경) → saving → saved
+  const [saveState, setSaveState] = useState<"idle" | "dirty" | "saving" | "saved">("idle");
 
   const selected = blocks.find((b) => b.id === selectedId) ?? null;
   const maxZ = blocks.reduce((m, b) => Math.max(m, b.z), 0);
@@ -292,24 +294,65 @@ export function PageEditor({
     setUploading(false);
   }
 
-  function save() {
-    setSaving(true);
-    const layout: PageLayout = { blocks, pageBg };
-    updatePageLayout(pageId, magazineId, layout, articleId)
-      .then(() => {
-        toast.success("저장되었습니다");
-        router.refresh();
-      })
-      .catch(() => toast.error("저장 실패"))
-      .finally(() => setSaving(false));
+  // ── 자동저장(E2.6): 변경 디바운스 1.2s + 수동 저장 + 이탈 경고 ──
+  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingRef = useRef(false); // 마지막 저장 이후 미저장 변경 존재
+  const mountedRef = useRef(false);
+  const dataRef = useRef({ blocks, pageBg, articleId });
+  dataRef.current = { blocks, pageBg, articleId };
+
+  async function doSave(auto = false) {
+    if (autosaveTimer.current) { clearTimeout(autosaveTimer.current); autosaveTimer.current = null; }
+    setSaveState("saving");
+    const { blocks: b, pageBg: bg, articleId: aid } = dataRef.current;
+    try {
+      await updatePageLayout(pageId, magazineId, { blocks: b, pageBg: bg }, aid);
+      pendingRef.current = false;
+      setSaveState("saved");
+      if (!auto) { toast.success("저장되었습니다"); router.refresh(); }
+    } catch {
+      setSaveState("dirty");
+      if (!auto) toast.error("저장 실패");
+    }
   }
+
+  // 변경 감지 → dirty + 디바운스 자동저장 (초기 마운트는 건너뜀)
+  useEffect(() => {
+    if (!mountedRef.current) { mountedRef.current = true; return; }
+    pendingRef.current = true;
+    setSaveState("dirty");
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    autosaveTimer.current = setTimeout(() => doSave(true), 1200);
+    return () => { if (autosaveTimer.current) clearTimeout(autosaveTimer.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blocks, pageBg, articleId]);
+
+  // 미저장 상태에서 탭 닫기/새로고침 경고
+  useEffect(() => {
+    if (saveState !== "dirty" && saveState !== "saving") return;
+    const h = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", h);
+    return () => window.removeEventListener("beforeunload", h);
+  }, [saveState]);
+
+  // 언마운트(페이지 전환) 시 미저장분 즉시 flush
+  useEffect(() => {
+    return () => {
+      if (!pendingRef.current) return;
+      const { blocks: b, pageBg: bg, articleId: aid } = dataRef.current;
+      updatePageLayout(pageId, magazineId, { blocks: b, pageBg: bg }, aid).catch(() => {});
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const round = (n: number) => Math.round(n * 10) / 10;
 
   return (
-    <div className="space-y-4">
-      {/* 캔버스 툴바 (목업): 추가 · 실행취소/다시실행 · 정렬/레이어 · 페이지/줌 · 저장 */}
-      <div className="flex flex-wrap items-center gap-1.5 rounded-md border bg-card px-2 py-1.5">
+    <div className="flex gap-4">
+      {/* 가운데 컬럼: 툴바 + 캔버스 (목업 .col.center) */}
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border">
+      {/* 캔버스 툴바 (목업 .canvas-toolbar): 추가 · 실행취소/다시실행 · 정렬/레이어 · 페이지/줌 */}
+      <div className="flex flex-wrap items-center gap-1.5 border-b bg-card px-3 py-2">
         {!embedded && (
           <Link
             href={`/admin/magazines/${magazineId}/edit`}
@@ -318,30 +361,30 @@ export function PageEditor({
             ←
           </Link>
         )}
-        <button type="button" onClick={addText} className="rounded px-2.5 py-1 text-sm hover:bg-accent">＋ 텍스트</button>
-        <button type="button" onClick={addImage} className="rounded px-2.5 py-1 text-sm hover:bg-accent">＋ 이미지</button>
-        <button type="button" onClick={addImageFrame} className="rounded px-2.5 py-1 text-sm hover:bg-accent">＋ 이미지 프레임</button>
-        <div className="mx-1 h-5 w-px bg-border" />
-        <button type="button" disabled title="실행취소(준비 중)" className="rounded px-2 py-1 text-sm text-muted-foreground/50">↶</button>
-        <button type="button" disabled title="다시실행(준비 중)" className="rounded px-2 py-1 text-sm text-muted-foreground/50">↷</button>
-        <div className="mx-1 h-5 w-px bg-border" />
+        <button type="button" onClick={addText} className="tbtn">＋ 텍스트</button>
+        <button type="button" onClick={addImage} className="tbtn">＋ 이미지</button>
+        <button type="button" onClick={addImageFrame} className="tbtn">＋ 이미지 프레임</button>
+        <span className="tbsep" />
+        <button type="button" disabled title="실행취소(준비 중)" className="tbtn ghost">↶ 실행취소</button>
+        <button type="button" disabled title="다시실행(준비 중)" className="tbtn ghost">↷ 다시실행</button>
+        <span className="tbsep" />
         {/* 정렬 ▾ */}
         <details className="relative">
-          <summary className={`cursor-pointer rounded px-2.5 py-1 text-sm hover:bg-accent ${!selected ? "pointer-events-none text-muted-foreground/50" : ""}`}>정렬 ▾</summary>
+          <summary className={`tbtn ghost list-none ${!selected ? "pointer-events-none opacity-40" : ""}`}>정렬 ▾</summary>
           <div className="absolute left-0 z-30 mt-1 w-40 rounded-md border bg-popover p-1 shadow-md">
             <div className="grid grid-cols-3 gap-1">
-              <MenuBtn onClick={() => alignH("left")}>⬅ 좌</MenuBtn>
-              <MenuBtn onClick={() => alignH("center")}>↔ 가운데</MenuBtn>
-              <MenuBtn onClick={() => alignH("right")}>➡ 우</MenuBtn>
-              <MenuBtn onClick={() => alignV("top")}>⬆ 상</MenuBtn>
+              <MenuBtn onClick={() => alignH("left")}>⇤ 좌</MenuBtn>
+              <MenuBtn onClick={() => alignH("center")}>⤬ 가운데</MenuBtn>
+              <MenuBtn onClick={() => alignH("right")}>⇥ 우</MenuBtn>
+              <MenuBtn onClick={() => alignV("top")}>⤒ 상</MenuBtn>
               <MenuBtn onClick={() => alignV("middle")}>↕ 중앙</MenuBtn>
-              <MenuBtn onClick={() => alignV("bottom")}>⬇ 하</MenuBtn>
+              <MenuBtn onClick={() => alignV("bottom")}>⤓ 하</MenuBtn>
             </div>
           </div>
         </details>
         {/* 레이어 ▾ */}
         <details className="relative">
-          <summary className={`cursor-pointer rounded px-2.5 py-1 text-sm hover:bg-accent ${!selected ? "pointer-events-none text-muted-foreground/50" : ""}`}>레이어 ▾</summary>
+          <summary className={`tbtn ghost list-none ${!selected ? "pointer-events-none opacity-40" : ""}`}>레이어 ▾</summary>
           <div className="absolute left-0 z-30 mt-1 w-32 rounded-md border bg-popover p-1 shadow-md">
             <MenuBtn onClick={() => zOrder("front")} block>맨 앞으로</MenuBtn>
             <MenuBtn onClick={() => zOrder("forward")} block>앞으로</MenuBtn>
@@ -350,16 +393,15 @@ export function PageEditor({
           </div>
         </details>
 
-        <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="tabular-nums">
-            페이지 {pageNumber}{totalPages ? ` / ${totalPages}` : ""}
+        <div className="ml-auto flex items-center gap-2.5">
+          <span className="font-mono text-[11px] text-muted-foreground">
+            페이지 {pageNumber}{totalPages ? ` / ${totalPages}` : ""} · 100%
           </span>
-          <span className="tabular-nums">100%</span>
-          <div className="h-5 w-px bg-border" />
+          <span className="tbsep" />
           <select
             value={articleId ?? ""}
             onChange={(e) => setArticleId(e.target.value || null)}
-            className="max-w-[160px] rounded border px-2 py-1 text-xs"
+            className="max-w-[160px] rounded-md border px-2 py-1.5 text-xs"
             title="싣는 기사 연동"
           >
             <option value="">기사 연동 없음</option>
@@ -373,24 +415,33 @@ export function PageEditor({
               );
             })}
           </select>
+          {/* 저장 상태 표시(E2.6) */}
+          <span className="flex items-center gap-1.5 font-mono text-[11px]">
+            {saveState === "saving" ? (
+              <span className="text-muted-foreground">저장 중…</span>
+            ) : saveState === "dirty" ? (
+              <span className="flex items-center gap-1 text-amber-600"><span className="h-1.5 w-1.5 rounded-full bg-amber-500" />변경됨</span>
+            ) : saveState === "saved" ? (
+              <span className="flex items-center gap-1 text-green-600"><span className="h-1.5 w-1.5 rounded-full bg-green-600" />저장됨</span>
+            ) : null}
+          </span>
           <button
             type="button"
-            onClick={save}
-            disabled={saving}
+            onClick={() => doSave(false)}
+            disabled={saveState === "saving"}
             className="rounded-md bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
           >
-            {saving ? "저장 중..." : "저장"}
+            저장
           </button>
         </div>
       </div>
 
-      <div className="flex gap-4">
-        {/* 캔버스 (가운데, 중앙 정렬) */}
-        <div className="flex min-w-0 flex-1 justify-center">
+      {/* 캔버스 래핑 (목업 .canvas-wrap): 중립 배경 + 강한 그림자 */}
+      <div className="flex flex-1 items-start justify-center overflow-auto bg-[#e9e7e4] p-8">
         <div
           ref={canvasRef}
           onPointerDown={() => setSelectedId(null)}
-          className="relative shrink-0 overflow-hidden border shadow-sm"
+          className="relative shrink-0 overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.18)]"
           style={{ width: BASE_W, height: BASE_H, background: pageBg, touchAction: "none" }}
         >
           {[...blocks].sort((a, b) => a.z - b.z).map((b) => {
@@ -448,21 +499,25 @@ export function PageEditor({
           )}
         </div>
         </div>
+      </div>
 
-        {/* 속성 패널 (목업 우측 256px · 그룹 섹션) */}
-        <aside className="w-64 shrink-0 self-start rounded-lg border bg-card text-sm">
+        {/* 속성 패널 (목업 .col.right · .props) */}
+        <aside className="w-64 shrink-0 self-start rounded-lg border bg-card p-3.5 text-sm">
           {!selected ? (
-            <div className="p-4">
-              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+            <div>
+              <h4 className="mb-2.5 font-mono text-[9px] uppercase tracking-[0.15em] text-muted-foreground">
                 속성
-              </p>
-              <p className="mt-2 text-xs text-muted-foreground">
+              </h4>
+              <p className="text-xs text-muted-foreground">
                 블록을 선택하면 속성이 표시됩니다.
               </p>
-              <div className="mt-4 space-y-2 border-t pt-4">
-                <label className="block text-xs font-medium text-gray-600">페이지 배경색</label>
-                <input type="text" value={pageBg} onChange={(e) => setPageBg(e.target.value)} className="w-full rounded border px-2 py-1" />
-                <div className="flex gap-1">
+              <div className="mt-3 border-t pt-3">
+                <div className="ed-grouplabel">페이지 배경색</div>
+                <div className="ed-field">
+                  <span className="k">#</span>
+                  <input value={pageBg.replace(/^#/, "")} onChange={(e) => setPageBg("#" + e.target.value.replace(/^#/, ""))} />
+                </div>
+                <div className="mt-2 flex gap-1.5">
                   {["#ffffff", "#faf7f2", "#111111", "#000000"].map((c) => (
                     <button key={c} type="button" onClick={() => setPageBg(c)} className="h-6 w-6 rounded border" style={{ background: c }} />
                   ))}
@@ -470,175 +525,185 @@ export function PageEditor({
               </div>
             </div>
           ) : (
-            <div className="divide-y">
-              {/* 헤더 */}
-              <div className="flex items-center justify-between px-3 py-2.5">
-                <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
-                  속성 · {selected.type === "image" ? "이미지 블록" : "텍스트 블록"}
-                </span>
-                <button type="button" onClick={removeSelected} className="rounded border px-2 py-0.5 text-xs text-red-600 hover:bg-red-50">삭제</button>
-              </div>
+            <div>
+              {/* 헤더: 속성 [typetag] */}
+              <h4 className="mb-2.5 flex items-center gap-1.5">
+                <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-muted-foreground">속성</span>
+                <span className="ed-typetag">{selected.type === "image" ? "이미지 블록" : "텍스트 블록"}</span>
+                <button type="button" onClick={removeSelected} className="ml-auto rounded border px-2 py-0.5 text-xs text-red-600 hover:bg-red-50">삭제</button>
+              </h4>
 
               {/* 위치 · 크기 */}
-              <Section title="위치 · 크기 (상대 단위)">
-                <div className="grid grid-cols-2 gap-2">
-                  <NumField label="X %" value={round(selected.x)} onChange={(v) => patch(selected.id, { x: v })} />
-                  <NumField label="Y %" value={round(selected.y)} onChange={(v) => patch(selected.id, { y: v })} />
-                  <NumField label="W %" value={round(selected.w)} onChange={(v) => patchSize("w", v)} />
-                  <NumField label="H %" value={round(selected.h)} onChange={(v) => patchSize("h", v)} />
+              <Group title={<>위치 · 크기 <span className="text-muted-foreground/60">(% · 상대단위)</span></>} first>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <Field k="X" unit="%" value={round(selected.x)} onChange={(v) => patch(selected.id, { x: v })} />
+                  <Field k="Y" unit="%" value={round(selected.y)} onChange={(v) => patch(selected.id, { y: v })} />
+                  <Field k="W" unit="%" value={round(selected.w)} onChange={(v) => patchSize("w", v)} />
+                  <Field k="H" unit="%" value={round(selected.h)} onChange={(v) => patchSize("h", v)} />
                 </div>
-                <div className="mt-2 flex items-center gap-2">
+                <div className="mt-2 flex items-center gap-1.5">
                   <button
                     type="button"
                     onClick={() => setRatioLock((v) => !v)}
-                    className={`rounded border px-2 py-1 text-xs ${ratioLock ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground"}`}
+                    className={`ed-lockbtn ${ratioLock ? "on" : ""}`}
+                    title="비율 잠금"
                   >
                     {ratioLock ? "🔒" : "🔓"} 비율
                   </button>
-                  <NumField className="flex-1" label="회전 °" value={selected.rotation ?? 0} onChange={(v) => patch(selected.id, { rotation: v })} />
-                  <NumField className="flex-1" label="투명도 %" value={Math.round((selected.opacity ?? 1) * 100)} onChange={(v) => patch(selected.id, { opacity: v / 100 })} />
+                  <Field className="flex-1" k="∠" unit="°" value={selected.rotation ?? 0} onChange={(v) => patch(selected.id, { rotation: v })} />
+                  <Field className="flex-1" k="◐" unit="%" value={Math.round((selected.opacity ?? 1) * 100)} onChange={(v) => patch(selected.id, { opacity: v / 100 })} />
                 </div>
-              </Section>
+              </Group>
 
               {/* 정렬(캔버스 기준) */}
-              <Section title="정렬">
-                <div className="grid grid-cols-6 gap-1">
-                  <IconBtn onClick={() => alignH("left")} title="왼쪽">⬅</IconBtn>
-                  <IconBtn onClick={() => alignH("center")} title="가로 가운데">↔</IconBtn>
-                  <IconBtn onClick={() => alignH("right")} title="오른쪽">➡</IconBtn>
-                  <IconBtn onClick={() => alignV("top")} title="위">⬆</IconBtn>
-                  <IconBtn onClick={() => alignV("middle")} title="세로 가운데">↕</IconBtn>
-                  <IconBtn onClick={() => alignV("bottom")} title="아래">⬇</IconBtn>
+              <Group title="정렬">
+                <div className="ed-iconrow flex gap-1.5">
+                  <button type="button" onClick={() => alignH("left")} title="왼쪽">⇤</button>
+                  <button type="button" onClick={() => alignH("center")} title="가로 가운데">⤬</button>
+                  <button type="button" onClick={() => alignH("right")} title="오른쪽">⇥</button>
+                  <button type="button" onClick={() => alignV("top")} title="위">⤒</button>
+                  <button type="button" onClick={() => alignV("middle")} title="세로 가운데">↕</button>
+                  <button type="button" onClick={() => alignV("bottom")} title="아래">⤓</button>
                 </div>
-              </Section>
+              </Group>
 
               {/* 레이어 (z-order) */}
-              <Section title="레이어 (z-order)">
-                <div className="grid grid-cols-4 gap-1">
-                  <IconBtn onClick={() => zOrder("front")} title="맨 앞으로">⤒</IconBtn>
-                  <IconBtn onClick={() => zOrder("forward")} title="앞으로">↑</IconBtn>
-                  <IconBtn onClick={() => zOrder("backward")} title="뒤로">↓</IconBtn>
-                  <IconBtn onClick={() => zOrder("back")} title="맨 뒤로">⤓</IconBtn>
+              <Group title="레이어 (z-order)">
+                <div className="ed-iconrow flex gap-1.5">
+                  <button type="button" onClick={() => zOrder("front")} title="맨 앞으로">⤴ 맨앞</button>
+                  <button type="button" onClick={() => zOrder("forward")} title="앞으로">앞으로</button>
+                  <button type="button" onClick={() => zOrder("backward")} title="뒤로">뒤로</button>
+                  <button type="button" onClick={() => zOrder("back")} title="맨 뒤로">⤵ 맨뒤</button>
                 </div>
-              </Section>
+              </Group>
 
               {selected.type === "image" ? (
-                <Section title="이미지 프레임">
-                  <div className="space-y-1">
-                    <span className="block text-[11px] font-medium text-gray-600">이미지 파일 (업로드 / 교체)</span>
+                <Group title="이미지 프레임">
+                  <div className="mb-2">
+                    <div className="ed-grouplabel">이미지 파일 (업로드 / 교체)</div>
                     <input type="file" accept="image/*" onChange={(e) => handleFileFor(selected.id, e)} className="block w-full text-xs" />
+                    {uploading && <p className="mt-1 text-xs text-gray-500">업로드 중...</p>}
                   </div>
-                  {uploading && <p className="text-xs text-gray-500">업로드 중...</p>}
-                  {/* 채움 / 맞춤 세그먼트 */}
-                  <div className="grid grid-cols-2 overflow-hidden rounded-md border text-xs">
+                  {/* 채움 / 맞춤 */}
+                  <div className="ed-iconrow mb-2 flex gap-1.5">
                     {(["cover", "contain"] as const).map((f) => (
                       <button
                         key={f}
                         type="button"
                         onClick={() => patch(selected.id, { fit: f } as Partial<ImageBlock>)}
-                        className={`py-1 ${(selected.fit ?? "cover") === f ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}
+                        className={(selected.fit ?? "cover") === f ? "on" : ""}
                       >
-                        {f === "cover" ? "채움(crop)" : "맞춤(contain)"}
+                        {f === "cover" ? "채움(cover)" : "맞춤(contain)"}
                       </button>
                     ))}
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <NumField label="어둡게 %" value={selected.overlayDarken ?? 0} onChange={(v) => patch(selected.id, { overlayDarken: v } as Partial<ImageBlock>)} />
-                    <NumField label="모서리 px" value={selected.radius ?? 0} onChange={(v) => patch(selected.id, { radius: v } as Partial<ImageBlock>)} />
-                  </div>
+                  <Slider label="어둡게" min={0} max={60} value={selected.overlayDarken ?? 0} display={`${selected.overlayDarken ?? 0}%`} onChange={(v) => patch(selected.id, { overlayDarken: v } as Partial<ImageBlock>)} />
+                  <Slider label="모서리" min={0} max={40} value={selected.radius ?? 0} display={`${selected.radius ?? 0}`} onChange={(v) => patch(selected.id, { radius: v } as Partial<ImageBlock>)} />
                   {selected.src && (selected.fit ?? "cover") === "cover" && (
-                    <FocusPicker
-                      src={selected.src}
-                      focusX={selected.focusX ?? 50}
-                      focusY={selected.focusY ?? 50}
-                      zoom={selected.zoom ?? 1}
-                      onChange={(x, y) => patch(selected.id, { focusX: x, focusY: y } as Partial<ImageBlock>)}
-                      onZoomChange={(z) => patch(selected.id, { zoom: z } as Partial<ImageBlock>)}
-                    />
+                    <div className="mt-3">
+                      <FocusPicker
+                        src={selected.src}
+                        focusX={selected.focusX ?? 50}
+                        focusY={selected.focusY ?? 50}
+                        zoom={selected.zoom ?? 1}
+                        onChange={(x, y) => patch(selected.id, { focusX: x, focusY: y } as Partial<ImageBlock>)}
+                        onZoomChange={(z) => patch(selected.id, { zoom: z } as Partial<ImageBlock>)}
+                      />
+                    </div>
                   )}
-                </Section>
+                </Group>
               ) : (
-                <Section title="텍스트">
-                  <label className="block text-[11px] font-medium text-gray-600">내용 (HTML 허용)
-                    <textarea value={selected.html} onChange={(e) => patch(selected.id, { html: e.target.value } as Partial<TextBlock>)} rows={4} className="mt-1 w-full rounded border px-2 py-1 text-xs" />
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <NumField label="글자 크기 px" value={selected.fontSizePx ?? 16} onChange={(v) => patch(selected.id, { fontSizePx: v } as Partial<TextBlock>)} />
-                    <label className="text-[11px] text-muted-foreground">정렬
-                      <select value={selected.align ?? "left"} onChange={(e) => patch(selected.id, { align: e.target.value as "left" | "center" | "right" } as Partial<TextBlock>)} className="mt-0.5 block w-full rounded border px-1 py-0.5 text-foreground">
+                <Group title="텍스트">
+                  <div className="mb-2">
+                    <div className="ed-grouplabel">내용 (HTML 허용)</div>
+                    <textarea value={selected.html} onChange={(e) => patch(selected.id, { html: e.target.value } as Partial<TextBlock>)} rows={4} className="w-full rounded-md border px-2 py-1.5 text-xs" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <LabeledField label="글자 크기" unit="px" value={selected.fontSizePx ?? 16} onChange={(v) => patch(selected.id, { fontSizePx: v } as Partial<TextBlock>)} />
+                    <div>
+                      <div className="ed-grouplabel">정렬</div>
+                      <select value={selected.align ?? "left"} onChange={(e) => patch(selected.id, { align: e.target.value as "left" | "center" | "right" } as Partial<TextBlock>)} className="w-full rounded-md border px-2 py-[7px] text-xs">
                         <option value="left">왼쪽</option><option value="center">가운데</option><option value="right">오른쪽</option>
                       </select>
-                    </label>
-                    <NumField label="굵기" value={selected.weight ?? 400} step={100} onChange={(v) => patch(selected.id, { weight: v } as Partial<TextBlock>)} />
-                    <NumField label="줄간격" value={selected.lineHeight ?? 1.6} step={0.05} onChange={(v) => patch(selected.id, { lineHeight: v } as Partial<TextBlock>)} />
+                    </div>
+                    <LabeledField label="굵기" value={selected.weight ?? 400} step={100} onChange={(v) => patch(selected.id, { weight: v } as Partial<TextBlock>)} />
+                    <LabeledField label="줄간격" value={selected.lineHeight ?? 1.6} step={0.05} onChange={(v) => patch(selected.id, { lineHeight: v } as Partial<TextBlock>)} />
                   </div>
-                  <div>
-                    <span className="text-[11px] text-muted-foreground">글자색</span>
-                    <div className="mt-1 flex flex-wrap gap-1">
+                  <div className="mt-2">
+                    <div className="ed-grouplabel">글자색</div>
+                    <div className="flex flex-wrap gap-1.5">
                       {COLORS.map((c) => (
-                        <button key={c} type="button" onClick={() => patch(selected.id, { color: c } as Partial<TextBlock>)} className={`h-6 w-6 rounded-full border ${selected.color === c ? "ring-2 ring-gray-900 ring-offset-1" : ""}`} style={{ background: c }} />
+                        <button key={c} type="button" onClick={() => patch(selected.id, { color: c } as Partial<TextBlock>)} className={`h-6 w-6 rounded-full border ${selected.color === c ? "ring-2 ring-[#2563eb] ring-offset-1" : ""}`} style={{ background: c }} />
                       ))}
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <label className="flex-1 text-[11px] text-muted-foreground">배경색(빈칸=없음)
-                      <input type="text" value={selected.bgColor ?? ""} onChange={(e) => patch(selected.id, { bgColor: e.target.value || undefined } as Partial<TextBlock>)} className="mt-0.5 w-full rounded border px-1 py-0.5 text-foreground" />
-                    </label>
-                    <NumField className="w-20" label="여백 px" value={selected.padding ?? 0} onChange={(v) => patch(selected.id, { padding: v } as Partial<TextBlock>)} />
+                  <div className="mt-2 grid grid-cols-[1fr_auto] gap-1.5">
+                    <div>
+                      <div className="ed-grouplabel">배경색(빈칸=없음)</div>
+                      <input type="text" value={selected.bgColor ?? ""} onChange={(e) => patch(selected.id, { bgColor: e.target.value || undefined } as Partial<TextBlock>)} className="w-full rounded-md border px-2 py-[7px] text-xs" />
+                    </div>
+                    <LabeledField className="w-20" label="여백" unit="px" value={selected.padding ?? 0} onChange={(v) => patch(selected.id, { padding: v } as Partial<TextBlock>)} />
                   </div>
-                </Section>
+                </Group>
               )}
             </div>
           )}
         </aside>
-      </div>
     </div>
   );
 }
 
-// 속성 그룹 섹션(라벨 + 내용)
-function Section({ title, children }: { title: string; children: ReactNode }) {
+// 속성 그룹(목업 .pgroup: 상단 구분선 + 라벨 + 내용)
+function Group({ title, children, first }: { title: ReactNode; children: ReactNode; first?: boolean }) {
   return (
-    <div className="space-y-2 px-3 py-3">
-      <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-        {title}
-      </p>
+    <div className={`py-3 ${first ? "" : "border-t"}`}>
+      <div className="ed-grouplabel">{title}</div>
       {children}
     </div>
   );
 }
 
-// 라벨 달린 숫자 입력
-function NumField({
-  label, value, onChange, step, className = "",
+// 알약형 숫자 필드(목업 .field: k 라벨 + 입력 + 단위)
+function Field({
+  k, value, onChange, unit, step, className = "",
 }: {
-  label: string; value: number; onChange: (v: number) => void; step?: number; className?: string;
+  k?: string; value: number; onChange: (v: number) => void; unit?: string; step?: number; className?: string;
 }) {
   return (
-    <label className={`text-[11px] text-muted-foreground ${className}`}>
-      {label}
-      <input
-        type="number"
-        step={step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="mt-0.5 w-full rounded border px-1 py-0.5 text-foreground"
-      />
-    </label>
+    <div className={`ed-field ${className}`}>
+      {k && <span className="k">{k}</span>}
+      <input type="number" step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} />
+      {unit && <span className="u">{unit}</span>}
+    </div>
   );
 }
 
-// 정렬/레이어 아이콘 버튼
-function IconBtn({ onClick, title, children }: { onClick: () => void; title: string; children: ReactNode }) {
+// 라벨이 위에 붙는 필드(텍스트 속성용)
+function LabeledField({
+  label, value, onChange, unit, step, className = "",
+}: {
+  label: string; value: number; onChange: (v: number) => void; unit?: string; step?: number; className?: string;
+}) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={title}
-      className="flex h-7 items-center justify-center rounded border text-sm hover:bg-accent"
-    >
-      {children}
-    </button>
+    <div className={className}>
+      <div className="ed-grouplabel">{label}{unit ? ` (${unit})` : ""}</div>
+      <Field value={value} onChange={onChange} unit={unit} step={step} />
+    </div>
+  );
+}
+
+// 슬라이더(목업 .slider: 라벨 + range + 값)
+function Slider({
+  label, value, onChange, min, max, display,
+}: {
+  label: string; value: number; onChange: (v: number) => void; min: number; max: number; display: string;
+}) {
+  return (
+    <div className="mt-2 flex items-center gap-2">
+      <span className="w-10 shrink-0 text-[11px] text-muted-foreground">{label}</span>
+      <input type="range" min={min} max={max} value={value} onChange={(e) => onChange(Number(e.target.value))} className="flex-1 accent-[#2563eb]" />
+      <span className="w-9 text-right font-mono text-[10px] text-muted-foreground">{display}</span>
+    </div>
   );
 }
 
