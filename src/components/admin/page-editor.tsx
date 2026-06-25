@@ -12,6 +12,7 @@ import {
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
+import type { Editor } from "@tiptap/react";
 import { ComposedBlockBody } from "@/components/public/composed-page";
 import {
   type Block,
@@ -23,6 +24,7 @@ import {
 import { updatePageLayout } from "@/actions/page-actions";
 import { uploadBlogImage } from "@/lib/upload-client";
 import { FocusPicker } from "@/components/admin/focus-picker";
+import { InlineTextEditor } from "@/components/admin/inline-text-editor";
 
 const BASE_W = LAYOUT_BASE_WIDTH; // 440
 const BASE_H = Math.round((BASE_W * 3) / 2); // 660
@@ -65,6 +67,8 @@ export function PageEditor({
   const [blocks, setBlocks] = useState<Block[]>(initialLayout.blocks ?? []);
   const [pageBg, setPageBg] = useState(initialLayout.pageBg ?? "#ffffff");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null); // 인라인 편집 중 텍스트 블록(E2.3)
+  const [activeEditor, setActiveEditor] = useState<Editor | null>(null); // 속성 패널 서식 툴바용
   const [articleId, setArticleId] = useState<string | null>(initialArticleId);
   const [uploading, setUploading] = useState(false);
   const [ratioLock, setRatioLock] = useState(false); // 비율 잠금(W/H 동시 변경)
@@ -191,6 +195,7 @@ export function PageEditor({
   function onBlockPointerDown(e: ReactPointerEvent, b: Block) {
     e.stopPropagation();
     setSelectedId(b.id);
+    setEditingId(null); // 다른 블록으로 이동하면 인라인 편집 종료
     e.currentTarget.setPointerCapture(e.pointerId);
     drag.current = { mode: "move", id: b.id, sx: e.clientX, sy: e.clientY, bx: b.x, by: b.y, bw: b.w, bh: b.h };
   }
@@ -345,6 +350,14 @@ export function PageEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Esc → 인라인 편집 종료
+  useEffect(() => {
+    if (!editingId) return;
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") setEditingId(null); };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [editingId]);
+
   const round = (n: number) => Math.round(n * 10) / 10;
 
   return (
@@ -440,30 +453,43 @@ export function PageEditor({
       <div className="flex flex-1 items-start justify-center overflow-auto bg-[#e9e7e4] p-8">
         <div
           ref={canvasRef}
-          onPointerDown={() => setSelectedId(null)}
+          onPointerDown={() => { setSelectedId(null); setEditingId(null); }}
           className="relative shrink-0 overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.18)]"
           style={{ width: BASE_W, height: BASE_H, background: pageBg, touchAction: "none" }}
         >
           {[...blocks].sort((a, b) => a.z - b.z).map((b) => {
             const isSel = b.id === selectedId;
+            const isEditing = b.id === editingId && b.type === "text";
             const isEmptyImg = b.type === "image" && !b.src;
             return (
               <div
                 key={b.id}
-                onPointerDown={(e) => onBlockPointerDown(e, b)}
-                onPointerMove={onDragMove}
-                onPointerUp={onDragEnd}
+                onPointerDown={(e) => { if (!isEditing) onBlockPointerDown(e, b); }}
+                onPointerMove={isEditing ? undefined : onDragMove}
+                onPointerUp={isEditing ? undefined : onDragEnd}
+                onDoubleClick={(e) => {
+                  if (b.type !== "text") return;
+                  e.stopPropagation();
+                  setSelectedId(b.id);
+                  setEditingId(b.id);
+                }}
                 style={{
                   position: "absolute",
                   left: `${b.x}%`, top: `${b.y}%`, width: `${b.w}%`, height: `${b.h}%`,
                   transform: b.rotation ? `rotate(${b.rotation}deg)` : undefined,
                   opacity: b.opacity ?? 1,
-                  zIndex: b.z,
-                  outline: isSel ? "1.5px solid #2563eb" : "1px dashed rgba(0,0,0,.25)",
-                  cursor: "move",
+                  zIndex: isEditing ? 998 : b.z,
+                  outline: isEditing ? "2px solid #2563eb" : isSel ? "1.5px solid #2563eb" : "1px dashed rgba(0,0,0,.25)",
+                  cursor: isEditing ? "text" : "move",
                 }}
               >
-                {isEmptyImg ? (
+                {isEditing && b.type === "text" ? (
+                  <InlineTextEditor
+                    block={b}
+                    onChange={(html) => patch(b.id, { html } as Partial<TextBlock>)}
+                    onReady={setActiveEditor}
+                  />
+                ) : isEmptyImg ? (
                   <div className="pointer-events-none flex h-full w-full items-center justify-center bg-gray-100 text-center text-[10px] leading-tight text-gray-400">
                     이미지 없음
                     <br />
@@ -472,7 +498,7 @@ export function PageEditor({
                 ) : (
                   <ComposedBlockBody block={b} />
                 )}
-                {isSel &&
+                {isSel && !isEditing &&
                   HANDLES.map((hd) => (
                     <div
                       key={`${hd.dx},${hd.dy}`}
@@ -615,8 +641,15 @@ export function PageEditor({
               ) : (
                 <Group title="텍스트">
                   <div className="mb-2">
-                    <div className="ed-grouplabel">내용 (HTML 허용)</div>
-                    <textarea value={selected.html} onChange={(e) => patch(selected.id, { html: e.target.value } as Partial<TextBlock>)} rows={4} className="w-full rounded-md border px-2 py-1.5 text-xs" />
+                    <div className="ed-grouplabel">
+                      서식{editingId === selected.id ? "" : " · 블록 더블클릭으로 편집"}
+                    </div>
+                    <FmtToolbar editor={editingId === selected.id ? activeEditor : null} />
+                    {editingId === selected.id ? (
+                      <button type="button" onClick={() => setEditingId(null)} className="mt-1.5 text-xs text-muted-foreground hover:underline">편집 종료 (Esc)</button>
+                    ) : (
+                      <button type="button" onClick={() => setEditingId(selected.id)} className="mt-1.5 text-xs text-primary hover:underline">✎ 캔버스에서 편집</button>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-1.5">
                     <LabeledField label="글자 크기" unit="px" value={selected.fontSizePx ?? 16} onChange={(v) => patch(selected.id, { fontSizePx: v } as Partial<TextBlock>)} />
@@ -703,6 +736,38 @@ function Slider({
       <span className="w-10 shrink-0 text-[11px] text-muted-foreground">{label}</span>
       <input type="range" min={min} max={max} value={value} onChange={(e) => onChange(Number(e.target.value))} className="flex-1 accent-[#2563eb]" />
       <span className="w-9 text-right font-mono text-[10px] text-muted-foreground">{display}</span>
+    </div>
+  );
+}
+
+// 텍스트 서식 툴바(E2.3) — 인라인 에디터(activeEditor)에 연결. 트랜잭션마다 active 갱신.
+function FmtToolbar({ editor }: { editor: Editor | null }) {
+  const [, force] = useState(0);
+  useEffect(() => {
+    if (!editor) return;
+    const update = () => force((n) => n + 1);
+    editor.on("transaction", update);
+    return () => { editor.off("transaction", update); };
+  }, [editor]);
+  const btn = (label: string, run: () => void, active?: boolean) => (
+    <button
+      type="button"
+      disabled={!editor}
+      onClick={run}
+      className={`rounded border px-2 py-1 text-xs ${active ? "border-[#2563eb] bg-[#2563eb] text-white" : "hover:bg-accent"} disabled:opacity-40`}
+    >
+      {label}
+    </button>
+  );
+  return (
+    <div className="flex flex-wrap gap-1">
+      {btn("B", () => editor?.chain().focus().toggleBold().run(), editor?.isActive("bold"))}
+      {btn("I", () => editor?.chain().focus().toggleItalic().run(), editor?.isActive("italic"))}
+      {btn("H2", () => editor?.chain().focus().toggleHeading({ level: 2 }).run(), editor?.isActive("heading", { level: 2 }))}
+      {btn("H3", () => editor?.chain().focus().toggleHeading({ level: 3 }).run(), editor?.isActive("heading", { level: 3 }))}
+      {btn("• 목록", () => editor?.chain().focus().toggleBulletList().run(), editor?.isActive("bulletList"))}
+      {btn("1. 목록", () => editor?.chain().focus().toggleOrderedList().run(), editor?.isActive("orderedList"))}
+      {btn("인용", () => editor?.chain().focus().toggleBlockquote().run(), editor?.isActive("blockquote"))}
     </div>
   );
 }
