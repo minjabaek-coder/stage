@@ -827,10 +827,14 @@ export function MagazineViewer({
         {ready && (
           <div
             ref={zoomContainerRef}
+            onDoubleClick={
+              !dims.isMobile && canZoom ? () => setZoomOpen(true) : undefined
+            }
             style={{
               width: dims.single ? dims.pageW : dims.wrapW,
               height: dims.wrapH,
               touchAction: dims.isMobile ? "none" : "auto",
+              cursor: !dims.isMobile && canZoom ? "zoom-in" : undefined,
             }}
             className="relative flex-shrink-0"
           >
@@ -875,7 +879,7 @@ export function MagazineViewer({
               useMouseEvents={true}
               swipeDistance={dims.isMobile ? 9999 : 30}
               showPageCorners={!dims.isMobile}
-              disableFlipByClick={dims.isMobile}
+              disableFlipByClick={true}
               onFlip={onFlip}
               onChangeOrientation={onChangeOrientation}
               className=""
