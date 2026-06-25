@@ -44,7 +44,7 @@ function PageBody({
 function usePinchZoom(
   containerRef: React.RefObject<HTMLDivElement | null>,
   callbacks?: {
-    onSingleTap?: () => void;
+    onSingleTap?: (clientX: number) => void;
     onSwipePrev?: () => void;
     onSwipeNext?: () => void;
   },
@@ -217,8 +217,10 @@ function usePinchZoom(
             setScale(1);
             setTranslate({ x: 0, y: 0 });
           } else {
-            // Not zoomed → single tap callback (e.g. toggle TOC)
-            callbacksRef.current?.onSingleTap?.();
+            // Not zoomed → single tap callback (탭 영역 판정용 X 전달)
+            const tapX =
+              e.changedTouches[0]?.clientX ?? touchStartPosRef.current?.x ?? 0;
+            callbacksRef.current?.onSingleTap?.(tapX);
           }
         } else if (touchStartPosRef.current && stateRef.current.scale <= 1.05) {
           // Swipe detection (only when not zoomed)
@@ -400,26 +402,27 @@ export function TocPanel({
   if (!isOpen) return null;
 
   if (isMobile) {
+    // 하단 시트 + 세로 리스트(썸네일 + 제목 + 쪽) — 데스크톱과 통일된 리스트
     return (
       <>
-        {/* Backdrop */}
-        <div
-          className="fixed inset-0 z-[99] bg-black/40"
-          onClick={onClose}
-        />
-        {/* Bottom carousel modal */}
-        <div className="fixed bottom-0 left-0 right-0 z-[100] bg-ink/95 backdrop-blur-sm">
-          <div
-            className="toc-carousel flex gap-3 overflow-x-auto px-4 py-3"
-            style={{
-              WebkitOverflowScrolling: "touch",
-              scrollbarWidth: "none",
-            }}
-          >
-            <style>{`.toc-carousel::-webkit-scrollbar { display: none }`}</style>
+        <div className="fixed inset-0 z-[99] bg-black/40" onClick={onClose} />
+        <div className="fixed bottom-0 left-0 right-0 z-[100] max-h-[62%] overflow-hidden rounded-t-2xl bg-ink/95 pb-[max(env(safe-area-inset-bottom),12px)] backdrop-blur-sm">
+          <div className="mx-auto mb-1 mt-2 h-1 w-10 rounded-full bg-white/25" />
+          <div className="flex items-center justify-between px-4 py-2">
+            <span className="font-label text-[10px] font-bold uppercase tracking-[0.2em] text-gold">
+              목차
+            </span>
+            <button
+              onClick={onClose}
+              aria-label="닫기"
+              className="text-lg leading-none text-white/50"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="max-h-[50vh] overflow-y-auto px-2 pb-2">
             {tocEntries.map((entry) => {
               const page = pages.find((p) => p.pageNumber === entry.pageNumber);
-              if (!page) return null;
               const isActive = currentPage + 1 === entry.pageNumber;
               return (
                 <button
@@ -429,29 +432,34 @@ export function TocPanel({
                     onNavigate(entry.pageNumber);
                     onClose();
                   }}
-                  className={`flex-shrink-0 overflow-hidden rounded-lg transition-all ${
-                    isActive
-                      ? "ring-2 ring-gold shadow-lg shadow-gold/10"
-                      : "ring-1 ring-white/15 opacity-70"
+                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors ${
+                    isActive ? "bg-gold/15" : "active:bg-white/10"
                   }`}
-                  style={{ width: 100 }}
                 >
-                  <div className="relative h-32 w-full bg-ink-deep">
-                    {page.kind === "composed" ? (
-                      <div className="absolute inset-0 flex items-center justify-center bg-ink-deep">
-                        <ComposedPage layout={parsePageLayout(page.layout)} />
-                      </div>
-                    ) : (
-                      <img
-                        src={page.imageUrl ?? ""}
-                        alt={entry.title}
-                        className="absolute inset-0 h-full w-full object-cover"
-                      />
-                    )}
+                  <div className="relative h-14 w-10 flex-shrink-0 overflow-hidden rounded bg-ink-deep">
+                    {page &&
+                      (page.kind === "composed" ? (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <ComposedPage layout={parsePageLayout(page.layout)} />
+                        </div>
+                      ) : (
+                        <img
+                          src={page.imageUrl ?? ""}
+                          alt=""
+                          className="absolute inset-0 h-full w-full object-cover"
+                        />
+                      ))}
                   </div>
-                  <div className="px-2 py-1.5 bg-ink/80">
-                    <span className="block truncate text-[11px] text-white/80">
+                  <div className="min-w-0 flex-1">
+                    <span
+                      className={`block truncate text-[13px] ${
+                        isActive ? "text-white" : "text-white/80"
+                      }`}
+                    >
                       {entry.title}
+                    </span>
+                    <span className="font-label text-[11px] text-gold">
+                      p.{entry.pageNumber}
                     </span>
                   </div>
                 </button>
@@ -609,7 +617,19 @@ export function MagazineViewer({
   const { scale: zoomScale, translate: zoomTranslate, isZoomed, resetZoom } = usePinchZoom(
     zoomContainerRef,
     {
-      onSingleTap: () => setOverlayVisible((v) => !v),
+      // 탭 영역: 좌 1/3=이전, 우 1/3=다음, 가운데=오버레이 토글
+      onSingleTap: (clientX: number) => {
+        const el = zoomContainerRef.current;
+        if (!el) {
+          setOverlayVisible((v) => !v);
+          return;
+        }
+        const r = el.getBoundingClientRect();
+        const rel = (clientX - r.left) / r.width;
+        if (rel < 0.33) flipPrevRef.current?.();
+        else if (rel > 0.67) flipNextRef.current?.();
+        else setOverlayVisible((v) => !v);
+      },
       onSwipePrev: () => flipPrevRef.current?.(),
       onSwipeNext: () => flipNextRef.current?.(),
     },
@@ -727,17 +747,22 @@ export function MagazineViewer({
     if (currentPage <= 0) return;
 
     if (dims?.isMobile) {
-      // Mobile: use custom CSS 3D flip overlay (left→right)
-      setMobilePrevFlip({
-        prevPage: pages[currentPage - 1],
-        currentPage: pages[currentPage],
-      });
+      if (!flipEffect) {
+        // 넘김 효과 OFF: 즉시 전환(역방향 CSS 3D 오버레이 생략)
+        bookRef.current?.pageFlip()?.turnToPage(currentPage - 1);
+      } else {
+        // Mobile: use custom CSS 3D flip overlay (left→right)
+        setMobilePrevFlip({
+          prevPage: pages[currentPage - 1],
+          currentPage: pages[currentPage],
+        });
+      }
     } else {
       // Desktop: use react-pageflip
       const pf = bookRef.current?.pageFlip();
       if (pf) pf.flipPrev("top");
     }
-  }, [currentPage, dims?.isMobile, pages]);
+  }, [currentPage, dims?.isMobile, pages, flipEffect]);
 
   const flipNext = useCallback(() => {
     const pf = bookRef.current?.pageFlip();
@@ -833,7 +858,7 @@ export function MagazineViewer({
       <div className="relative flex flex-1 overflow-hidden">
         <div
           ref={containerRef}
-          className={`flex flex-1 justify-center overflow-hidden ${dims?.isMobile ? "items-start" : "items-center"}`}
+          className="flex flex-1 items-center justify-center overflow-hidden"
           style={{ background: dark ? undefined : "#f6f3f2" }}
         >
         {!ready && <div className="font-label text-sm tracking-wide text-white/40">Loading…</div>}
@@ -1003,6 +1028,15 @@ export function MagazineViewer({
                 <span className="text-lg leading-none">⊕</span>확대
               </button>
             )}
+            <button
+              onClick={() => setFlipEffect((v) => !v)}
+              aria-pressed={flipEffect}
+              className={`flex flex-col items-center gap-1 text-[10px] ${
+                flipEffect ? "text-gold" : ""
+              }`}
+            >
+              <span className="text-lg leading-none">📖</span>넘김
+            </button>
             <button
               onClick={() => setDark((d) => !d)}
               className="flex flex-col items-center gap-1 text-[10px]"
