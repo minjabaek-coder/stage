@@ -873,7 +873,7 @@ export function MagazineViewer({
             */}
             {/* eslint-disable-next-line react-hooks/static-components */}
             <HTMLFlipBook
-              key={dims.single ? "single" : "spread"}
+              key={`${dims.single ? "single" : "spread"}-${flipEffect ? "flip" : "instant"}`}
               ref={bookRef}
               width={dims.pageW}
               height={dims.pageH}
@@ -885,7 +885,7 @@ export function MagazineViewer({
               drawShadow={!dims.isMobile}
               maxShadowOpacity={dims.isMobile ? 0 : 0.4}
               showCover={true}
-              flippingTime={flipEffect ? (dims.isMobile ? 600 : 800) : 0}
+              flippingTime={flipEffect ? (dims.isMobile ? 600 : 800) : 1}
               usePortrait={dims.single}
               startPage={currentPage}
               startZIndex={0}
