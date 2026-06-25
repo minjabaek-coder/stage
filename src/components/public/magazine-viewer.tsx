@@ -757,12 +757,16 @@ export function MagazineViewer({
           currentPage: pages[currentPage],
         });
       }
+    } else if (dims?.single) {
+      // 데스크톱 단면(portrait): react-pageflip 역넘김이 불안정(무반응) →
+      // turnToPage로 확실히 이전 페이지 이동(단면 역넘김 어색함도 함께 해소)
+      bookRef.current?.pageFlip()?.turnToPage(currentPage - 1);
     } else {
-      // Desktop: use react-pageflip
+      // 데스크톱 양면(스프레드): react-pageflip 역넘김
       const pf = bookRef.current?.pageFlip();
       if (pf) pf.flipPrev("top");
     }
-  }, [currentPage, dims?.isMobile, pages, flipEffect]);
+  }, [currentPage, dims?.isMobile, dims?.single, pages, flipEffect]);
 
   const flipNext = useCallback(() => {
     const pf = bookRef.current?.pageFlip();
