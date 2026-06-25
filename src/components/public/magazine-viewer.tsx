@@ -564,6 +564,8 @@ export function MagazineViewer({
   const [tocOpen, setTocOpen] = useState(false);
   const [zoomOpen, setZoomOpen] = useState(false);
   const hasToc = tocEntries.length > 0;
+  // 모바일 오버레이(헤더·하단 컨트롤) 표시 — 탭으로 토글(자동숨김, rev.3 모바일)
+  const [overlayVisible, setOverlayVisible] = useState(true);
 
   // 넘김 효과 토글(#6): off면 즉시 전환(단면 역넘김 어색함 회피 #3)
   const [flipEffect, setFlipEffect] = useState(true);
@@ -607,7 +609,7 @@ export function MagazineViewer({
   const { scale: zoomScale, translate: zoomTranslate, isZoomed, resetZoom } = usePinchZoom(
     zoomContainerRef,
     {
-      onSingleTap: hasToc ? () => setTocOpen((v) => !v) : undefined,
+      onSingleTap: () => setOverlayVisible((v) => !v),
       onSwipePrev: () => flipPrevRef.current?.(),
       onSwipeNext: () => flipNextRef.current?.(),
     },
@@ -782,9 +784,16 @@ export function MagazineViewer({
     : currentPage + 2 < total;
 
   return (
-    <div ref={rootRef} className="flex h-full flex-col bg-ink-deep">
-      {/* 리더 헤더 (rev.3): STAGE · Issue · 제목 · ✕ 닫기 + 진행률 밑줄 */}
-      <header className="relative flex-shrink-0">
+    <div ref={rootRef} className="relative flex h-full flex-col bg-ink-deep">
+      {/* 리더 헤더 (rev.3): STAGE · Issue · 제목 · ✕ 닫기 + 진행률 밑줄.
+          모바일은 탭 토글 오버레이(자동숨김), 데스크톱은 정적. */}
+      <header
+        className={
+          dims?.isMobile
+            ? `absolute left-0 right-0 top-0 z-40 bg-gradient-to-b from-black/70 to-transparent pt-[env(safe-area-inset-top)] transition-opacity duration-200 ${overlayVisible ? "opacity-100" : "pointer-events-none opacity-0"}`
+            : "relative flex-shrink-0"
+        }
+      >
         <div className="flex h-[52px] items-center justify-between gap-3 px-4 sm:px-5">
           <div className="flex min-w-0 items-center gap-3">
             <Link
@@ -956,18 +965,6 @@ export function MagazineViewer({
         )}
         </div>
 
-        {/* 모바일: 확대 버튼(데스크톱은 하단 바로 이동) */}
-        {canZoom && dims?.isMobile && (
-          <button
-            onClick={() => setZoomOpen(true)}
-            className="absolute right-3 top-3 z-40 flex h-10 w-10 items-center justify-center rounded-lg bg-ink/70 text-base text-white backdrop-blur-sm transition-colors hover:bg-ink hover:text-gold"
-            title="확대"
-            aria-label="페이지 확대"
-          >
-            🔍
-          </button>
-        )}
-
         {hasToc && (
           // 모바일: 탭=하단 캐러셀 / 데스크톱: 우측 사이드패널
           <TocPanel
@@ -981,6 +978,56 @@ export function MagazineViewer({
           />
         )}
       </div>
+
+      {/* 모바일 하단 오버레이 (rev.3): 목차·확대·다크·전체 + 진행률 (탭 토글) */}
+      {dims?.isMobile && (
+        <div
+          className={`absolute bottom-0 left-0 right-0 z-40 bg-gradient-to-t from-black/70 to-transparent px-4 pb-[max(env(safe-area-inset-bottom),14px)] pt-7 transition-opacity duration-200 ${
+            overlayVisible ? "opacity-100" : "pointer-events-none opacity-0"
+          }`}
+        >
+          <div className="mb-2.5 flex items-center justify-around text-white/80">
+            {hasToc && (
+              <button
+                onClick={() => setTocOpen(true)}
+                className="flex flex-col items-center gap-1 text-[10px]"
+              >
+                <span className="text-lg leading-none">☰</span>목차
+              </button>
+            )}
+            {canZoom && (
+              <button
+                onClick={() => setZoomOpen(true)}
+                className="flex flex-col items-center gap-1 text-[10px]"
+              >
+                <span className="text-lg leading-none">⊕</span>확대
+              </button>
+            )}
+            <button
+              onClick={() => setDark((d) => !d)}
+              className="flex flex-col items-center gap-1 text-[10px]"
+            >
+              <span className="text-lg leading-none">◐</span>다크
+            </button>
+            <button
+              onClick={toggleFullscreen}
+              className="flex flex-col items-center gap-1 text-[10px]"
+            >
+              <span className="text-lg leading-none">⛶</span>전체
+            </button>
+          </div>
+          <div className="h-[3px] overflow-hidden rounded bg-white/20">
+            <div
+              className="h-full bg-gold transition-all duration-300"
+              style={{ width: `${total ? ((currentPage + 1) / total) * 100 : 0}%` }}
+            />
+          </div>
+          <div className="mt-1.5 text-center font-label text-[10px] tracking-wide text-white/55">
+            {displayPage} / {total}
+          </div>
+        </div>
+      )}
+
       {/* 데스크톱 통합 컨트롤 바 (rev.3): 목차·한/두 페이지·페이지이동·확대·풀스크린·다크 */}
       {!dims?.isMobile && (
         <div className="flex-shrink-0 border-t border-white/10">
