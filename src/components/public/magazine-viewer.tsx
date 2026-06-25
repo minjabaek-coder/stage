@@ -8,6 +8,7 @@ import {
   forwardRef,
   type CSSProperties,
 } from "react";
+import Link from "next/link";
 // Using native <img> to avoid Vercel Image Optimization limits
 import type { MagazinePage, MagazineTocEntry } from "@/types/magazine";
 import { ComposedPage } from "./composed-page";
@@ -371,81 +372,6 @@ function MobilePrevFlipOverlay({
   );
 }
 
-// ── TOC Thumbnail Strip ──
-export function TocThumbnailStrip({
-  tocEntries,
-  pages,
-  currentPage,
-  onNavigate,
-}: {
-  tocEntries: MagazineTocEntry[];
-  pages: MagazinePage[];
-  currentPage: number;
-  onNavigate: (pageNumber: number) => void;
-}) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const activeRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (activeRef.current) {
-      activeRef.current.scrollIntoView({
-        behavior: "smooth",
-        inline: "center",
-        block: "nearest",
-      });
-    }
-  }, [currentPage]);
-
-  return (
-    <div
-      ref={scrollRef}
-      className="toc-thumb-strip flex gap-2 overflow-x-auto px-3 py-2"
-      style={{
-        WebkitOverflowScrolling: "touch",
-        scrollbarWidth: "none",
-      }}
-    >
-      <style>{`.toc-thumb-strip::-webkit-scrollbar { display: none }`}</style>
-      {tocEntries.map((entry) => {
-        const page = pages.find((p) => p.pageNumber === entry.pageNumber);
-        if (!page) return null;
-        const isActive = currentPage + 1 === entry.pageNumber;
-        return (
-          <button
-            key={entry.id}
-            ref={isActive ? activeRef : undefined}
-            onClick={() => onNavigate(entry.pageNumber)}
-            className={`flex-shrink-0 flex flex-col items-center gap-1 rounded-md p-1 transition-colors ${
-              isActive ? "bg-white/10" : "hover:bg-white/5"
-            }`}
-          >
-            <div
-              className={`relative h-20 w-16 overflow-hidden rounded ${
-                isActive ? "ring-2 ring-gold" : "ring-1 ring-white/20"
-              }`}
-            >
-              {page.kind === "composed" ? (
-                <div className="absolute inset-0 flex items-center justify-center bg-ink-deep">
-                  <ComposedPage layout={parsePageLayout(page.layout)} />
-                </div>
-              ) : (
-                <img
-                  src={page.imageUrl ?? ""}
-                  alt={entry.title}
-                  className="absolute inset-0 h-full w-full object-cover"
-                />
-              )}
-            </div>
-            <span className="max-w-16 truncate text-[10px] text-white/55">
-              {entry.title}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 // ── TOC Panel (Desktop: side panel, Mobile: bottom carousel modal) ──
 export function TocPanel({
   tocEntries,
@@ -599,13 +525,26 @@ export function MagazineViewer({
   pages,
   tocEntries = [],
   initialPage = 1,
+  issueNumber,
+  title,
 }: {
   pages: MagazinePage[];
   tocEntries?: MagazineTocEntry[];
   initialPage?: number; // 1-based, ?page= 딥링크 진입 페이지
+  issueNumber?: number;
+  title?: string;
 }) {
   const HTMLFlipBook = useFlipBook();
+  const rootRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  // 리더 배경 다크/라이트 토글(◐) + 풀스크린(⛶)
+  const [dark, setDark] = useState(true);
+  const toggleFullscreen = useCallback(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else el.requestFullscreen?.().catch(() => {});
+  }, []);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const bookRef = useRef<any>(null);
   const [dims, setDims] = useState<{
@@ -817,11 +756,50 @@ export function MagazineViewer({
     : currentPage + 2 < total;
 
   return (
-    <div className="flex h-full flex-col">
+    <div ref={rootRef} className="flex h-full flex-col bg-ink-deep">
+      {/* 리더 헤더 (rev.3): STAGE · Issue · 제목 · ✕ 닫기 + 진행률 밑줄 */}
+      <header className="relative flex-shrink-0">
+        <div className="flex h-[52px] items-center justify-between gap-3 px-4 sm:px-5">
+          <div className="flex min-w-0 items-center gap-3">
+            <Link
+              href="/"
+              className="flex-shrink-0 font-headline text-lg font-black tracking-[-0.03em] text-white"
+            >
+              STAGE
+            </Link>
+            {issueNumber != null && (
+              <span className="flex-shrink-0 font-label text-[10px] uppercase tracking-[0.2em] text-gold">
+                Issue {String(issueNumber).padStart(2, "0")}
+              </span>
+            )}
+            {title && (
+              <span className="hidden truncate font-headline text-sm text-white/80 sm:block">
+                {title}
+              </span>
+            )}
+          </div>
+          <Link
+            href="/magazines"
+            aria-label="닫기"
+            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md text-lg text-white/50 transition-colors hover:bg-white/10 hover:text-white"
+          >
+            ✕
+          </Link>
+        </div>
+        {/* 진행률 밑줄 */}
+        <div className="h-[2px] w-full bg-white/10">
+          <div
+            className="h-full bg-gold transition-all duration-300"
+            style={{ width: `${total ? ((currentPage + 1) / total) * 100 : 0}%` }}
+          />
+        </div>
+      </header>
+
       <div className="relative flex flex-1 overflow-hidden">
         <div
           ref={containerRef}
           className={`flex flex-1 justify-center overflow-hidden ${dims?.isMobile ? "items-start" : "items-center"}`}
+          style={{ background: dark ? undefined : "#f6f3f2" }}
         >
         {!ready && <div className="font-label text-sm tracking-wide text-white/40">Loading…</div>}
         {ready && (
@@ -930,25 +908,9 @@ export function MagazineViewer({
           />
         )}
       </div>
-      {!dims?.isMobile && hasToc && (
-        <TocThumbnailStrip
-          tocEntries={tocEntries}
-          pages={pages}
-          currentPage={currentPage}
-          onNavigate={navigateToPage}
-        />
-      )}
-
-      {/* 데스크톱 통합 컨트롤 바 (rev.3): 진행률 + 목차·한/두 페이지·페이지이동·확대 */}
+      {/* 데스크톱 통합 컨트롤 바 (rev.3): 목차·한/두 페이지·페이지이동·확대·풀스크린·다크 */}
       {!dims?.isMobile && (
-        <div className="relative flex-shrink-0 border-t border-white/10">
-          {/* 진행률 바 */}
-          <div className="absolute left-0 right-0 top-0 h-[3px] bg-white/10">
-            <div
-              className="h-full bg-gold transition-all duration-300"
-              style={{ width: `${total ? ((currentPage + 1) / total) * 100 : 0}%` }}
-            />
-          </div>
+        <div className="flex-shrink-0 border-t border-white/10">
           <div className="flex items-center px-5 py-3">
             {/* 좌: 목차 + 한/두 페이지 토글 */}
             <div className="flex items-center gap-3">
@@ -1010,17 +972,34 @@ export function MagazineViewer({
               </button>
             </div>
 
-            {/* 우: 확대(전체화면) */}
-            <div className="flex items-center gap-2">
+            {/* 우: 확대 · 풀스크린 · 다크 */}
+            <div className="flex items-center gap-1.5">
               {canZoom && (
                 <button
                   onClick={() => setZoomOpen(true)}
                   className="flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 font-label text-xs uppercase tracking-wider text-white/60 transition-colors hover:text-white"
-                  title="확대"
+                  title="확대 (페이지 더블클릭)"
                 >
                   🔍 확대
                 </button>
               )}
+              <button
+                onClick={toggleFullscreen}
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/15 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+                title="전체화면"
+                aria-label="전체화면"
+              >
+                ⛶
+              </button>
+              <button
+                onClick={() => setDark((d) => !d)}
+                aria-pressed={!dark}
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/15 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+                title="배경 밝기"
+                aria-label="배경 밝기"
+              >
+                ◐
+              </button>
             </div>
           </div>
         </div>
