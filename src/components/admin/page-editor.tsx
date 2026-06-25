@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type ReactNode,
   type PointerEvent as ReactPointerEvent,
   type ChangeEvent as ReactChangeEvent,
 } from "react";
@@ -43,6 +44,7 @@ export function PageEditor({
   magazineId,
   pageId,
   pageNumber,
+  totalPages,
   initialLayout,
   initialArticleId,
   articles,
@@ -51,6 +53,7 @@ export function PageEditor({
   magazineId: string;
   pageId: string;
   pageNumber: number;
+  totalPages?: number; // 툴바 "페이지 N / M" 표기용
   initialLayout: PageLayout;
   initialArticleId: string | null;
   articles: ArticleOpt[];
@@ -64,6 +67,7 @@ export function PageEditor({
   const [articleId, setArticleId] = useState<string | null>(initialArticleId);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [ratioLock, setRatioLock] = useState(false); // 비율 잠금(W/H 동시 변경)
 
   const selected = blocks.find((b) => b.id === selectedId) ?? null;
   const maxZ = blocks.reduce((m, b) => Math.max(m, b.z), 0);
@@ -90,10 +94,57 @@ export function PageEditor({
     setBlocks((p) => [...p, b]);
     setSelectedId(b.id);
   }
+  // 이미지 프레임: 원본 비율 유지(contain) 자리표시 — 이미지를 채워넣는 틀
+  function addImageFrame() {
+    const b: ImageBlock = {
+      id: uid(), type: "image", x: 10, y: 10, w: 44, h: 44, z: maxZ + 1,
+      src: "", fit: "contain", radius: 4,
+    };
+    setBlocks((p) => [...p, b]);
+    setSelectedId(b.id);
+  }
   function removeSelected() {
     if (!selectedId) return;
     setBlocks((p) => p.filter((b) => b.id !== selectedId));
     setSelectedId(null);
+  }
+
+  // ── 정렬(캔버스 기준) / 레이어(z-order) / 비율잠금 크기 ──
+  function alignH(where: "left" | "center" | "right") {
+    if (!selected) return;
+    const w = selected.w;
+    const x = where === "left" ? 0 : where === "center" ? (100 - w) / 2 : 100 - w;
+    patch(selected.id, { x: round(x) });
+  }
+  function alignV(where: "top" | "middle" | "bottom") {
+    if (!selected) return;
+    const h = selected.h;
+    const y = where === "top" ? 0 : where === "middle" ? (100 - h) / 2 : 100 - h;
+    patch(selected.id, { y: round(y) });
+  }
+  function zOrder(action: "front" | "forward" | "backward" | "back") {
+    if (!selected) return;
+    const z =
+      action === "front" ? maxZ + 1
+      : action === "forward" ? selected.z + 1
+      : action === "backward" ? Math.max(0, selected.z - 1)
+      : 0;
+    patch(selected.id, { z });
+  }
+  // 비율 잠금 시 W/H 입력은 픽셀 종횡비를 유지하며 짝을 함께 변경
+  function patchSize(field: "w" | "h", val: number) {
+    if (!selected) return;
+    if (!ratioLock) { patch(selected.id, { [field]: val } as Partial<Block>); return; }
+    const wpx = (selected.w / 100) * BASE_W, hpx = (selected.h / 100) * BASE_H;
+    if (field === "w") {
+      const nwpx = (val / 100) * BASE_W;
+      const nhpx = wpx > 0 ? nwpx * (hpx / wpx) : hpx;
+      patch(selected.id, { w: val, h: round((nhpx / BASE_H) * 100) });
+    } else {
+      const nhpx = (val / 100) * BASE_H;
+      const nwpx = hpx > 0 ? nhpx * (wpx / hpx) : wpx;
+      patch(selected.id, { h: val, w: round((nwpx / BASE_W) * 100) });
+    }
   }
 
   // ── 드래그 이동 / 8방향 리사이즈 (pointer capture) + 스냅 가이드 ──
@@ -257,28 +308,61 @@ export function PageEditor({
 
   return (
     <div className="space-y-4">
-      {/* 툴바 */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* 캔버스 툴바 (목업): 추가 · 실행취소/다시실행 · 정렬/레이어 · 페이지/줌 · 저장 */}
+      <div className="flex flex-wrap items-center gap-1.5 rounded-md border bg-card px-2 py-1.5">
         {!embedded && (
           <Link
             href={`/admin/magazines/${magazineId}/edit`}
-            className="text-sm text-muted-foreground hover:underline"
+            className="mr-1 text-sm text-muted-foreground hover:underline"
           >
-            ← 매거진
+            ←
           </Link>
         )}
-        <span className="text-sm font-semibold">P.{pageNumber} 편집</span>
-        <div className="mx-2 h-5 w-px bg-border" />
-        <button type="button" onClick={addText} className="rounded border px-3 py-1.5 text-sm hover:bg-accent">+ 텍스트</button>
-        <button type="button" onClick={addImage} className="rounded border px-3 py-1.5 text-sm hover:bg-accent">+ 이미지</button>
-        <div className="ml-auto flex items-center gap-2">
-          <label className="text-xs text-muted-foreground">기사 연동</label>
+        <button type="button" onClick={addText} className="rounded px-2.5 py-1 text-sm hover:bg-accent">＋ 텍스트</button>
+        <button type="button" onClick={addImage} className="rounded px-2.5 py-1 text-sm hover:bg-accent">＋ 이미지</button>
+        <button type="button" onClick={addImageFrame} className="rounded px-2.5 py-1 text-sm hover:bg-accent">＋ 이미지 프레임</button>
+        <div className="mx-1 h-5 w-px bg-border" />
+        <button type="button" disabled title="실행취소(준비 중)" className="rounded px-2 py-1 text-sm text-muted-foreground/50">↶</button>
+        <button type="button" disabled title="다시실행(준비 중)" className="rounded px-2 py-1 text-sm text-muted-foreground/50">↷</button>
+        <div className="mx-1 h-5 w-px bg-border" />
+        {/* 정렬 ▾ */}
+        <details className="relative">
+          <summary className={`cursor-pointer rounded px-2.5 py-1 text-sm hover:bg-accent ${!selected ? "pointer-events-none text-muted-foreground/50" : ""}`}>정렬 ▾</summary>
+          <div className="absolute left-0 z-30 mt-1 w-40 rounded-md border bg-popover p-1 shadow-md">
+            <div className="grid grid-cols-3 gap-1">
+              <MenuBtn onClick={() => alignH("left")}>⬅ 좌</MenuBtn>
+              <MenuBtn onClick={() => alignH("center")}>↔ 가운데</MenuBtn>
+              <MenuBtn onClick={() => alignH("right")}>➡ 우</MenuBtn>
+              <MenuBtn onClick={() => alignV("top")}>⬆ 상</MenuBtn>
+              <MenuBtn onClick={() => alignV("middle")}>↕ 중앙</MenuBtn>
+              <MenuBtn onClick={() => alignV("bottom")}>⬇ 하</MenuBtn>
+            </div>
+          </div>
+        </details>
+        {/* 레이어 ▾ */}
+        <details className="relative">
+          <summary className={`cursor-pointer rounded px-2.5 py-1 text-sm hover:bg-accent ${!selected ? "pointer-events-none text-muted-foreground/50" : ""}`}>레이어 ▾</summary>
+          <div className="absolute left-0 z-30 mt-1 w-32 rounded-md border bg-popover p-1 shadow-md">
+            <MenuBtn onClick={() => zOrder("front")} block>맨 앞으로</MenuBtn>
+            <MenuBtn onClick={() => zOrder("forward")} block>앞으로</MenuBtn>
+            <MenuBtn onClick={() => zOrder("backward")} block>뒤로</MenuBtn>
+            <MenuBtn onClick={() => zOrder("back")} block>맨 뒤로</MenuBtn>
+          </div>
+        </details>
+
+        <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="tabular-nums">
+            페이지 {pageNumber}{totalPages ? ` / ${totalPages}` : ""}
+          </span>
+          <span className="tabular-nums">100%</span>
+          <div className="h-5 w-px bg-border" />
           <select
             value={articleId ?? ""}
             onChange={(e) => setArticleId(e.target.value || null)}
-            className="rounded border px-2 py-1 text-sm"
+            className="max-w-[160px] rounded border px-2 py-1 text-xs"
+            title="싣는 기사 연동"
           >
-            <option value="">없음</option>
+            <option value="">기사 연동 없음</option>
             {articles.map((a) => {
               const tag = a.genre || a.subCategory;
               return (
@@ -300,8 +384,9 @@ export function PageEditor({
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-6">
-        {/* 캔버스 */}
+      <div className="flex gap-4">
+        {/* 캔버스 (가운데, 중앙 정렬) */}
+        <div className="flex min-w-0 flex-1 justify-center">
         <div
           ref={canvasRef}
           onPointerDown={() => setSelectedId(null)}
@@ -362,13 +447,19 @@ export function PageEditor({
             <div style={{ position: "absolute", top: `${snap.h}%`, left: 0, right: 0, height: 1, background: "#ec4899", zIndex: 1000, pointerEvents: "none" }} />
           )}
         </div>
+        </div>
 
-        {/* 속성 패널 */}
-        <div className="min-w-[280px] flex-1 space-y-4 text-sm">
+        {/* 속성 패널 (목업 우측 256px · 그룹 섹션) */}
+        <aside className="w-64 shrink-0 self-start rounded-lg border bg-card text-sm">
           {!selected ? (
-            <div className="rounded-lg border p-4 text-muted-foreground">
-              <p>블록을 선택하면 속성이 표시됩니다.</p>
-              <div className="mt-4 space-y-2">
+            <div className="p-4">
+              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+                속성
+              </p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                블록을 선택하면 속성이 표시됩니다.
+              </p>
+              <div className="mt-4 space-y-2 border-t pt-4">
                 <label className="block text-xs font-medium text-gray-600">페이지 배경색</label>
                 <input type="text" value={pageBg} onChange={(e) => setPageBg(e.target.value)} className="w-full rounded border px-2 py-1" />
                 <div className="flex gap-1">
@@ -379,61 +470,81 @@ export function PageEditor({
               </div>
             </div>
           ) : (
-            <div className="space-y-4 rounded-lg border p-4">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold">{selected.type === "image" ? "이미지 블록" : "텍스트 블록"}</span>
-                <div className="flex gap-1">
-                  <button type="button" onClick={() => patch(selected.id, { z: maxZ + 1 })} className="rounded border px-2 py-0.5 text-xs">맨 앞</button>
-                  <button type="button" onClick={() => patch(selected.id, { z: 0 })} className="rounded border px-2 py-0.5 text-xs">맨 뒤</button>
-                  <button type="button" onClick={removeSelected} className="rounded border px-2 py-0.5 text-xs text-red-600">삭제</button>
-                </div>
+            <div className="divide-y">
+              {/* 헤더 */}
+              <div className="flex items-center justify-between px-3 py-2.5">
+                <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+                  속성 · {selected.type === "image" ? "이미지 블록" : "텍스트 블록"}
+                </span>
+                <button type="button" onClick={removeSelected} className="rounded border px-2 py-0.5 text-xs text-red-600 hover:bg-red-50">삭제</button>
               </div>
 
-              {/* 위치/크기 */}
-              <div className="grid grid-cols-4 gap-2">
-                {(["x", "y", "w", "h"] as const).map((k) => (
-                  <label key={k} className="text-xs">
-                    {k.toUpperCase()}%
-                    <input type="number" value={round((selected as Block)[k])} onChange={(e) => patch(selected.id, { [k]: Number(e.target.value) } as Partial<Block>)} className="mt-0.5 w-full rounded border px-1 py-0.5" />
-                  </label>
-                ))}
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <label className="text-xs">회전°
-                  <input type="number" value={selected.rotation ?? 0} onChange={(e) => patch(selected.id, { rotation: Number(e.target.value) })} className="mt-0.5 w-full rounded border px-1 py-0.5" />
-                </label>
-                <label className="text-xs">투명도%
-                  <input type="number" min={0} max={100} value={Math.round((selected.opacity ?? 1) * 100)} onChange={(e) => patch(selected.id, { opacity: Number(e.target.value) / 100 })} className="mt-0.5 w-full rounded border px-1 py-0.5" />
-                </label>
-              </div>
+              {/* 위치 · 크기 */}
+              <Section title="위치 · 크기 (상대 단위)">
+                <div className="grid grid-cols-2 gap-2">
+                  <NumField label="X %" value={round(selected.x)} onChange={(v) => patch(selected.id, { x: v })} />
+                  <NumField label="Y %" value={round(selected.y)} onChange={(v) => patch(selected.id, { y: v })} />
+                  <NumField label="W %" value={round(selected.w)} onChange={(v) => patchSize("w", v)} />
+                  <NumField label="H %" value={round(selected.h)} onChange={(v) => patchSize("h", v)} />
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setRatioLock((v) => !v)}
+                    className={`rounded border px-2 py-1 text-xs ${ratioLock ? "border-primary bg-primary/10 text-primary" : "text-muted-foreground"}`}
+                  >
+                    {ratioLock ? "🔒" : "🔓"} 비율
+                  </button>
+                  <NumField className="flex-1" label="회전 °" value={selected.rotation ?? 0} onChange={(v) => patch(selected.id, { rotation: v })} />
+                  <NumField className="flex-1" label="투명도 %" value={Math.round((selected.opacity ?? 1) * 100)} onChange={(v) => patch(selected.id, { opacity: v / 100 })} />
+                </div>
+              </Section>
+
+              {/* 정렬(캔버스 기준) */}
+              <Section title="정렬">
+                <div className="grid grid-cols-6 gap-1">
+                  <IconBtn onClick={() => alignH("left")} title="왼쪽">⬅</IconBtn>
+                  <IconBtn onClick={() => alignH("center")} title="가로 가운데">↔</IconBtn>
+                  <IconBtn onClick={() => alignH("right")} title="오른쪽">➡</IconBtn>
+                  <IconBtn onClick={() => alignV("top")} title="위">⬆</IconBtn>
+                  <IconBtn onClick={() => alignV("middle")} title="세로 가운데">↕</IconBtn>
+                  <IconBtn onClick={() => alignV("bottom")} title="아래">⬇</IconBtn>
+                </div>
+              </Section>
+
+              {/* 레이어 (z-order) */}
+              <Section title="레이어 (z-order)">
+                <div className="grid grid-cols-4 gap-1">
+                  <IconBtn onClick={() => zOrder("front")} title="맨 앞으로">⤒</IconBtn>
+                  <IconBtn onClick={() => zOrder("forward")} title="앞으로">↑</IconBtn>
+                  <IconBtn onClick={() => zOrder("backward")} title="뒤로">↓</IconBtn>
+                  <IconBtn onClick={() => zOrder("back")} title="맨 뒤로">⤓</IconBtn>
+                </div>
+              </Section>
 
               {selected.type === "image" ? (
-                <div className="space-y-3 border-t pt-3">
+                <Section title="이미지 프레임">
                   <div className="space-y-1">
-                    <span className="block text-xs font-medium text-gray-600">
-                      이미지 파일 (업로드 / 교체)
-                    </span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleFileFor(selected.id, e)}
-                      className="block w-full text-xs"
-                    />
+                    <span className="block text-[11px] font-medium text-gray-600">이미지 파일 (업로드 / 교체)</span>
+                    <input type="file" accept="image/*" onChange={(e) => handleFileFor(selected.id, e)} className="block w-full text-xs" />
                   </div>
                   {uploading && <p className="text-xs text-gray-500">업로드 중...</p>}
-                  <div className="flex gap-2">
-                    <label className="text-xs">맞춤
-                      <select value={selected.fit ?? "cover"} onChange={(e) => patch(selected.id, { fit: e.target.value as "cover" | "contain" } as Partial<ImageBlock>)} className="mt-0.5 block w-full rounded border px-1 py-0.5">
-                        <option value="cover">채우기(크롭)</option>
-                        <option value="contain">원본 비율</option>
-                      </select>
-                    </label>
-                    <label className="text-xs">어둠%
-                      <input type="number" min={0} max={90} value={selected.overlayDarken ?? 0} onChange={(e) => patch(selected.id, { overlayDarken: Number(e.target.value) } as Partial<ImageBlock>)} className="mt-0.5 w-full rounded border px-1 py-0.5" />
-                    </label>
-                    <label className="text-xs">라운드
-                      <input type="number" min={0} value={selected.radius ?? 0} onChange={(e) => patch(selected.id, { radius: Number(e.target.value) } as Partial<ImageBlock>)} className="mt-0.5 w-full rounded border px-1 py-0.5" />
-                    </label>
+                  {/* 채움 / 맞춤 세그먼트 */}
+                  <div className="grid grid-cols-2 overflow-hidden rounded-md border text-xs">
+                    {(["cover", "contain"] as const).map((f) => (
+                      <button
+                        key={f}
+                        type="button"
+                        onClick={() => patch(selected.id, { fit: f } as Partial<ImageBlock>)}
+                        className={`py-1 ${(selected.fit ?? "cover") === f ? "bg-primary text-primary-foreground" : "hover:bg-accent"}`}
+                      >
+                        {f === "cover" ? "채움(crop)" : "맞춤(contain)"}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <NumField label="어둡게 %" value={selected.overlayDarken ?? 0} onChange={(v) => patch(selected.id, { overlayDarken: v } as Partial<ImageBlock>)} />
+                    <NumField label="모서리 px" value={selected.radius ?? 0} onChange={(v) => patch(selected.id, { radius: v } as Partial<ImageBlock>)} />
                   </div>
                   {selected.src && (selected.fit ?? "cover") === "cover" && (
                     <FocusPicker
@@ -441,38 +552,28 @@ export function PageEditor({
                       focusX={selected.focusX ?? 50}
                       focusY={selected.focusY ?? 50}
                       zoom={selected.zoom ?? 1}
-                      onChange={(x, y) =>
-                        patch(selected.id, { focusX: x, focusY: y } as Partial<ImageBlock>)
-                      }
-                      onZoomChange={(z) =>
-                        patch(selected.id, { zoom: z } as Partial<ImageBlock>)
-                      }
+                      onChange={(x, y) => patch(selected.id, { focusX: x, focusY: y } as Partial<ImageBlock>)}
+                      onZoomChange={(z) => patch(selected.id, { zoom: z } as Partial<ImageBlock>)}
                     />
                   )}
-                </div>
+                </Section>
               ) : (
-                <div className="space-y-3 border-t pt-3">
-                  <label className="block text-xs font-medium text-gray-600">내용 (HTML 허용)
+                <Section title="텍스트">
+                  <label className="block text-[11px] font-medium text-gray-600">내용 (HTML 허용)
                     <textarea value={selected.html} onChange={(e) => patch(selected.id, { html: e.target.value } as Partial<TextBlock>)} rows={4} className="mt-1 w-full rounded border px-2 py-1 text-xs" />
                   </label>
                   <div className="grid grid-cols-2 gap-2">
-                    <label className="text-xs">글자 크기(px)
-                      <input type="number" value={selected.fontSizePx ?? 16} onChange={(e) => patch(selected.id, { fontSizePx: Number(e.target.value) } as Partial<TextBlock>)} className="mt-0.5 w-full rounded border px-1 py-0.5" />
-                    </label>
-                    <label className="text-xs">정렬
-                      <select value={selected.align ?? "left"} onChange={(e) => patch(selected.id, { align: e.target.value as "left" | "center" | "right" } as Partial<TextBlock>)} className="mt-0.5 block w-full rounded border px-1 py-0.5">
+                    <NumField label="글자 크기 px" value={selected.fontSizePx ?? 16} onChange={(v) => patch(selected.id, { fontSizePx: v } as Partial<TextBlock>)} />
+                    <label className="text-[11px] text-muted-foreground">정렬
+                      <select value={selected.align ?? "left"} onChange={(e) => patch(selected.id, { align: e.target.value as "left" | "center" | "right" } as Partial<TextBlock>)} className="mt-0.5 block w-full rounded border px-1 py-0.5 text-foreground">
                         <option value="left">왼쪽</option><option value="center">가운데</option><option value="right">오른쪽</option>
                       </select>
                     </label>
-                    <label className="text-xs">굵기
-                      <input type="number" step={100} min={100} max={900} value={selected.weight ?? 400} onChange={(e) => patch(selected.id, { weight: Number(e.target.value) } as Partial<TextBlock>)} className="mt-0.5 w-full rounded border px-1 py-0.5" />
-                    </label>
-                    <label className="text-xs">줄간격
-                      <input type="number" step={0.05} value={selected.lineHeight ?? 1.6} onChange={(e) => patch(selected.id, { lineHeight: Number(e.target.value) } as Partial<TextBlock>)} className="mt-0.5 w-full rounded border px-1 py-0.5" />
-                    </label>
+                    <NumField label="굵기" value={selected.weight ?? 400} step={100} onChange={(v) => patch(selected.id, { weight: v } as Partial<TextBlock>)} />
+                    <NumField label="줄간격" value={selected.lineHeight ?? 1.6} step={0.05} onChange={(v) => patch(selected.id, { lineHeight: v } as Partial<TextBlock>)} />
                   </div>
                   <div>
-                    <span className="text-xs text-gray-600">글자색</span>
+                    <span className="text-[11px] text-muted-foreground">글자색</span>
                     <div className="mt-1 flex flex-wrap gap-1">
                       {COLORS.map((c) => (
                         <button key={c} type="button" onClick={() => patch(selected.id, { color: c } as Partial<TextBlock>)} className={`h-6 w-6 rounded-full border ${selected.color === c ? "ring-2 ring-gray-900 ring-offset-1" : ""}`} style={{ background: c }} />
@@ -480,19 +581,76 @@ export function PageEditor({
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <label className="text-xs flex-1">배경색(빈칸=없음)
-                      <input type="text" value={selected.bgColor ?? ""} onChange={(e) => patch(selected.id, { bgColor: e.target.value || undefined } as Partial<TextBlock>)} className="mt-0.5 w-full rounded border px-1 py-0.5" />
+                    <label className="flex-1 text-[11px] text-muted-foreground">배경색(빈칸=없음)
+                      <input type="text" value={selected.bgColor ?? ""} onChange={(e) => patch(selected.id, { bgColor: e.target.value || undefined } as Partial<TextBlock>)} className="mt-0.5 w-full rounded border px-1 py-0.5 text-foreground" />
                     </label>
-                    <label className="text-xs w-20">여백(px)
-                      <input type="number" value={selected.padding ?? 0} onChange={(e) => patch(selected.id, { padding: Number(e.target.value) } as Partial<TextBlock>)} className="mt-0.5 w-full rounded border px-1 py-0.5" />
-                    </label>
+                    <NumField className="w-20" label="여백 px" value={selected.padding ?? 0} onChange={(v) => patch(selected.id, { padding: v } as Partial<TextBlock>)} />
                   </div>
-                </div>
+                </Section>
               )}
             </div>
           )}
-        </div>
+        </aside>
       </div>
     </div>
+  );
+}
+
+// 속성 그룹 섹션(라벨 + 내용)
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="space-y-2 px-3 py-3">
+      <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+        {title}
+      </p>
+      {children}
+    </div>
+  );
+}
+
+// 라벨 달린 숫자 입력
+function NumField({
+  label, value, onChange, step, className = "",
+}: {
+  label: string; value: number; onChange: (v: number) => void; step?: number; className?: string;
+}) {
+  return (
+    <label className={`text-[11px] text-muted-foreground ${className}`}>
+      {label}
+      <input
+        type="number"
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="mt-0.5 w-full rounded border px-1 py-0.5 text-foreground"
+      />
+    </label>
+  );
+}
+
+// 정렬/레이어 아이콘 버튼
+function IconBtn({ onClick, title, children }: { onClick: () => void; title: string; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className="flex h-7 items-center justify-center rounded border text-sm hover:bg-accent"
+    >
+      {children}
+    </button>
+  );
+}
+
+// 툴바 드롭다운(정렬/레이어) 메뉴 항목
+function MenuBtn({ onClick, children, block }: { onClick: () => void; children: ReactNode; block?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded px-2 py-1 text-left text-xs hover:bg-accent ${block ? "block w-full" : ""}`}
+    >
+      {children}
+    </button>
   );
 }

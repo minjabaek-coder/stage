@@ -58,6 +58,7 @@ export function MagazineEditorShell({
   const [selectedId, setSelectedId] = useState<string | null>(
     pages[0]?.id ?? null,
   );
+  const [view, setView] = useState<"rail" | "grid">("rail"); // 페이지 패널 표시 방식
   const [pending, start] = useTransition();
   const dndId = useId();
 
@@ -125,21 +126,41 @@ export function MagazineEditorShell({
 
   return (
     <div className="grid gap-4 lg:grid-cols-[208px_1fr]">
-      {/* 좌: 페이지 패널 */}
-      <aside className="space-y-3">
+      {/* 좌: 페이지 패널 (rail/grid 토글) */}
+      <aside className="space-y-3 rounded-lg border bg-card p-2.5">
         <div className="flex items-center justify-between">
           <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
             페이지 · {items.length}
           </span>
-          <button
-            type="button"
-            onClick={addPage}
-            disabled={pending}
-            className="rounded-md border border-dashed px-2 py-1 text-xs text-muted-foreground hover:border-primary hover:text-primary disabled:opacity-50"
-          >
-            + 새 페이지
-          </button>
+          <div className="flex items-center gap-0.5 rounded-md border p-0.5">
+            <button
+              type="button"
+              onClick={() => setView("rail")}
+              aria-label="목록 보기"
+              title="목록 보기"
+              className={`rounded px-1.5 text-xs ${view === "rail" ? "bg-accent" : "text-muted-foreground"}`}
+            >
+              ▤
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("grid")}
+              aria-label="격자 보기"
+              title="격자 보기"
+              className={`rounded px-1.5 text-xs ${view === "grid" ? "bg-accent" : "text-muted-foreground"}`}
+            >
+              ▦
+            </button>
+          </div>
         </div>
+        <button
+          type="button"
+          onClick={addPage}
+          disabled={pending}
+          className="w-full rounded-md border border-dashed px-2 py-1.5 text-xs text-muted-foreground hover:border-primary hover:text-primary disabled:opacity-50"
+        >
+          ＋ 새 페이지
+        </button>
         {items.length === 0 ? (
           <p className="py-8 text-center text-xs text-muted-foreground">
             “새 페이지”로 추가하세요.
@@ -152,11 +173,16 @@ export function MagazineEditorShell({
             onDragEnd={handleDragEnd}
           >
             <SortableContext items={items} strategy={verticalListSortingStrategy}>
-              <div className="max-h-[70vh] space-y-2 overflow-y-auto pr-1">
+              <div
+                className={`max-h-[70vh] overflow-y-auto pr-1 ${
+                  view === "grid" ? "grid grid-cols-2 gap-2" : "space-y-2"
+                }`}
+              >
                 {items.map((p, i) => (
                   <PageRailItem
                     key={p.id}
                     page={p}
+                    grid={view === "grid"}
                     selected={p.id === selectedId}
                     onSelect={() => setSelectedId(p.id)}
                     onMove={(dir) => move(i, dir)}
@@ -181,6 +207,7 @@ export function MagazineEditorShell({
             magazineId={magazineId}
             pageId={selected.id}
             pageNumber={selectedIndex + 1}
+            totalPages={items.length}
             initialLayout={parsePageLayout(selected.layout) ?? { blocks: [] }}
             initialArticleId={selected.articleId}
             articles={articles}
@@ -197,6 +224,7 @@ export function MagazineEditorShell({
 
 function PageRailItem({
   page,
+  grid,
   selected,
   onSelect,
   onMove,
@@ -206,6 +234,7 @@ function PageRailItem({
   disabled,
 }: {
   page: PageItem;
+  grid: boolean;
   selected: boolean;
   onSelect: () => void;
   onMove: (dir: -1 | 1) => void;
@@ -226,7 +255,7 @@ function PageRailItem({
     <div
       ref={setNodeRef}
       style={style}
-      className={`rounded-lg border p-1.5 ${
+      className={`group relative rounded-lg border p-1.5 ${
         selected ? "border-primary ring-2 ring-primary/20" : "bg-card"
       }`}
     >
@@ -241,6 +270,17 @@ function PageRailItem({
           ⠿
         </button>
         <span className="text-muted-foreground">P.{page.pageNumber}</span>
+        {/* 컨텍스트 메뉴(···): 위로/아래로/삭제 */}
+        <details className="relative">
+          <summary className="cursor-pointer list-none px-1 text-muted-foreground hover:text-foreground">
+            ⋯
+          </summary>
+          <div className="absolute right-0 z-30 mt-1 w-24 rounded-md border bg-popover p-1 text-[11px] shadow-md">
+            <button type="button" onClick={() => onMove(-1)} disabled={isFirst || disabled} className="block w-full rounded px-2 py-1 text-left hover:bg-accent disabled:opacity-30">↑ 위로</button>
+            <button type="button" onClick={() => onMove(1)} disabled={isLast || disabled} className="block w-full rounded px-2 py-1 text-left hover:bg-accent disabled:opacity-30">↓ 아래로</button>
+            <button type="button" onClick={onDelete} disabled={disabled} className="block w-full rounded px-2 py-1 text-left text-red-600 hover:bg-red-50 disabled:opacity-50">🗑 삭제</button>
+          </div>
+        </details>
       </div>
       <button
         type="button"
@@ -248,39 +288,10 @@ function PageRailItem({
         className="block w-full"
         aria-label={`페이지 ${page.pageNumber} 편집`}
       >
-        <div className="relative aspect-[2/3] w-full overflow-hidden rounded bg-neutral-900">
+        <div className={`relative w-full overflow-hidden rounded bg-neutral-900 ${grid ? "aspect-[2/3]" : "aspect-[2/3]"}`}>
           <ComposedPage layout={parsePageLayout(page.layout)} />
         </div>
       </button>
-      <div className="mt-1.5 flex items-center justify-end gap-1 text-[11px]">
-        <button
-          type="button"
-          onClick={() => onMove(-1)}
-          disabled={isFirst || disabled}
-          className="rounded border px-1.5 py-0.5 disabled:opacity-30"
-          aria-label="위로"
-        >
-          ↑
-        </button>
-        <button
-          type="button"
-          onClick={() => onMove(1)}
-          disabled={isLast || disabled}
-          className="rounded border px-1.5 py-0.5 disabled:opacity-30"
-          aria-label="아래로"
-        >
-          ↓
-        </button>
-        <button
-          type="button"
-          onClick={onDelete}
-          disabled={disabled}
-          className="rounded border px-1.5 py-0.5 text-red-600 hover:bg-red-50 disabled:opacity-50"
-          aria-label="삭제"
-        >
-          🗑
-        </button>
-      </div>
     </div>
   );
 }

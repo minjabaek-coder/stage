@@ -46,9 +46,15 @@ export default async function EditMagazinePage({
 
   return (
     <div className="space-y-6">
+      {/* 앱바: 매거진 편집 · Issue · 상태 · 발행 액션 (목업 상단 바) */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold">매거진 수정</h1>
+          <h1 className="text-2xl font-bold">
+            매거진 {isComposed ? "편집" : "수정"}
+          </h1>
+          <span className="text-sm text-muted-foreground">
+            STAGE Issue {magazine.issueNumber}
+          </span>
           <StatusBadge status={magazine.status} />
           <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
             {isComposed
@@ -66,18 +72,25 @@ export default async function EditMagazinePage({
       </div>
 
       {isComposed ? (
-        // 구성형: 매거진 정보(상단) + 단일 에디터 셸(페이지 패널 + 활성 페이지 편집) 풀폭
-        <div className="space-y-6">
-          <MagazineForm
-            action={action}
-            defaultValues={{
-              issueNumber: magazine.issueNumber,
-              title: magazine.title,
-              description: magazine.description,
-              publishedAt: magazine.publishedAt,
-            }}
-            formId="magazine-edit-form"
-          />
+        // 구성형: 매거진 정보(접이식·기본 펼침) + 단일 에디터 셸(3컬럼) 풀폭
+        <div className="space-y-5">
+          <details open className="rounded-lg border bg-card">
+            <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium">
+              매거진 정보
+            </summary>
+            <div className="border-t p-4">
+              <MagazineForm
+                action={action}
+                defaultValues={{
+                  issueNumber: magazine.issueNumber,
+                  title: magazine.title,
+                  description: magazine.description,
+                  publishedAt: magazine.publishedAt,
+                }}
+                formId="magazine-edit-form"
+              />
+            </div>
+          </details>
           <MagazineEditorShell
             magazineId={magazine.id}
             pages={magazine.pages.map((p) => ({
