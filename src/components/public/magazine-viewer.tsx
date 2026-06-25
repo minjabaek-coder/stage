@@ -268,8 +268,8 @@ function useFlipBook() {
 
 const FlipPage = forwardRef<
   HTMLDivElement,
-  { page: MagazinePage; isMobile?: boolean; style?: CSSProperties }
->(function FlipPage({ page, isMobile, style }, ref) {
+  { page: MagazinePage; style?: CSSProperties }
+>(function FlipPage({ page, style }, ref) {
   return (
     <div
       ref={ref}
@@ -280,11 +280,6 @@ const FlipPage = forwardRef<
         page={page}
         imgClassName="absolute inset-0 h-full w-full object-contain"
       />
-      {!isMobile && (
-        <span className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded bg-black/50 px-2 py-0.5 text-xs text-white">
-          {page.pageNumber}
-        </span>
-      )}
     </div>
   );
 });
@@ -570,6 +565,36 @@ export function MagazineViewer({
   const [zoomOpen, setZoomOpen] = useState(false);
   const hasToc = tocEntries.length > 0;
 
+  // 넘김 효과 토글(#6): off면 즉시 전환(단면 역넘김 어색함 회피 #3)
+  const [flipEffect, setFlipEffect] = useState(true);
+
+  // 데스크톱 인라인 줌(#5): 휠/슬라이더/더블클릭 + 드래그 팬. 스프레드 전체가 함께 확대(#4)
+  const [deskScale, setDeskScale] = useState(1);
+  const [deskTrans, setDeskTrans] = useState({ x: 0, y: 0 });
+  const clampDesk = useCallback((x: number, y: number, s: number) => {
+    const el = zoomContainerRef.current;
+    if (!el || s <= 1) return { x: 0, y: 0 };
+    const r = el.getBoundingClientRect();
+    const maxX = (r.width * (s - 1)) / 2;
+    const maxY = (r.height * (s - 1)) / 2;
+    return {
+      x: Math.max(-maxX, Math.min(maxX, x)),
+      y: Math.max(-maxY, Math.min(maxY, y)),
+    };
+  }, []);
+  const setDeskZoom = useCallback(
+    (s: number) => {
+      const ns = Math.max(1, Math.min(3, s));
+      setDeskScale(ns);
+      setDeskTrans((t) => clampDesk(t.x, t.y, ns));
+    },
+    [clampDesk],
+  );
+  const resetDeskZoom = useCallback(() => {
+    setDeskScale(1);
+    setDeskTrans({ x: 0, y: 0 });
+  }, []);
+
   // 현재 페이지 확대 가능 여부 — 이미지형(URL 있음) 또는 구성형 모두 지원
   const currentPageObj = pages[currentPage];
   const canZoom =
@@ -684,8 +709,9 @@ export function MagazineViewer({
     (e: { data: number }) => {
       setCurrentPage(e.data);
       resetZoom();
+      resetDeskZoom();
     },
-    [resetZoom]
+    [resetZoom, resetDeskZoom]
   );
 
   const onChangeOrientation = useCallback(
@@ -806,25 +832,37 @@ export function MagazineViewer({
           <div
             ref={zoomContainerRef}
             onDoubleClick={
-              !dims.isMobile && canZoom ? () => setZoomOpen(true) : undefined
+              !dims.isMobile && canZoom
+                ? () => setDeskZoom(deskScale > 1 ? 1 : 2)
+                : undefined
+            }
+            onWheel={
+              !dims.isMobile && canZoom
+                ? (e) => setDeskZoom(deskScale + (e.deltaY < 0 ? 0.25 : -0.25))
+                : undefined
             }
             style={{
               width: dims.single ? dims.pageW : dims.wrapW,
               height: dims.wrapH,
               touchAction: dims.isMobile ? "none" : "auto",
-              cursor: !dims.isMobile && canZoom ? "zoom-in" : undefined,
             }}
             className="relative flex-shrink-0"
           >
             <div
               style={{
-                transform: dims.isMobile && zoomScale > 1
-                  ? `translate(${zoomTranslate.x}px, ${zoomTranslate.y}px) scale(${zoomScale})`
-                  : undefined,
+                transform: dims.isMobile
+                  ? zoomScale > 1
+                    ? `translate(${zoomTranslate.x}px, ${zoomTranslate.y}px) scale(${zoomScale})`
+                    : undefined
+                  : deskScale > 1
+                    ? `translate(${deskTrans.x}px, ${deskTrans.y}px) scale(${deskScale})`
+                    : undefined,
                 transformOrigin: "center center",
                 width: "100%",
                 height: "100%",
-                transition: zoomScale === 1 ? "transform 0.2s ease-out" : undefined,
+                transition: (dims.isMobile ? zoomScale === 1 : deskScale === 1)
+                  ? "transform 0.2s ease-out"
+                  : undefined,
               }}
             >
             {/*
@@ -847,7 +885,7 @@ export function MagazineViewer({
               drawShadow={!dims.isMobile}
               maxShadowOpacity={dims.isMobile ? 0 : 0.4}
               showCover={true}
-              flippingTime={dims.isMobile ? 600 : 800}
+              flippingTime={flipEffect ? (dims.isMobile ? 600 : 800) : 0}
               usePortrait={dims.single}
               startPage={currentPage}
               startZIndex={0}
@@ -864,10 +902,45 @@ export function MagazineViewer({
               style={{}}
             >
               {pages.map((page) => (
-                <FlipPage key={page.id} page={page} isMobile={dims.isMobile} />
+                <FlipPage key={page.id} page={page} />
               ))}
             </HTMLFlipBook>
             </div>
+
+            {/* 데스크톱 줌 상태: 드래그 팬 오버레이(react-pageflip 위 — 줌 중엔 넘김 잠금) */}
+            {!dims.isMobile && deskScale > 1 && (
+              <div
+                className="absolute inset-0 z-30"
+                style={{ cursor: "grab" }}
+                onDoubleClick={() => setDeskZoom(1)}
+                onWheel={(e) =>
+                  setDeskZoom(deskScale + (e.deltaY < 0 ? 0.25 : -0.25))
+                }
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  const start = {
+                    x: e.clientX,
+                    y: e.clientY,
+                    tx: deskTrans.x,
+                    ty: deskTrans.y,
+                  };
+                  const move = (ev: MouseEvent) =>
+                    setDeskTrans(
+                      clampDesk(
+                        start.tx + (ev.clientX - start.x),
+                        start.ty + (ev.clientY - start.y),
+                        deskScale,
+                      ),
+                    );
+                  const up = () => {
+                    window.removeEventListener("mousemove", move);
+                    window.removeEventListener("mouseup", up);
+                  };
+                  window.addEventListener("mousemove", move);
+                  window.addEventListener("mouseup", up);
+                }}
+              />
+            )}
 
             {/* Mobile prev: CSS 3D flip overlay */}
             {mobilePrevFlip && dims.isMobile && (
@@ -972,16 +1045,38 @@ export function MagazineViewer({
               </button>
             </div>
 
-            {/* 우: 확대 · 풀스크린 · 다크 */}
-            <div className="flex items-center gap-1.5">
+            {/* 우: 넘김 효과 · 줌 슬라이더 · 풀스크린 · 다크 */}
+            <div className="flex items-center gap-2">
+              {/* 넘김 효과 토글(#6) */}
+              <button
+                onClick={() => setFlipEffect((v) => !v)}
+                aria-pressed={flipEffect}
+                title="페이지 넘김 효과"
+                className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 font-label text-[11px] uppercase tracking-wider transition-colors ${
+                  flipEffect
+                    ? "border-gold/40 bg-gold/15 text-gold"
+                    : "border-white/15 text-white/45 hover:text-white"
+                }`}
+              >
+                📖 넘김
+              </button>
+              {/* 줌 슬라이더(#5) — 휠/더블클릭/드래그도 동작 */}
               {canZoom && (
-                <button
-                  onClick={() => setZoomOpen(true)}
-                  className="flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 font-label text-xs uppercase tracking-wider text-white/60 transition-colors hover:text-white"
-                  title="확대 (페이지 더블클릭)"
-                >
-                  🔍 확대
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-label text-[10px] text-white/40">🔍</span>
+                  <input
+                    type="range"
+                    min={100}
+                    max={300}
+                    value={Math.round(deskScale * 100)}
+                    onChange={(e) => setDeskZoom(Number(e.target.value) / 100)}
+                    className="w-24 accent-gold"
+                    aria-label="확대"
+                  />
+                  <span className="w-9 text-right font-label text-[10px] text-white/50">
+                    {Math.round(deskScale * 100)}%
+                  </span>
+                </div>
               )}
               <button
                 onClick={toggleFullscreen}
