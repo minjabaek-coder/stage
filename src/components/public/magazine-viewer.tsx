@@ -288,43 +288,6 @@ const FlipPage = forwardRef<
   );
 });
 
-// ── Controls ──
-function Controls({
-  onPrev,
-  onNext,
-  canPrev,
-  canNext,
-  label,
-}: {
-  onPrev: () => void;
-  onNext: () => void;
-  canPrev: boolean;
-  canNext: boolean;
-  label: string;
-}) {
-  return (
-    <div className="flex items-center justify-center gap-4 py-3">
-      <button
-        onClick={onPrev}
-        disabled={!canPrev}
-        className="flex h-11 w-11 items-center justify-center rounded-lg border border-white/15 text-lg text-white/70 transition-colors hover:bg-white/10 hover:text-gold disabled:opacity-30"
-      >
-        &larr;
-      </button>
-      <span className="min-w-[100px] text-center font-label text-sm tracking-wide text-white/45">
-        {label}
-      </span>
-      <button
-        onClick={onNext}
-        disabled={!canNext}
-        className="flex h-11 w-11 items-center justify-center rounded-lg border border-white/15 text-lg text-white/70 transition-colors hover:bg-white/10 hover:text-gold disabled:opacity-30"
-      >
-        &rarr;
-      </button>
-    </div>
-  );
-}
-
 // ── Mobile prev flip overlay (CSS 3D) ──
 // Renders on top of react-pageflip when going prev on mobile
 function MobilePrevFlipOverlay({
@@ -634,12 +597,10 @@ export function TocPanel({
 
 export function MagazineViewer({
   pages,
-  magazineId,
   tocEntries = [],
   initialPage = 1,
 }: {
   pages: MagazinePage[];
-  magazineId?: string;
   tocEntries?: MagazineTocEntry[];
   initialPage?: number; // 1-based, ?page= 딥링크 진입 페이지
 }) {
@@ -653,11 +614,14 @@ export function MagazineViewer({
     wrapW: number;
     wrapH: number;
     isMobile: boolean;
+    single: boolean; // 한 페이지(단면) 표시 여부 = 모바일 || 한 페이지 토글
   } | null>(null);
   // ?page= 딥링크 → 0-based 인덱스로 보정(범위 클램프)
   const startIndex = Math.min(Math.max(0, initialPage - 1), Math.max(0, pages.length - 1));
   const [currentPage, setCurrentPage] = useState(startIndex);
   const [isPortrait, setIsPortrait] = useState(false);
+  // 데스크톱 한/두 페이지 토글(rev.3). 두 페이지=양면 스프레드, 한 페이지=단면 확대.
+  const [forceSingle, setForceSingle] = useState(false);
   const pageRatioRef = useRef(2 / 3); // STAGE 지면 기본 2:3 (이미지 측정 시 보정)
 
   // Pinch-to-zoom (mobile)
@@ -714,13 +678,24 @@ export function MagazineViewer({
 
       const PAGE_RATIO = pageRatioRef.current;
       const isMobile = cw < 768;
+      const single = isMobile || forceSingle; // 모바일 또는 '한 페이지' 토글
 
       if (isMobile) {
-        // Always fill full width, height follows aspect ratio
+        // 모바일: 폭 가득, 높이는 비율
         const pageW = Math.floor(cw);
         const pageH = Math.floor(cw / PAGE_RATIO);
-        setDims({ pageW, pageH, wrapW: pageW, wrapH: pageH, isMobile: true });
+        setDims({ pageW, pageH, wrapW: pageW, wrapH: pageH, isMobile: true, single: true });
+      } else if (single) {
+        // 데스크톱 '한 페이지'(단면): 높이에 맞추되 폭으로 캡
+        let pageH = Math.floor(ch);
+        let pageW = Math.floor(pageH * PAGE_RATIO);
+        if (pageW > cw) {
+          pageW = Math.floor(cw);
+          pageH = Math.floor(pageW / PAGE_RATIO);
+        }
+        setDims({ pageW, pageH, wrapW: pageW, wrapH: pageH, isMobile: false, single: true });
       } else {
+        // 데스크톱 '두 페이지'(양면 스프레드)
         const bookWIfH = 2 * ch * PAGE_RATIO;
         let pageW: number, pageH: number;
         if (bookWIfH <= cw) {
@@ -730,7 +705,7 @@ export function MagazineViewer({
           pageW = Math.floor(cw / 2);
           pageH = Math.floor(pageW / PAGE_RATIO);
         }
-        setDims({ pageW, pageH, wrapW: pageW * 2, wrapH: pageH, isMobile: false });
+        setDims({ pageW, pageH, wrapW: pageW * 2, wrapH: pageH, isMobile: false, single: false });
       }
     }
 
@@ -764,29 +739,14 @@ export function MagazineViewer({
       cancelled = true;
       window.removeEventListener("resize", onResize);
     };
-  }, [pages]);
-
-  const viewTrackedRef = useRef(false);
+  }, [pages, forceSingle]);
 
   const onFlip = useCallback(
     (e: { data: number }) => {
       setCurrentPage(e.data);
       resetZoom();
-
-      if (!viewTrackedRef.current && magazineId) {
-        const key = `viewed:magazine:${magazineId}`;
-        if (!sessionStorage.getItem(key)) {
-          sessionStorage.setItem(key, "1");
-          fetch("/api/views", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ type: "magazine", id: magazineId }),
-          });
-        }
-        viewTrackedRef.current = true;
-      }
     },
-    [magazineId, resetZoom]
+    [resetZoom]
   );
 
   const onChangeOrientation = useCallback(
@@ -847,7 +807,7 @@ export function MagazineViewer({
   }, [flipPrev, flipNext]);
 
   const total = pages.length;
-  const isSingle = isPortrait || (dims?.isMobile ?? false);
+  const isSingle = dims?.single ?? isPortrait;
   const displayPage = isSingle
     ? `${currentPage + 1}`
     : `${currentPage + 1}-${Math.min(currentPage + 2, total)}`;
@@ -868,7 +828,7 @@ export function MagazineViewer({
           <div
             ref={zoomContainerRef}
             style={{
-              width: dims.isMobile ? dims.pageW : dims.wrapW,
+              width: dims.single ? dims.pageW : dims.wrapW,
               height: dims.wrapH,
               touchAction: dims.isMobile ? "none" : "auto",
             }}
@@ -893,6 +853,7 @@ export function MagazineViewer({
             */}
             {/* eslint-disable-next-line react-hooks/static-components */}
             <HTMLFlipBook
+              key={dims.single ? "single" : "spread"}
               ref={bookRef}
               width={dims.pageW}
               height={dims.pageH}
@@ -905,8 +866,8 @@ export function MagazineViewer({
               maxShadowOpacity={dims.isMobile ? 0 : 0.4}
               showCover={true}
               flippingTime={dims.isMobile ? 600 : 800}
-              usePortrait={dims.isMobile}
-              startPage={startIndex}
+              usePortrait={dims.single}
+              startPage={currentPage}
               startZIndex={0}
               autoSize={false}
               mobileScrollSupport={true}
@@ -940,8 +901,8 @@ export function MagazineViewer({
         )}
         </div>
 
-        {/* 확대 버튼 (이미지 페이지에서만) */}
-        {canZoom && (
+        {/* 모바일: 확대 버튼(데스크톱은 하단 바로 이동) */}
+        {canZoom && dims?.isMobile && (
           <button
             onClick={() => setZoomOpen(true)}
             className="absolute right-3 top-3 z-40 flex h-10 w-10 items-center justify-center rounded-lg bg-ink/70 text-base text-white backdrop-blur-sm transition-colors hover:bg-ink hover:text-gold"
@@ -953,28 +914,16 @@ export function MagazineViewer({
         )}
 
         {hasToc && (
-          <>
-            {/* Desktop: ☰ button (확대 버튼 아래로 스택) */}
-            {!dims?.isMobile && !tocOpen && (
-              <button
-                onClick={() => setTocOpen(true)}
-                className="absolute right-3 top-[3.75rem] z-40 flex h-10 w-10 items-center justify-center rounded-lg bg-ink/70 text-lg text-white backdrop-blur-sm transition-colors hover:bg-ink hover:text-gold"
-                title="목차"
-              >
-                ☰
-              </button>
-            )}
-            {/* Mobile: tap triggers carousel modal; Desktop: side panel */}
-            <TocPanel
-              tocEntries={tocEntries}
-              pages={pages}
-              currentPage={currentPage}
-              isOpen={tocOpen}
-              onClose={() => setTocOpen(false)}
-              onNavigate={navigateToPage}
-              isMobile={dims?.isMobile ?? false}
-            />
-          </>
+          // 모바일: 탭=하단 캐러셀 / 데스크톱: 우측 사이드패널
+          <TocPanel
+            tocEntries={tocEntries}
+            pages={pages}
+            currentPage={currentPage}
+            isOpen={tocOpen}
+            onClose={() => setTocOpen(false)}
+            onNavigate={navigateToPage}
+            isMobile={dims?.isMobile ?? false}
+          />
         )}
       </div>
       {!dims?.isMobile && hasToc && (
@@ -985,14 +934,92 @@ export function MagazineViewer({
           onNavigate={navigateToPage}
         />
       )}
+
+      {/* 데스크톱 통합 컨트롤 바 (rev.3): 진행률 + 목차·한/두 페이지·페이지이동·확대 */}
       {!dims?.isMobile && (
-        <Controls
-          onPrev={flipPrev}
-          onNext={flipNext}
-          canPrev={canPrev && !mobilePrevFlip && !isZoomed}
-          canNext={canNext && !mobilePrevFlip && !isZoomed}
-          label={`${displayPage} / ${total}`}
-        />
+        <div className="relative flex-shrink-0 border-t border-white/10">
+          {/* 진행률 바 */}
+          <div className="absolute left-0 right-0 top-0 h-[3px] bg-white/10">
+            <div
+              className="h-full bg-gold transition-all duration-300"
+              style={{ width: `${total ? ((currentPage + 1) / total) * 100 : 0}%` }}
+            />
+          </div>
+          <div className="flex items-center px-5 py-3">
+            {/* 좌: 목차 + 한/두 페이지 토글 */}
+            <div className="flex items-center gap-3">
+              {hasToc && (
+                <button
+                  onClick={() => setTocOpen((v) => !v)}
+                  aria-pressed={tocOpen}
+                  className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 font-label text-xs uppercase tracking-wider transition-colors ${
+                    tocOpen
+                      ? "border-gold/40 bg-gold/15 text-gold"
+                      : "border-white/15 text-white/60 hover:text-white"
+                  }`}
+                >
+                  ☰ 목차
+                </button>
+              )}
+              <div className="inline-flex items-center gap-0.5 rounded-full border border-white/15 p-0.5">
+                <button
+                  onClick={() => setForceSingle(true)}
+                  aria-pressed={isSingle}
+                  className={`rounded-full px-3 py-1 font-label text-xs uppercase tracking-wider transition-colors ${
+                    isSingle ? "bg-gold text-ink" : "text-white/55 hover:text-white"
+                  }`}
+                >
+                  한 페이지
+                </button>
+                <button
+                  onClick={() => setForceSingle(false)}
+                  aria-pressed={!isSingle}
+                  className={`rounded-full px-3 py-1 font-label text-xs uppercase tracking-wider transition-colors ${
+                    !isSingle ? "bg-gold text-ink" : "text-white/55 hover:text-white"
+                  }`}
+                >
+                  두 페이지
+                </button>
+              </div>
+            </div>
+
+            {/* 중앙: 페이지 이동 */}
+            <div className="flex flex-1 items-center justify-center gap-3">
+              <button
+                onClick={flipPrev}
+                disabled={!(canPrev && !mobilePrevFlip && !isZoomed)}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 text-lg text-white/70 transition-colors hover:bg-white/10 hover:text-gold disabled:opacity-30"
+                aria-label="이전 페이지"
+              >
+                ‹
+              </button>
+              <span className="min-w-[92px] text-center font-label text-sm tracking-wide text-white/50">
+                {displayPage} / {total}
+              </span>
+              <button
+                onClick={flipNext}
+                disabled={!(canNext && !mobilePrevFlip && !isZoomed)}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 text-lg text-white/70 transition-colors hover:bg-white/10 hover:text-gold disabled:opacity-30"
+                aria-label="다음 페이지"
+              >
+                ›
+              </button>
+            </div>
+
+            {/* 우: 확대(전체화면) */}
+            <div className="flex items-center gap-2">
+              {canZoom && (
+                <button
+                  onClick={() => setZoomOpen(true)}
+                  className="flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 font-label text-xs uppercase tracking-wider text-white/60 transition-colors hover:text-white"
+                  title="확대"
+                >
+                  🔍 확대
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {zoomOpen && canZoom && (
