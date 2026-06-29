@@ -10,6 +10,7 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu";
+import { MagazineCover } from "./magazine-cover";
 
 type SortOrder = "desc" | "asc";
 
@@ -20,6 +21,7 @@ interface Magazine {
   coverImageUrl: string | null;
   publishedAt: Date | null;
   contentType: string;
+  coverLayout?: unknown; // 구성형 표지 폴백(page 1 layout)
 }
 
 interface MagazineGridProps {
@@ -104,20 +106,13 @@ export function MagazineGrid({ magazines }: MagazineGridProps) {
               className="group"
             >
               <div className="relative aspect-[3/4] w-full overflow-hidden bg-ink-deep">
-                {magazine.coverImageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={magazine.coverImageUrl}
-                    alt={magazine.title}
-                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center">
-                    <span className="font-headline text-lg font-black text-white/30">
-                      STAGE
-                    </span>
-                  </div>
-                )}
+                <MagazineCover
+                  coverImageUrl={magazine.coverImageUrl}
+                  contentType={magazine.contentType}
+                  coverLayout={magazine.coverLayout}
+                  title={magazine.title}
+                  placeholderClass="text-lg"
+                />
                 <div className="absolute left-2 top-2 flex flex-col items-start gap-1">
                   {magazine.issueNumber === latestIssue && (
                     <span className="bg-gold px-1.5 py-0.5 font-label text-[9px] font-bold uppercase tracking-wider text-ink">

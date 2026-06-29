@@ -12,10 +12,23 @@ export const metadata: Metadata = {
 };
 
 export default async function MagazinesPage() {
-  const magazines = await prisma.magazine.findMany({
+  const rows = await prisma.magazine.findMany({
     where: { status: "published" },
     orderBy: { issueNumber: "desc" },
+    // 구성형 표지 폴백용 첫 페이지 layout
+    include: {
+      pages: { orderBy: { sortOrder: "asc" }, take: 1, select: { layout: true } },
+    },
   });
+  const magazines = rows.map((m) => ({
+    id: m.id,
+    issueNumber: m.issueNumber,
+    title: m.title,
+    coverImageUrl: m.coverImageUrl,
+    publishedAt: m.publishedAt,
+    contentType: m.contentType,
+    coverLayout: m.contentType === "composed" ? m.pages[0]?.layout ?? null : null,
+  }));
 
   return (
     <MainLayout showGenreNav={false}>

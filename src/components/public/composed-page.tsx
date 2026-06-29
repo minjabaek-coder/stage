@@ -18,9 +18,12 @@ const BASE_H = Math.round((BASE_W * 3) / 2); // 660
 export function ComposedPage({
   layout,
   className,
+  fit = "contain",
 }: {
   layout: PageLayout | null;
   className?: string;
+  // contain(기본·뷰어): 여백 맞춤 / cover(표지 썸네일): 박스를 꽉 채우고 넘침은 클립
+  fit?: "contain" | "cover";
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0);
@@ -31,13 +34,16 @@ export function ComposedPage({
     const update = () => {
       const w = el.clientWidth;
       const h = el.clientHeight;
-      if (w > 0 && h > 0) setScale(Math.min(w / BASE_W, h / BASE_H));
+      if (w > 0 && h > 0) {
+        const sx = w / BASE_W, sy = h / BASE_H;
+        setScale(fit === "cover" ? Math.max(sx, sy) : Math.min(sx, sy));
+      }
     };
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [fit]);
 
   if (!layout) return null;
   const blocks = [...layout.blocks].sort((a, b) => a.z - b.z);
@@ -96,6 +102,8 @@ export function ComposedBlockBody({ block }: { block: Block }) {
     const focusY = block.focusY ?? 50;
     // 채우기(cover)에서만 초점 기준 확대(줌). 초점 지점을 고정한 채 더 당겨 본다.
     const zoom = fit === "cover" ? Math.max(1, block.zoom ?? 1) : 1;
+    // 빈 이미지 블록(src 없음)은 렌더하지 않음 — <img src=""> 경고/재요청 방지
+    if (!block.src) return null;
     return (
       <>
         {/* eslint-disable-next-line @next/next/no-img-element */}
