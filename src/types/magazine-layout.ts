@@ -11,6 +11,7 @@ export type BlockBase = {
   z: number;
   rotation?: number; // deg
   opacity?: number; // 0~1
+  groupId?: string; // P2: 평면 그룹 태그(트리 아님 → 뷰어 무변경). 같은 groupId끼리 함께 선택/이동
 };
 
 export type ImageBlock = BlockBase & {

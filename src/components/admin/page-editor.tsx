@@ -73,7 +73,9 @@ export function PageEditor({
   const [userZoom, setUserZoom] = useState(1); // 사용자 줌(P5a) — fit 위에 곱)
   const [blocks, setBlocks] = useState<Block[]>(initialLayout.blocks ?? []);
   const [pageBg, setPageBg] = useState(initialLayout.pageBg ?? "#ffffff");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // 멀티 선택(P2). 단일(1개)일 때만 selectedId 파생 → 기존 단일 속성/동작 코드 재사용.
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const setSelectedId = (id: string | null) => setSelectedIds(id ? [id] : []);
   const [editingId, setEditingId] = useState<string | null>(null); // 인라인 편집 중 텍스트 블록(E2.3)
   const [activeEditor, setActiveEditor] = useState<Editor | null>(null); // 속성 패널 서식 툴바용
   const [articleId, setArticleId] = useState<string | null>(initialArticleId);
@@ -84,8 +86,19 @@ export function PageEditor({
   // 우클릭 컨텍스트 메뉴(P1)
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
 
-  const selected = blocks.find((b) => b.id === selectedId) ?? null;
+  const selectedId = selectedIds.length === 1 ? selectedIds[0] : null;
+  const selected = selectedId ? (blocks.find((b) => b.id === selectedId) ?? null) : null;
   const maxZ = blocks.reduce((m, b) => Math.max(m, b.z), 0);
+  const selBlocks = blocks.filter((b) => selectedIds.includes(b.id));
+  // 선택셋 합집합 바운딩박스(GB)
+  function groupBox() {
+    if (selBlocks.length === 0) return null;
+    const x = Math.min(...selBlocks.map((b) => b.x));
+    const y = Math.min(...selBlocks.map((b) => b.y));
+    const r = Math.max(...selBlocks.map((b) => b.x + b.w));
+    const btm = Math.max(...selBlocks.map((b) => b.y + b.h));
+    return { x, y, w: r - x, h: btm - y };
+  }
 
   // ── P1: 실행취소/다시실행 (전체 스냅샷 히스토리) ──
   type Doc = { blocks: Block[]; pageBg: string };
@@ -165,25 +178,25 @@ export function PageEditor({
     setSelectedId(b.id);
   }
   function removeSelected() {
-    if (!selectedId) return;
+    if (selectedIds.length === 0) return;
     record();
-    setBlocks((p) => p.filter((b) => b.id !== selectedId));
-    setSelectedId(null);
+    setBlocks((p) => p.filter((b) => !selectedIds.includes(b.id)));
+    setSelectedIds([]);
   }
-  // ── P1: 복제 / 복사 / 붙여넣기 / nudge ──
+  // ── P1/P2: 복제 / 복사 / 붙여넣기 / nudge (멀티 대응) ──
   function duplicateSelected() {
-    if (!selected) return;
+    if (selBlocks.length === 0) return;
     record();
-    const copy = {
-      ...clone(selected), id: uid(), z: maxZ + 1,
-      x: clampPct(selected.x + 2.3, selected.w),
-      y: clampPct(selected.y + 2.3, selected.h),
-    } as Block;
-    setBlocks((p) => [...p, copy]);
-    setSelectedId(copy.id);
+    const base = maxZ;
+    const copies = selBlocks.map((b, i) => ({
+      ...clone(b), id: uid(), z: base + 1 + i,
+      x: clampPct(b.x + 2.3, b.w), y: clampPct(b.y + 2.3, b.h),
+    } as Block));
+    setBlocks((p) => [...p, ...copies]);
+    setSelectedIds(copies.map((c) => c.id));
   }
   function copySelected() {
-    if (selected) clipboardStore = [clone(selected)];
+    if (selBlocks.length) clipboardStore = selBlocks.map((b) => clone(b));
   }
   function pasteClipboard() {
     if (!clipboardStore || !clipboardStore.length) return;
@@ -197,16 +210,19 @@ export function PageEditor({
     setSelectedId(copies[copies.length - 1].id);
   }
   function nudge(key: string, big: boolean) {
-    if (!selected) return;
+    if (selectedIds.length === 0) return;
     commitDebounced();
     const sx = (big ? 10 : 1) / BASE_W * 100;
     const sy = (big ? 10 : 1) / BASE_H * 100;
-    let { x, y } = selected;
-    if (key === "ArrowLeft") x = Math.max(0, x - sx);
-    else if (key === "ArrowRight") x = Math.min(100 - selected.w, x + sx);
-    else if (key === "ArrowUp") y = Math.max(0, y - sy);
-    else if (key === "ArrowDown") y = Math.min(100 - selected.h, y + sy);
-    patchLive(selected.id, { x: round(x), y: round(y) });
+    const dx = key === "ArrowLeft" ? -sx : key === "ArrowRight" ? sx : 0;
+    const dy = key === "ArrowUp" ? -sy : key === "ArrowDown" ? sy : 0;
+    setBlocks((prev) =>
+      prev.map((b) =>
+        selectedIds.includes(b.id)
+          ? ({ ...b, x: round(clampPct(b.x + dx, b.w)), y: round(clampPct(b.y + dy, b.h)) } as Block)
+          : b
+      )
+    );
   }
 
   // ── 정렬(캔버스 기준) / 레이어(z-order) / 비율잠금 크기 ──
@@ -247,11 +263,91 @@ export function PageEditor({
     }
   }
 
+  // ── P2: 그룹 / 다중 정렬·분배 (그룹 바운딩박스 기준) ──
+  function groupSelected() {
+    if (selectedIds.length < 2) return;
+    record();
+    const gid = "g" + uid();
+    setBlocks((prev) => prev.map((b) => (selectedIds.includes(b.id) ? ({ ...b, groupId: gid } as Block) : b)));
+  }
+  function ungroupSelected() {
+    const gids = new Set(selBlocks.map((b) => b.groupId).filter(Boolean));
+    if (gids.size === 0) return;
+    record();
+    setBlocks((prev) => prev.map((b) => (b.groupId && gids.has(b.groupId) ? ({ ...b, groupId: undefined } as Block) : b)));
+  }
+  function alignMulti(mode: "left" | "cx" | "right" | "top" | "cy" | "bottom") {
+    const gb = groupBox();
+    if (!gb || selectedIds.length < 2) return;
+    record();
+    setBlocks((prev) => prev.map((b) => {
+      if (!selectedIds.includes(b.id)) return b;
+      let { x, y } = b;
+      if (mode === "left") x = gb.x; else if (mode === "right") x = gb.x + gb.w - b.w; else if (mode === "cx") x = gb.x + (gb.w - b.w) / 2;
+      if (mode === "top") y = gb.y; else if (mode === "bottom") y = gb.y + gb.h - b.h; else if (mode === "cy") y = gb.y + (gb.h - b.h) / 2;
+      return { ...b, x: round(x), y: round(y) } as Block;
+    }));
+  }
+  function distributeMulti(axis: "x" | "y") {
+    if (selBlocks.length < 3) return;
+    record();
+    const get = (b: Block) => (axis === "x" ? b.x : b.y);
+    const size = (b: Block) => (axis === "x" ? b.w : b.h);
+    const sorted = [...selBlocks].sort((a, b) => get(a) - get(b));
+    const start = get(sorted[0]);
+    const end = get(sorted[sorted.length - 1]) + size(sorted[sorted.length - 1]);
+    const total = sorted.reduce((s, b) => s + size(b), 0);
+    const gap = (end - start - total) / (sorted.length - 1);
+    const pos = new Map<string, number>();
+    let cur = start;
+    for (const b of sorted) { pos.set(b.id, cur); cur += size(b) + gap; }
+    setBlocks((prev) => prev.map((b) =>
+      pos.has(b.id) ? ({ ...b, ...(axis === "x" ? { x: round(pos.get(b.id)!) } : { y: round(pos.get(b.id)!) }) } as Block) : b
+    ));
+  }
+
   // ── 드래그 이동 / 8방향 리사이즈 (pointer capture) + 스냅 가이드 ──
   const [snap, setSnap] = useState<{ v: number | null; h: number | null }>({
     v: null,
     h: null,
   });
+  // 마키(러버밴드) 선택(P2)
+  const [marquee, setMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const marqueeRef = useRef<{ x0: number; y0: number; rect: { x: number; y: number; w: number; h: number } } | null>(null);
+  function canvasPct(clientX: number, clientY: number) {
+    const r = canvasRef.current?.getBoundingClientRect();
+    if (!r) return { x: 0, y: 0 };
+    return { x: ((clientX - r.left) / r.width) * 100, y: ((clientY - r.top) / r.height) * 100 };
+  }
+  function onCanvasPointerDown(e: ReactPointerEvent) {
+    if (e.button !== 0) return;
+    setEditingId(null);
+    setSelectedIds([]);
+    const p = canvasPct(e.clientX, e.clientY);
+    marqueeRef.current = { x0: p.x, y0: p.y, rect: { x: p.x, y: p.y, w: 0, h: 0 } };
+    canvasRef.current?.setPointerCapture(e.pointerId);
+  }
+  function onCanvasPointerMove(e: ReactPointerEvent) {
+    const m = marqueeRef.current;
+    if (!m) return;
+    const p = canvasPct(e.clientX, e.clientY);
+    const rect = { x: Math.min(m.x0, p.x), y: Math.min(m.y0, p.y), w: Math.abs(p.x - m.x0), h: Math.abs(p.y - m.y0) };
+    m.rect = rect;
+    setMarquee(rect);
+  }
+  function onCanvasPointerUp() {
+    const m = marqueeRef.current;
+    marqueeRef.current = null;
+    setMarquee(null);
+    if (!m) return;
+    const r = m.rect;
+    if (r.w > 1 || r.h > 1) {
+      const hits = blocks
+        .filter((b) => !(b.x + b.w < r.x || r.x + r.w < b.x || b.y + b.h < r.y || r.y + r.h < b.y))
+        .map((b) => b.id);
+      setSelectedIds(hits);
+    }
+  }
   const drag = useRef<{
     mode: "move" | "resize";
     id: string;
@@ -259,20 +355,28 @@ export function PageEditor({
     bx: number; by: number; bw: number; bh: number;
     dx?: -1 | 0 | 1; // 리사이즈 방향(가로)
     dy?: -1 | 0 | 1; // 리사이즈 방향(세로)
+    starts?: { id: string; x: number; y: number; w: number; h: number }[]; // 멀티 이동 시작 위치
   } | null>(null);
 
   const SNAP = 1.5; // % 스냅 임계
   const SNAP_TARGETS = [0, 50, 100];
-  // 이동 시 좌/중앙/우(상/중앙/하)를 캔버스 0·50·100에 스냅 + 가이드 표시
+  // 이동 시 스냅 — 캔버스 0/50/100 + 비선택 블록의 가장자리·중심(P2d 객체간 가이드)
   function snapMove(nx: number, ny: number, bw: number, bh: number) {
+    const xs = [...SNAP_TARGETS];
+    const ys = [...SNAP_TARGETS];
+    for (const o of blocks) {
+      if (selectedIds.includes(o.id)) continue;
+      xs.push(o.x, o.x + o.w / 2, o.x + o.w);
+      ys.push(o.y, o.y + o.h / 2, o.y + o.h);
+    }
     let gv: number | null = null;
     let gh: number | null = null;
-    for (const t of SNAP_TARGETS) {
+    for (const t of xs) {
       if (Math.abs(nx - t) < SNAP) { nx = t; gv = t; break; }
       if (Math.abs(nx + bw / 2 - t) < SNAP) { nx = t - bw / 2; gv = t; break; }
       if (Math.abs(nx + bw - t) < SNAP) { nx = t - bw; gv = t; break; }
     }
-    for (const t of SNAP_TARGETS) {
+    for (const t of ys) {
       if (Math.abs(ny - t) < SNAP) { ny = t; gh = t; break; }
       if (Math.abs(ny + bh / 2 - t) < SNAP) { ny = t - bh / 2; gh = t; break; }
       if (Math.abs(ny + bh - t) < SNAP) { ny = t - bh; gh = t; break; }
@@ -288,13 +392,29 @@ export function PageEditor({
   // 캡처를 누른 요소(currentTarget)에 걸고, move/up도 같은 요소에서 처리 → 안정적 드래그
   function onBlockPointerDown(e: ReactPointerEvent, b: Block) {
     e.stopPropagation();
-    if (e.button !== 0) { setSelectedId(b.id); return; } // 우클릭=선택만(컨텍스트 메뉴)
-    setSelectedId(b.id);
-    setEditingId(null); // 다른 블록으로 이동하면 인라인 편집 종료
+    // 그룹 블록 클릭 → 그룹 전체를 선택 단위로
+    const mates = b.groupId ? blocks.filter((x) => x.groupId === b.groupId).map((x) => x.id) : [b.id];
+    if (e.button !== 0) { // 우클릭=선택만(컨텍스트 메뉴)
+      if (!selectedIds.includes(b.id)) setSelectedIds(mates);
+      return;
+    }
+    setEditingId(null);
+    if (e.shiftKey) { // Shift-클릭 = 선택 토글(드래그 안 함)
+      setSelectedIds((cur) =>
+        cur.includes(b.id) ? cur.filter((id) => !mates.includes(id)) : [...new Set([...cur, ...mates])]
+      );
+      return;
+    }
+    // 이미 선택셋에 포함이면 멀티 유지, 아니면 단일(또는 그룹) 선택
+    const nextSel = selectedIds.includes(b.id) ? selectedIds : mates;
+    if (!selectedIds.includes(b.id)) setSelectedIds(nextSel);
     flushEdit();
-    dragSnap.current = { blocks: clone(blocks), pageBg }; // 드래그 전 스냅샷
+    dragSnap.current = { blocks: clone(blocks), pageBg };
     e.currentTarget.setPointerCapture(e.pointerId);
-    drag.current = { mode: "move", id: b.id, sx: e.clientX, sy: e.clientY, bx: b.x, by: b.y, bw: b.w, bh: b.h };
+    const starts = blocks
+      .filter((x) => nextSel.includes(x.id))
+      .map((x) => ({ id: x.id, x: x.x, y: x.y, w: x.w, h: x.h }));
+    drag.current = { mode: "move", id: b.id, sx: e.clientX, sy: e.clientY, bx: b.x, by: b.y, bw: b.w, bh: b.h, starts };
   }
   function onHandlePointerDown(
     e: ReactPointerEvent,
@@ -317,13 +437,29 @@ export function PageEditor({
     const dyPct = ((e.clientY - d.sy) / h) * 100;
 
     if (d.mode === "move") {
-      let nx = Math.max(0, Math.min(100 - d.bw, d.bx + dxPct));
-      let ny = Math.max(0, Math.min(100 - d.bh, d.by + dyPct));
-      const s = snapMove(nx, ny, d.bw, d.bh);
-      nx = Math.max(0, Math.min(100 - d.bw, s.nx));
-      ny = Math.max(0, Math.min(100 - d.bh, s.ny));
-      setSnap({ v: s.gv, h: s.gh });
-      patchLive(d.id, { x: nx, y: ny });
+      const starts = d.starts ?? [{ id: d.id, x: d.bx, y: d.by, w: d.bw, h: d.bh }];
+      // 선택셋 전체가 캔버스 안에 남도록 dx/dy 공통 클램프
+      let dx = dxPct, dy = dyPct;
+      for (const s of starts) {
+        dx = Math.min(Math.max(dx, -s.x), 100 - s.w - s.x);
+        dy = Math.min(Math.max(dy, -s.y), 100 - s.h - s.y);
+      }
+      // 스냅·가이드는 단일 선택일 때만(객체간 포함)
+      if (starts.length === 1) {
+        const s0 = starts[0];
+        const s = snapMove(s0.x + dx, s0.y + dy, s0.w, s0.h);
+        dx = clampPct(s.nx, s0.w) - s0.x;
+        dy = clampPct(s.ny, s0.h) - s0.y;
+        setSnap({ v: s.gv, h: s.gh });
+      } else {
+        setSnap({ v: null, h: null });
+      }
+      setBlocks((prev) =>
+        prev.map((b) => {
+          const s = starts.find((s) => s.id === b.id);
+          return s ? ({ ...b, x: round(s.x + dx), y: round(s.y + dy) } as Block) : b;
+        })
+      );
       return;
     }
 
@@ -477,14 +613,16 @@ export function PageEditor({
       if (meta && k === "d") { e.preventDefault(); duplicateSelected(); return; }
       if (meta && k === "c") { copySelected(); return; }
       if (meta && k === "v") { e.preventDefault(); pasteClipboard(); return; }
-      if (e.key === "Delete" || e.key === "Backspace") { if (selectedId) { e.preventDefault(); removeSelected(); } return; }
-      if (e.key === "Escape") { setSelectedId(null); setCtxMenu(null); return; }
-      if (e.key.startsWith("Arrow") && selected) { e.preventDefault(); nudge(e.key, e.shiftKey); }
+      if (meta && k === "g") { e.preventDefault(); if (e.shiftKey) ungroupSelected(); else groupSelected(); return; }
+      if (meta && k === "a") { e.preventDefault(); setSelectedIds(blocks.map((b) => b.id)); return; }
+      if (e.key === "Delete" || e.key === "Backspace") { if (selectedIds.length) { e.preventDefault(); removeSelected(); } return; }
+      if (e.key === "Escape") { setSelectedIds([]); setCtxMenu(null); return; }
+      if (e.key.startsWith("Arrow") && selectedIds.length) { e.preventDefault(); nudge(e.key, e.shiftKey); }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editingId, selectedId, blocks, pageBg]);
+  }, [editingId, selectedIds, blocks, pageBg]);
 
   // 컨텍스트 메뉴 바깥 클릭/스크롤 시 닫기
   useEffect(() => {
@@ -625,12 +763,14 @@ export function PageEditor({
         <div className="m-auto flex-none" style={{ width: BASE_W * scale, height: BASE_H * scale }}>
         <div
           ref={canvasRef}
-          onPointerDown={() => { setSelectedId(null); setEditingId(null); }}
+          onPointerDown={onCanvasPointerDown}
+          onPointerMove={onCanvasPointerMove}
+          onPointerUp={onCanvasPointerUp}
           className="overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.18)]"
           style={{ width: BASE_W, height: BASE_H, transform: `scale(${scale})`, transformOrigin: "0 0", background: pageBg, touchAction: "none" }}
         >
           {[...blocks].sort((a, b) => a.z - b.z).map((b) => {
-            const isSel = b.id === selectedId;
+            const isSel = selectedIds.includes(b.id);
             const isEditing = b.id === editingId && b.type === "text";
             const isEmptyImg = b.type === "image" && !b.src;
             return (
@@ -676,7 +816,7 @@ export function PageEditor({
                 ) : (
                   <ComposedBlockBody block={b} />
                 )}
-                {isSel && !isEditing &&
+                {b.id === selectedId && !isEditing &&
                   HANDLES.map((hd) => (
                     <div
                       key={`${hd.dx},${hd.dy}`}
@@ -701,6 +841,17 @@ export function PageEditor({
           {snap.h != null && (
             <div style={{ position: "absolute", top: `${snap.h}%`, left: 0, right: 0, height: 1, background: "#ec4899", zIndex: 1000, pointerEvents: "none" }} />
           )}
+          {/* 그룹 바운딩박스(멀티 선택, P2) */}
+          {selectedIds.length > 1 && (() => {
+            const gb = groupBox();
+            return gb ? (
+              <div style={{ position: "absolute", left: `${gb.x}%`, top: `${gb.y}%`, width: `${gb.w}%`, height: `${gb.h}%`, border: "1px dashed #2563eb", zIndex: 997, pointerEvents: "none" }} />
+            ) : null;
+          })()}
+          {/* 마키(러버밴드, P2) */}
+          {marquee && (
+            <div style={{ position: "absolute", left: `${marquee.x}%`, top: `${marquee.y}%`, width: `${marquee.w}%`, height: `${marquee.h}%`, border: "1px solid #2563eb", background: "rgba(37,99,235,0.10)", zIndex: 1001, pointerEvents: "none" }} />
+          )}
         </div>
         </div>
         </div>
@@ -709,13 +860,44 @@ export function PageEditor({
         {/* 속성 패널 (목업 .col.right · .props) */}
         <aside className="flex w-64 shrink-0 flex-col self-stretch overflow-hidden rounded-lg border bg-card text-sm">
           <div className="min-h-0 flex-1 overflow-y-auto p-3.5">
-          {!selected ? (
+          {selectedIds.length > 1 ? (
+            <div>
+              <h4 className="mb-2.5 flex items-center gap-1.5">
+                <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-muted-foreground">속성</span>
+                <span className="ed-typetag">{selectedIds.length}개 선택</span>
+              </h4>
+              <Group title="정렬 (선택 영역 기준)" first>
+                <div className="ed-iconrow flex gap-1.5">
+                  <button type="button" onClick={() => alignMulti("left")} title="왼쪽">⇤</button>
+                  <button type="button" onClick={() => alignMulti("cx")} title="가로 가운데">⤬</button>
+                  <button type="button" onClick={() => alignMulti("right")} title="오른쪽">⇥</button>
+                  <button type="button" onClick={() => alignMulti("top")} title="위">⤒</button>
+                  <button type="button" onClick={() => alignMulti("cy")} title="세로 가운데">↕</button>
+                  <button type="button" onClick={() => alignMulti("bottom")} title="아래">⤓</button>
+                </div>
+              </Group>
+              <Group title="분배 (3개 이상)">
+                <div className="ed-iconrow flex gap-1.5">
+                  <button type="button" onClick={() => distributeMulti("x")}>↔ 가로</button>
+                  <button type="button" onClick={() => distributeMulti("y")}>↕ 세로</button>
+                </div>
+              </Group>
+              <Group title="그룹 · 동작">
+                <div className="ed-iconrow flex flex-wrap gap-1.5">
+                  <button type="button" onClick={groupSelected}>⧉ 그룹</button>
+                  <button type="button" onClick={ungroupSelected}>그룹 해제</button>
+                  <button type="button" onClick={duplicateSelected}>복제</button>
+                  <button type="button" onClick={removeSelected} className="!text-red-600">삭제</button>
+                </div>
+              </Group>
+            </div>
+          ) : !selected ? (
             <div>
               <h4 className="mb-2.5 font-mono text-[9px] uppercase tracking-[0.15em] text-muted-foreground">
                 속성
               </h4>
               <p className="text-xs text-muted-foreground">
-                블록을 선택하면 속성이 표시됩니다.
+                블록 선택 · Shift-클릭/드래그로 다중 선택.
               </p>
               <div className="mt-3 border-t pt-3">
                 <div className="ed-grouplabel">페이지 배경색</div>
@@ -870,7 +1052,7 @@ export function PageEditor({
               <p className="px-1 py-2 text-[11px] text-muted-foreground">블록 없음</p>
             ) : (
               [...blocks].sort((a, b) => b.z - a.z).map((b) => {
-                const isSel = b.id === selectedId;
+                const isSel = selectedIds.includes(b.id);
                 const icon = b.type === "image" ? "🖼" : "T";
                 const name = b.type === "image"
                   ? (b.src ? "이미지" : "이미지(빈)")
