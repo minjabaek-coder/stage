@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MagazineCover } from "./magazine-cover";
 
 interface Magazine {
   id: string;
@@ -7,6 +8,7 @@ interface Magazine {
   coverImageUrl: string | null;
   publishedAt: Date | null;
   contentType: string;
+  coverLayout?: unknown; // 구성형 표지 폴백(page 1 layout)
 }
 
 // v2 매거진 아카이브 (page-home §G): 가로 스크롤 한 줄(폭에 맞게 보이는 만큼 노출,
@@ -36,20 +38,13 @@ export function PastMagazines({ magazines }: { magazines: Magazine[] }) {
             className="group w-[120px] flex-shrink-0"
           >
             <div className="relative mb-2 aspect-[3/4] overflow-hidden bg-ink-deep">
-              {mag.coverImageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={mag.coverImageUrl}
-                  alt={mag.title}
-                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center">
-                  <span className="font-headline text-sm font-black text-white/30">
-                    STAGE
-                  </span>
-                </div>
-              )}
+              <MagazineCover
+                coverImageUrl={mag.coverImageUrl}
+                contentType={mag.contentType}
+                coverLayout={mag.coverLayout}
+                title={mag.title}
+                placeholderClass="text-sm"
+              />
               {mag.contentType !== "image" && (
                 <span className="absolute right-1 top-1 rounded-sm bg-teal/90 px-1 py-0.5 font-label text-[7px] font-bold tracking-wide text-white">
                   WEB

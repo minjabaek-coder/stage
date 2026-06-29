@@ -9,6 +9,7 @@ import { MaestroSection } from "@/components/public/maestro-section";
 import { ArticleCard } from "@/components/public/article-card";
 import { AdSlot } from "@/components/public/ad-slot";
 import { LeftRail } from "@/components/public/left-rail";
+import { MagazineCover } from "@/components/public/magazine-cover";
 
 // v2 섹션 헤더 (page-home §B): 굵은 잉크 언더라인 + 모노 키커 + "전체보기 →"
 function SectionHead({
@@ -42,6 +43,10 @@ export default async function HomePage() {
     prisma.magazine.findMany({
       where: { status: "published" },
       orderBy: { issueNumber: "desc" },
+      // 구성형 표지 폴백용 — 첫 페이지 layout (비트맵 coverImageUrl 없을 때 ComposedPage 렌더)
+      include: {
+        pages: { orderBy: { sortOrder: "asc" }, take: 1, select: { layout: true } },
+      },
     }),
     prisma.article.findMany({
       where: { status: "published" },
@@ -81,20 +86,13 @@ export default async function HomePage() {
             href={`/magazines/${latestMagazine.id}`}
             className="group relative block aspect-[3/4] overflow-hidden bg-ink-deep"
           >
-            {latestMagazine.coverImageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={latestMagazine.coverImageUrl}
-                alt={latestMagazine.title}
-                className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center">
-                <span className="font-headline text-3xl font-black text-white/30">
-                  STAGE
-                </span>
-              </div>
-            )}
+            <MagazineCover
+              coverImageUrl={latestMagazine.coverImageUrl}
+              contentType={latestMagazine.contentType}
+              coverLayout={latestMagazine.pages?.[0]?.layout}
+              title={latestMagazine.title}
+              placeholderClass="text-3xl"
+            />
             <div className="absolute inset-x-0 top-0 flex justify-between p-2">
               <span className="bg-gold px-1.5 py-0.5 font-label text-[8px] font-bold tracking-wider text-ink">
                 NEW
@@ -146,7 +144,12 @@ export default async function HomePage() {
 
       {/* 매거진 아카이브 (v2 §G) */}
       {previousMagazines.length > 0 && (
-        <PastMagazines magazines={previousMagazines} />
+        <PastMagazines
+          magazines={previousMagazines.map((m) => ({
+            ...m,
+            coverLayout: m.contentType === "composed" ? m.pages?.[0]?.layout ?? null : null,
+          }))}
+        />
       )}
 
       {/* 최신 기사 (v2 §D) */}
