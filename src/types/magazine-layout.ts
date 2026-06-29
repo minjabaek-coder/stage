@@ -12,6 +12,8 @@ export type BlockBase = {
   rotation?: number; // deg
   opacity?: number; // 0~1
   groupId?: string; // P2: 평면 그룹 태그(트리 아님 → 뷰어 무변경). 같은 groupId끼리 함께 선택/이동
+  locked?: boolean; // P5: 잠금(편집기에서 선택/이동 불가). 뷰어는 무시
+  hidden?: boolean; // P5: 편집기에서 숨김(작업 편의). 뷰어는 무시(항상 렌더)
 };
 
 export type ImageBlock = BlockBase & {

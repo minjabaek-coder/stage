@@ -73,6 +73,8 @@ export function PageEditor({
   const wrapRef = useRef<HTMLDivElement>(null);
   const [fitScale, setFitScale] = useState(1); // 가용 영역 기준 fit 배율(baseline)
   const [userZoom, setUserZoom] = useState(1); // 사용자 줌(P5a) — fit 위에 곱)
+  const spaceRef = useRef(false); // 스페이스 누름(패닝 모드)
+  const panRef = useRef<{ x: number; y: number; sl: number; st: number } | null>(null);
   const [blocks, setBlocks] = useState<Block[]>(initialLayout.blocks ?? []);
   const [pageBg, setPageBg] = useState(initialLayout.pageBg ?? "#ffffff");
   // 멀티 선택(P2). 단일(1개)일 때만 selectedId 파생 → 기존 단일 속성/동작 코드 재사용.
@@ -342,7 +344,7 @@ export function PageEditor({
     return { x: ((clientX - r.left) / r.width) * 100, y: ((clientY - r.top) / r.height) * 100 };
   }
   function onCanvasPointerDown(e: ReactPointerEvent) {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || spaceRef.current) return; // 스페이스 패닝 중엔 마키 시작 안 함
     setEditingId(null);
     setSelectedIds([]);
     const p = canvasPct(e.clientX, e.clientY);
@@ -365,7 +367,7 @@ export function PageEditor({
     const r = m.rect;
     if (r.w > 1 || r.h > 1) {
       const hits = blocks
-        .filter((b) => !(b.x + b.w < r.x || r.x + r.w < b.x || b.y + b.h < r.y || r.y + r.h < b.y))
+        .filter((b) => !b.hidden && !b.locked && !(b.x + b.w < r.x || r.x + r.w < b.x || b.y + b.h < r.y || r.y + r.h < b.y))
         .map((b) => b.id);
       setSelectedIds(hits);
     }
@@ -415,6 +417,7 @@ export function PageEditor({
   // 캡처를 누른 요소(currentTarget)에 걸고, move/up도 같은 요소에서 처리 → 안정적 드래그
   function onBlockPointerDown(e: ReactPointerEvent, b: Block) {
     e.stopPropagation();
+    if (b.locked) return; // 잠금 블록은 캔버스에서 선택/이동 불가(레이어 패널에서 해제)
     // 그룹 블록 클릭 → 그룹 전체를 선택 단위로
     const mates = b.groupId ? blocks.filter((x) => x.groupId === b.groupId).map((x) => x.id) : [b.id];
     if (e.button !== 0) { // 우클릭=선택만(컨텍스트 메뉴)
@@ -702,6 +705,26 @@ export function PageEditor({
     return () => ro.disconnect();
   }, []);
 
+  // 스페이스 누르고 드래그 → 패닝(P5)
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.key !== " ") return;
+      const t = e.target as HTMLElement;
+      if (editingId || /INPUT|TEXTAREA|SELECT/.test(t.tagName) || t.isContentEditable) return;
+      e.preventDefault();
+      spaceRef.current = true;
+      if (wrapRef.current) wrapRef.current.style.cursor = "grab";
+    };
+    const up = (e: KeyboardEvent) => {
+      if (e.key !== " ") return;
+      spaceRef.current = false;
+      if (wrapRef.current) wrapRef.current.style.cursor = "";
+    };
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
+  }, [editingId]);
+
   // ⌘/Ctrl + 휠 → 줌(P5a). passive:false라 native 리스너로.
   useEffect(() => {
     const el = wrapRef.current;
@@ -847,7 +870,23 @@ export function PageEditor({
       </div>
 
       {/* 캔버스 래핑: fit×줌 배율로 표시. 줌인 시 overflow-auto로 패닝 스크롤. */}
-      <div ref={wrapRef} className="flex min-h-0 flex-1 overflow-auto bg-[#e9e7e4] p-6">
+      <div
+        ref={wrapRef}
+        className="flex min-h-0 flex-1 overflow-auto bg-[#e9e7e4] p-6"
+        onPointerDown={(e) => {
+          if (!spaceRef.current || !wrapRef.current) return;
+          e.preventDefault();
+          panRef.current = { x: e.clientX, y: e.clientY, sl: wrapRef.current.scrollLeft, st: wrapRef.current.scrollTop };
+          try { wrapRef.current.setPointerCapture(e.pointerId); } catch {}
+          wrapRef.current.style.cursor = "grabbing";
+        }}
+        onPointerMove={(e) => {
+          if (!panRef.current || !wrapRef.current) return;
+          wrapRef.current.scrollLeft = panRef.current.sl - (e.clientX - panRef.current.x);
+          wrapRef.current.scrollTop = panRef.current.st - (e.clientY - panRef.current.y);
+        }}
+        onPointerUp={() => { panRef.current = null; if (wrapRef.current) wrapRef.current.style.cursor = spaceRef.current ? "grab" : ""; }}
+      >
         {/* 실제 크기 sizer(m-auto 중앙·스크롤 안전) + 좌상단 기준 scale */}
         <div className="m-auto flex-none" style={{ width: BASE_W * scale, height: BASE_H * scale }}>
         <div
@@ -859,6 +898,7 @@ export function PageEditor({
           style={{ width: BASE_W, height: BASE_H, transform: `scale(${scale})`, transformOrigin: "0 0", background: pageBg, touchAction: "none" }}
         >
           {[...blocks].sort((a, b) => a.z - b.z).map((b) => {
+            if (b.hidden) return null; // 편집기에서 숨김(뷰어는 항상 렌더)
             const isSel = selectedIds.includes(b.id);
             const isEditing = b.id === editingId && b.type === "text";
             const isEmptyImg = b.type === "image" && !b.src;
@@ -1183,15 +1223,17 @@ export function PageEditor({
                     ? ({ rect: "사각형", ellipse: "원", line: "선" } as const)[(b as ShapeBlock).shape]
                     : ((b as TextBlock).html || "텍스트").replace(/<[^>]+>/g, " ").trim().slice(0, 16) || "텍스트";
                 return (
-                  <button
+                  <div
                     key={b.id}
-                    type="button"
-                    onClick={() => { setSelectedId(b.id); setEditingId(null); }}
-                    className={`flex w-full items-center gap-2 rounded px-2 py-1 text-left text-[11px] ${isSel ? "bg-primary/10 text-primary" : "hover:bg-accent"}`}
+                    className={`flex items-center gap-1 rounded px-2 py-1 text-[11px] ${isSel ? "bg-primary/10 text-primary" : "hover:bg-accent"} ${b.hidden ? "opacity-50" : ""}`}
                   >
-                    <span className="w-4 text-center text-muted-foreground">{icon}</span>
-                    <span className="flex-1 truncate">{name}</span>
-                  </button>
+                    <button type="button" onClick={() => { setSelectedId(b.id); setEditingId(null); }} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+                      <span className="w-4 text-center text-muted-foreground">{icon}</span>
+                      <span className="flex-1 truncate">{name}</span>
+                    </button>
+                    <button type="button" title={b.hidden ? "표시" : "숨김"} onClick={() => patch(b.id, { hidden: !b.hidden } as Partial<Block>)} className="px-0.5 text-muted-foreground hover:text-foreground">{b.hidden ? "🚫" : "👁"}</button>
+                    <button type="button" title={b.locked ? "잠금 해제" : "잠금"} onClick={() => patch(b.id, { locked: !b.locked } as Partial<Block>)} className="px-0.5 text-muted-foreground hover:text-foreground">{b.locked ? "🔒" : "🔓"}</button>
+                  </div>
                 );
               })
             )}
