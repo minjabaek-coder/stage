@@ -88,6 +88,22 @@ export default async function EditMagazinePage({
                   publishedAt: magazine.publishedAt,
                 }}
                 formId="magazine-edit-form"
+                bare
+              />
+            </div>
+          </details>
+          <details className="rounded-lg border bg-card">
+            <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium">
+              목차 설정
+              <span className="ml-2 font-normal text-muted-foreground">
+                · {magazine.tocEntries.length}개 항목
+              </span>
+            </summary>
+            <div className="border-t p-4">
+              <TocEditor
+                magazineId={magazine.id}
+                initialEntries={magazine.tocEntries}
+                totalPages={magazine.pages.length}
               />
             </div>
           </details>
