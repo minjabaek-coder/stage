@@ -371,13 +371,14 @@ export function PageEditor({
     }
   }
   const drag = useRef<{
-    mode: "move" | "resize";
+    mode: "move" | "resize" | "gresize";
     id: string;
     sx: number; sy: number;
     bx: number; by: number; bw: number; bh: number;
     dx?: -1 | 0 | 1; // 리사이즈 방향(가로)
     dy?: -1 | 0 | 1; // 리사이즈 방향(세로)
-    starts?: { id: string; x: number; y: number; w: number; h: number }[]; // 멀티 이동 시작 위치
+    starts?: { id: string; x: number; y: number; w: number; h: number }[]; // 멀티 이동/리사이즈 시작 위치
+    gb0?: { x: number; y: number; w: number; h: number }; // 그룹 리사이즈 시작 바운딩박스
   } | null>(null);
 
   const SNAP = 1.5; // % 스냅 임계
@@ -432,7 +433,7 @@ export function PageEditor({
     if (!selectedIds.includes(b.id)) setSelectedIds(nextSel);
     flushEdit();
     dragSnap.current = { blocks: clone(blocks), pageBg };
-    e.currentTarget.setPointerCapture(e.pointerId);
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
     const starts = blocks
       .filter((x) => nextSel.includes(x.id))
       .map((x) => ({ id: x.id, x: x.x, y: x.y, w: x.w, h: x.h }));
@@ -448,8 +449,19 @@ export function PageEditor({
     setSelectedId(b.id);
     flushEdit();
     dragSnap.current = { blocks: clone(blocks), pageBg }; // 리사이즈 전 스냅샷
-    e.currentTarget.setPointerCapture(e.pointerId);
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
     drag.current = { mode: "resize", id: b.id, sx: e.clientX, sy: e.clientY, bx: b.x, by: b.y, bw: b.w, bh: b.h, dx, dy };
+  }
+  // 그룹 바운딩박스 8핸들(멀티 리사이즈, P2d)
+  function onGroupHandlePointerDown(e: ReactPointerEvent, dx: -1 | 0 | 1, dy: -1 | 0 | 1) {
+    e.stopPropagation();
+    const gb = groupBox();
+    if (!gb) return;
+    flushEdit();
+    dragSnap.current = { blocks: clone(blocks), pageBg };
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+    const starts = selBlocks.map((b) => ({ id: b.id, x: b.x, y: b.y, w: b.w, h: b.h }));
+    drag.current = { mode: "gresize", id: "", sx: e.clientX, sy: e.clientY, bx: 0, by: 0, bw: 0, bh: 0, dx, dy, starts, gb0: gb };
   }
   function onDragMove(e: ReactPointerEvent) {
     const d = drag.current;
@@ -457,6 +469,24 @@ export function PageEditor({
     const { w, h } = rectWH();
     const dxPct = ((e.clientX - d.sx) / w) * 100;
     const dyPct = ((e.clientY - d.sy) / h) * 100;
+
+    if (d.mode === "gresize" && d.gb0 && d.starts) {
+      const g = d.gb0;
+      let nx = g.x, ny = g.y, nw = g.w, nh = g.h;
+      if (d.dx === 1) nw = g.w + dxPct; else if (d.dx === -1) { nx = g.x + dxPct; nw = g.w - dxPct; }
+      if (d.dy === 1) nh = g.h + dyPct; else if (d.dy === -1) { ny = g.y + dyPct; nh = g.h - dyPct; }
+      if (nw < 4) { if (d.dx === -1) nx = g.x + g.w - 4; nw = 4; }
+      if (nh < 3) { if (d.dy === -1) ny = g.y + g.h - 3; nh = 3; }
+      if (nx < 0) { nw += nx; nx = 0; } if (ny < 0) { nh += ny; ny = 0; }
+      if (nx + nw > 100) nw = 100 - nx; if (ny + nh > 100) nh = 100 - ny;
+      const sx = nw / g.w, sy = nh / g.h;
+      setBlocks((prev) => prev.map((b) => {
+        const s = d.starts!.find((s) => s.id === b.id);
+        if (!s) return b;
+        return { ...b, x: round(nx + (s.x - g.x) * sx), y: round(ny + (s.y - g.y) * sy), w: round(Math.max(2, s.w * sx)), h: round(Math.max(2, s.h * sy)) } as Block;
+      }));
+      return;
+    }
 
     if (d.mode === "move") {
       const starts = d.starts ?? [{ id: d.id, x: d.bx, y: d.by, w: d.bw, h: d.bh }];
@@ -900,12 +930,23 @@ export function PageEditor({
           {snap.h != null && (
             <div style={{ position: "absolute", top: `${snap.h}%`, left: 0, right: 0, height: 1, background: "#ec4899", zIndex: 1000, pointerEvents: "none" }} />
           )}
-          {/* 그룹 바운딩박스(멀티 선택, P2) */}
+          {/* 그룹 바운딩박스 + 8핸들(멀티 선택, P2/P2d) */}
           {selectedIds.length > 1 && (() => {
             const gb = groupBox();
-            return gb ? (
-              <div style={{ position: "absolute", left: `${gb.x}%`, top: `${gb.y}%`, width: `${gb.w}%`, height: `${gb.h}%`, border: "1px dashed #2563eb", zIndex: 997, pointerEvents: "none" }} />
-            ) : null;
+            if (!gb) return null;
+            return (
+              <div style={{ position: "absolute", left: `${gb.x}%`, top: `${gb.y}%`, width: `${gb.w}%`, height: `${gb.h}%`, border: "1px dashed #2563eb", zIndex: 997, pointerEvents: "none" }}>
+                {HANDLES.map((hd) => (
+                  <div
+                    key={`g${hd.dx},${hd.dy}`}
+                    onPointerDown={(e) => onGroupHandlePointerDown(e, hd.dx, hd.dy)}
+                    onPointerMove={onDragMove}
+                    onPointerUp={onDragEnd}
+                    style={{ position: "absolute", width: 12, height: 12, background: "#fff", border: "2px solid #2563eb", borderRadius: 2, cursor: hd.cursor, zIndex: 999, pointerEvents: "auto", ...hd.pos }}
+                  />
+                ))}
+              </div>
+            );
           })()}
           {/* 마키(러버밴드, P2) */}
           {marquee && (
