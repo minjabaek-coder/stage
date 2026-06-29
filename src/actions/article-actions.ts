@@ -205,6 +205,11 @@ export async function unpublishArticle(id: string) {
     data: { status: "draft" },
   });
 
+  // RAG: 미발행 시 색인에서 제거(함수가 draft를 감지해 청크 삭제). best-effort.
+  generateArticleEmbeddings(id).catch((err) =>
+    console.error("[RAG] Article embedding cleanup failed:", err)
+  );
+
   revalidateArticlePaths(id, article.slug);
   return { success: true };
 }
