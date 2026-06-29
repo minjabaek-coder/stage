@@ -102,6 +102,8 @@ export function ComposedBlockBody({ block }: { block: Block }) {
     const focusY = block.focusY ?? 50;
     // 채우기(cover)에서만 초점 기준 확대(줌). 초점 지점을 고정한 채 더 당겨 본다.
     const zoom = fit === "cover" ? Math.max(1, block.zoom ?? 1) : 1;
+    // 빈 이미지 블록(src 없음)은 렌더하지 않음 — <img src=""> 경고/재요청 방지
+    if (!block.src) return null;
     return (
       <>
         {/* eslint-disable-next-line @next/next/no-img-element */}

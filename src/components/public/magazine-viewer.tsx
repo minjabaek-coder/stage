@@ -373,11 +373,13 @@ function MobilePrevFlipOverlay({
 // 오버레이가 아니라 레이아웃 밴드: 열리면 페이지 영역이 줄어 페이지가 가려지지 않음.
 // 항목 = 썸네일 + 쪽번호(제목 생략, 가독성). 현재 페이지 골드 하이라이트·자동 센터.
 export function TocFilmstrip({
+  entries,
   pages,
   currentPage,
   onNavigate,
   onClose,
 }: {
+  entries: { pageNumber: number; title: string | null }[]; // 편집자 TocEntry 또는 전체 페이지 폴백
   pages: MagazinePage[];
   currentPage: number; // 0-based
   onNavigate: (pageNumber: number) => void; // 1-based
@@ -394,7 +396,8 @@ export function TocFilmstrip({
   }, [currentPage]);
 
   return (
-    <div className="flex-none border-t border-white/10 bg-ink/95 backdrop-blur-sm">
+    // 약간의 투명도 + 블러 — 페이지 위로 떠 있는 가벼운 밴드 느낌(리플로우라 페이지는 안 가림)
+    <div className="flex-none border-t border-white/10 bg-ink/70 backdrop-blur-md">
       <div className="flex items-center justify-between px-3 pt-1.5">
         <span className="font-label text-[10px] font-bold uppercase tracking-[0.2em] text-gold">
           목차
@@ -408,14 +411,16 @@ export function TocFilmstrip({
         </button>
       </div>
       <div className="flex gap-2 overflow-x-auto px-3 pb-2.5 pt-1 [-ms-overflow-style:none] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20">
-        {pages.map((page, i) => {
-          const isActive = i === currentPage;
+        {entries.map((entry, i) => {
+          const page = pages.find((p) => p.pageNumber === entry.pageNumber);
+          const isActive = currentPage + 1 === entry.pageNumber;
           return (
             <button
-              key={page.id}
+              key={`${entry.pageNumber}-${i}`}
               ref={isActive ? activeRef : undefined}
-              onClick={() => onNavigate(page.pageNumber)}
+              onClick={() => onNavigate(entry.pageNumber)}
               aria-current={isActive}
+              title={entry.title ?? undefined}
               className="group flex-none"
             >
               <div
@@ -425,23 +430,24 @@ export function TocFilmstrip({
                     : "opacity-70 group-hover:opacity-100"
                 }`}
               >
-                {page.kind === "composed" ? (
-                  <ComposedPage layout={parsePageLayout(page.layout)} fit="cover" />
-                ) : (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={page.imageUrl ?? ""}
-                    alt=""
-                    className="absolute inset-0 h-full w-full object-cover"
-                  />
-                )}
+                {page &&
+                  (page.kind === "composed" ? (
+                    <ComposedPage layout={parsePageLayout(page.layout)} fit="cover" />
+                  ) : page.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={page.imageUrl}
+                      alt=""
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                  ) : null)}
               </div>
               <span
                 className={`mt-1 block text-center font-label text-[9px] ${
                   isActive ? "text-gold" : "text-white/45"
                 }`}
               >
-                {page.pageNumber}
+                {entry.pageNumber}
               </span>
             </button>
           );
@@ -453,12 +459,13 @@ export function TocFilmstrip({
 
 export function MagazineViewer({
   pages,
+  tocEntries = [],
   initialPage = 1,
   issueNumber,
   title,
 }: {
   pages: MagazinePage[];
-  tocEntries?: MagazineTocEntry[]; // rev.4: 필름스트립은 전체 페이지 기반(미사용, API 호환 유지)
+  tocEntries?: MagazineTocEntry[];
   initialPage?: number; // 1-based, ?page= 딥링크 진입 페이지
   issueNumber?: number;
   title?: string;
@@ -497,8 +504,12 @@ export function MagazineViewer({
   const ready = HTMLFlipBook && dims;
   const [tocOpen, setTocOpen] = useState(false);
   const [zoomOpen, setZoomOpen] = useState(false);
-  // rev.4: 목차 = 페이지 필름스트립(내비게이터) → 페이지 2장 이상이면 사용
-  const hasToc = pages.length > 1;
+  // rev.4 목차 필름스트립: 편집자 TocEntry가 있으면 그걸, 없으면 전체 페이지로 폴백(내비게이터).
+  const tocItems =
+    tocEntries.length > 0
+      ? tocEntries.map((e) => ({ pageNumber: e.pageNumber, title: e.title }))
+      : pages.map((p) => ({ pageNumber: p.pageNumber, title: null as string | null }));
+  const hasToc = tocItems.length > 1;
   // 모바일 오버레이(헤더·하단 컨트롤) 표시 — 탭으로 토글(자동숨김, rev.3 모바일)
   const [overlayVisible, setOverlayVisible] = useState(true);
 
@@ -946,6 +957,7 @@ export function MagazineViewer({
       {/* 목차 = 하단 가로 필름스트립(rev.4): in-flow 밴드 → 페이지 영역이 줄어 가려지지 않음 */}
       {hasToc && tocOpen && (
         <TocFilmstrip
+          entries={tocItems}
           pages={pages}
           currentPage={currentPage}
           onNavigate={navigateToPage}
@@ -953,14 +965,15 @@ export function MagazineViewer({
         />
       )}
 
-      {/* 모바일 하단 오버레이 (rev.3): 목차·확대·다크·전체 + 진행률 (탭 토글) */}
-      {dims?.isMobile && (
+      {/* 모바일 하단 컨트롤: 중앙 탭(overlayVisible)으로 헤더와 함께 숨김. 목차 필름스트립은 별개 유지. */}
+      {dims?.isMobile && overlayVisible && (
         <div className="flex-none border-t border-white/10 bg-ink px-4 pb-[max(env(safe-area-inset-bottom),12px)] pt-3">
           <div className="mb-2.5 flex items-center justify-around text-white/80">
             {hasToc && (
               <button
-                onClick={() => setTocOpen(true)}
-                className="flex flex-col items-center gap-1 text-[10px]"
+                onClick={() => setTocOpen((v) => !v)}
+                aria-pressed={tocOpen}
+                className={`flex flex-col items-center gap-1 text-[10px] ${tocOpen ? "text-gold" : ""}`}
               >
                 <span className="text-lg leading-none">☰</span>목차
               </button>
