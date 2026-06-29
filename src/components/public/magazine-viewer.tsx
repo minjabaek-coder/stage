@@ -378,12 +378,14 @@ export function TocFilmstrip({
   currentPage,
   onNavigate,
   onClose,
+  overlay = false,
 }: {
   entries: { pageNumber: number; title: string | null }[]; // 편집자 TocEntry 또는 전체 페이지 폴백
   pages: MagazinePage[];
   currentPage: number; // 0-based
   onNavigate: (pageNumber: number) => void; // 1-based
   onClose: () => void;
+  overlay?: boolean; // 모바일: 페이지 위 오버레이(고투명) / 데스크톱: in-flow 밴드(약투명)
 }) {
   const activeRef = useRef<HTMLButtonElement>(null);
 
@@ -396,8 +398,12 @@ export function TocFilmstrip({
   }, [currentPage]);
 
   return (
-    // 약간의 투명도 + 블러 — 페이지 위로 떠 있는 가벼운 밴드 느낌(리플로우라 페이지는 안 가림)
-    <div className="flex-none border-t border-white/10 bg-ink/70 backdrop-blur-md">
+    // 투명도 + 블러. overlay(모바일)는 페이지 위에 떠서 투명도 크게, 데스크톱은 약간만.
+    <div
+      className={`flex-none border-t border-white/10 backdrop-blur-md ${
+        overlay ? "rounded-t-xl bg-ink/45" : "bg-ink/75"
+      }`}
+    >
       <div className="flex items-center justify-between px-3 pt-1.5">
         <span className="font-label text-[10px] font-bold uppercase tracking-[0.2em] text-gold">
           목차
@@ -976,8 +982,8 @@ export function MagazineViewer({
         </div>
       </div>
 
-      {/* 목차 = 하단 가로 필름스트립(rev.4): in-flow 밴드 → 페이지 영역이 줄어 가려지지 않음 */}
-      {hasToc && tocOpen && (
+      {/* 데스크톱: 목차 = in-flow 필름스트립 밴드(페이지 리플로우, 약투명) */}
+      {!dims?.isMobile && hasToc && tocOpen && (
         <TocFilmstrip
           entries={tocItems}
           pages={pages}
@@ -987,68 +993,82 @@ export function MagazineViewer({
         />
       )}
 
-      {/* 모바일 하단 컨트롤: 중앙 탭(overlayVisible)으로 헤더와 함께 숨김. 목차 필름스트립은 별개 유지. */}
-      {dims?.isMobile && overlayVisible && (
-        <div className="flex-none border-t border-white/10 bg-ink px-4 pb-[max(env(safe-area-inset-bottom),12px)] pt-3">
-          <div className="mb-2.5 flex items-center justify-around text-white/80">
-            {/* rev.4: 모바일 컨트롤 = 목차·다크·전체 (확대·넘김 제거) */}
-            {hasToc && (
-              <button
-                onClick={() => setTocOpen((v) => !v)}
-                aria-pressed={tocOpen}
-                className={`flex flex-col items-center gap-1 text-[10px] ${tocOpen ? "text-gold" : ""}`}
-              >
-                <span className="text-lg leading-none">☰</span>목차
-              </button>
-            )}
-            <button
-              onClick={() => setDark((d) => !d)}
-              className="flex flex-col items-center gap-1 text-[10px]"
-            >
-              <span className="text-lg leading-none">◐</span>다크
-            </button>
-            <button
-              onClick={toggleFullscreen}
-              className="flex flex-col items-center gap-1 text-[10px]"
-            >
-              <span className="text-lg leading-none">⛶</span>전체
-            </button>
-          </div>
-          {/* F6: 드래그 스크러버 — 바를 드래그/탭하면 해당 페이지로 이동 */}
-          <div
-            ref={scrubRef}
-            role="slider"
-            aria-label="페이지 이동"
-            aria-valuemin={1}
-            aria-valuemax={total}
-            aria-valuenow={currentPage + 1}
-            className="relative flex h-6 cursor-pointer touch-none select-none items-center"
-            onPointerDown={(e) => {
-              e.currentTarget.setPointerCapture(e.pointerId);
-              lastScrubIdx.current = -1;
-              scrubTo(e.clientX);
-            }}
-            onPointerMove={(e) => {
-              if (e.currentTarget.hasPointerCapture(e.pointerId)) scrubTo(e.clientX);
-            }}
-            onPointerUp={(e) => {
-              e.currentTarget.releasePointerCapture(e.pointerId);
-            }}
-          >
-            <div className="h-[3px] w-full overflow-hidden rounded bg-white/20">
-              <div
-                className="h-full bg-gold"
-                style={{ width: `${total > 1 ? (currentPage / (total - 1)) * 100 : 0}%` }}
-              />
-            </div>
-            <span
-              className="pointer-events-none absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-gold bg-white shadow"
-              style={{ left: `${total > 1 ? (currentPage / (total - 1)) * 100 : 0}%` }}
+      {/* 모바일: 하단 레이어 = 페이지 위 오버레이(고투명). 페이지 위치는 유지(리플로우 없음). */}
+      {dims?.isMobile && (tocOpen || overlayVisible) && (
+        <div className="absolute inset-x-0 bottom-0 z-40">
+          {hasToc && tocOpen && (
+            <TocFilmstrip
+              overlay
+              entries={tocItems}
+              pages={pages}
+              currentPage={currentPage}
+              onNavigate={navigateToPage}
+              onClose={() => setTocOpen(false)}
             />
-          </div>
-          <div className="mt-1 text-center font-label text-[10px] tracking-wide text-white/55">
-            {displayPage} / {total}
-          </div>
+          )}
+          {overlayVisible && (
+            <div className="bg-gradient-to-t from-black/75 via-black/40 to-transparent px-4 pb-[max(env(safe-area-inset-bottom),12px)] pt-7">
+              <div className="mb-2.5 flex items-center justify-around text-white/85">
+                {/* rev.4: 모바일 컨트롤 = 목차·다크·전체 (확대·넘김 제거) */}
+                {hasToc && (
+                  <button
+                    onClick={() => setTocOpen((v) => !v)}
+                    aria-pressed={tocOpen}
+                    className={`flex flex-col items-center gap-1 text-[10px] ${tocOpen ? "text-gold" : ""}`}
+                  >
+                    <span className="text-lg leading-none">☰</span>목차
+                  </button>
+                )}
+                <button
+                  onClick={() => setDark((d) => !d)}
+                  className="flex flex-col items-center gap-1 text-[10px]"
+                >
+                  <span className="text-lg leading-none">◐</span>다크
+                </button>
+                <button
+                  onClick={toggleFullscreen}
+                  className="flex flex-col items-center gap-1 text-[10px]"
+                >
+                  <span className="text-lg leading-none">⛶</span>전체
+                </button>
+              </div>
+              {/* F6: 드래그 스크러버 — 바를 드래그/탭하면 해당 페이지로 이동 */}
+              <div
+                ref={scrubRef}
+                role="slider"
+                aria-label="페이지 이동"
+                aria-valuemin={1}
+                aria-valuemax={total}
+                aria-valuenow={currentPage + 1}
+                className="relative flex h-6 cursor-pointer touch-none select-none items-center"
+                onPointerDown={(e) => {
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                  lastScrubIdx.current = -1;
+                  scrubTo(e.clientX);
+                }}
+                onPointerMove={(e) => {
+                  if (e.currentTarget.hasPointerCapture(e.pointerId)) scrubTo(e.clientX);
+                }}
+                onPointerUp={(e) => {
+                  e.currentTarget.releasePointerCapture(e.pointerId);
+                }}
+              >
+                <div className="h-[3px] w-full overflow-hidden rounded bg-white/20">
+                  <div
+                    className="h-full bg-gold"
+                    style={{ width: `${total > 1 ? (currentPage / (total - 1)) * 100 : 0}%` }}
+                  />
+                </div>
+                <span
+                  className="pointer-events-none absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-gold bg-white shadow"
+                  style={{ left: `${total > 1 ? (currentPage / (total - 1)) * 100 : 0}%` }}
+                />
+              </div>
+              <div className="mt-1 text-center font-label text-[10px] tracking-wide text-white/55">
+                {displayPage} / {total}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
