@@ -6,10 +6,18 @@ import { Button } from "@/components/ui/button";
 import { MagazineListTable } from "@/components/admin/magazine-list-table";
 
 export default async function AdminMagazinesPage() {
-  const magazines = await prisma.magazine.findMany({
-    include: { _count: { select: { pages: true } } },
+  const rows = await prisma.magazine.findMany({
+    include: {
+      _count: { select: { pages: true } },
+      // 구성형 표지 폴백용 첫 페이지 layout
+      pages: { orderBy: { sortOrder: "asc" }, take: 1, select: { layout: true } },
+    },
     orderBy: { issueNumber: "desc" },
   });
+  const magazines = rows.map(({ pages, ...m }) => ({
+    ...m,
+    coverLayout: m.contentType === "composed" ? pages[0]?.layout ?? null : null,
+  }));
 
   return (
     <div>

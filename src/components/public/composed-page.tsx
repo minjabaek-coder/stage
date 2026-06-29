@@ -136,6 +136,28 @@ export function ComposedBlockBody({ block }: { block: Block }) {
     );
   }
 
+  if (block.type === "shape") {
+    if (block.shape === "line") {
+      const col = block.stroke || block.fill || "#1c1b1b";
+      return (
+        <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ display: "block" }}>
+          <line x1="0" y1="50" x2="100" y2="50" stroke={col} strokeWidth={block.strokeWidth ?? 2} vectorEffect="non-scaling-stroke" />
+        </svg>
+      );
+    }
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          background: block.fill ?? "#1f6f72",
+          borderRadius: block.shape === "ellipse" ? "50%" : block.radius ? `${block.radius}px` : undefined,
+          border: block.stroke && block.strokeWidth ? `${block.strokeWidth}px solid ${block.stroke}` : undefined,
+        }}
+      />
+    );
+  }
+
   // text — 글자 크기는 캔버스 기준 px (캔버스가 통째로 scale되므로 이미지와 함께 비례)
   const style: CSSProperties = {
     width: "100%",

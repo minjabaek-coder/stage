@@ -15,6 +15,7 @@ export function MagazineForm({
   submitLabel = "저장",
   formId,
   showContentType = false,
+  bare = false,
 }: {
   action: (state: FormState, formData: FormData) => Promise<FormState>;
   defaultValues?: {
@@ -27,6 +28,7 @@ export function MagazineForm({
   submitLabel?: string;
   formId?: string;
   showContentType?: boolean;
+  bare?: boolean; // true면 카드/헤더 없이 폼만(접이식 패널 안에서 "매거진 정보" 중복 방지)
 }) {
   const [state, formAction, isPending] = useActionState(action, undefined);
 
@@ -36,14 +38,9 @@ export function MagazineForm({
     }
   }, [state]);
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>매거진 정보</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form id={formId} action={formAction} className="space-y-4">
-          <div className="space-y-2">
+  const inner = (
+    <form id={formId} action={formAction} className="space-y-4">
+        <div className="space-y-2">
             <Label htmlFor="issueNumber">호수</Label>
             <Input
               id="issueNumber"
@@ -114,7 +111,16 @@ export function MagazineForm({
             {isPending ? "저장 중..." : submitLabel}
           </Button>
         </form>
-      </CardContent>
+  );
+
+  if (bare) return inner;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>매거진 정보</CardTitle>
+      </CardHeader>
+      <CardContent>{inner}</CardContent>
     </Card>
   );
 }

@@ -17,12 +17,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { StatusBadge } from "./status-badge";
+import { MagazineCover } from "@/components/public/magazine-cover";
 import type { MagazineListItem } from "@/types/magazine";
+
+type MagazineRow = MagazineListItem & { coverLayout?: unknown };
 
 export function MagazineListTable({
   magazines,
 }: {
-  magazines: MagazineListItem[];
+  magazines: MagazineRow[];
 }) {
   const router = useRouter();
 
@@ -55,19 +58,15 @@ export function MagazineListTable({
             {magazines.map((mag) => (
               <TableRow key={mag.id}>
                 <TableCell>
-                  {mag.coverImageUrl ? (
-                    <div className="relative h-12 w-9 overflow-hidden rounded">
-                      <img
-                        src={mag.coverImageUrl}
-                        alt=""
-                        className="absolute inset-0 h-full w-full object-cover"
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex h-12 w-9 items-center justify-center rounded bg-gray-100 text-xs text-gray-400">
-                      --
-                    </div>
-                  )}
+                  <div className="group relative h-12 w-9 overflow-hidden rounded bg-ink-deep">
+                    <MagazineCover
+                      coverImageUrl={mag.coverImageUrl}
+                      contentType={mag.contentType}
+                      coverLayout={mag.coverLayout}
+                      title={mag.title}
+                      placeholderClass="text-[8px]"
+                    />
+                  </div>
                 </TableCell>
                 <TableCell className="font-medium">
                   #{mag.issueNumber}
@@ -124,19 +123,15 @@ export function MagazineListTable({
             href={`/admin/magazines/${mag.id}/edit`}
             className="flex items-center gap-3 rounded-lg border bg-white p-3"
           >
-            {mag.coverImageUrl ? (
-              <div className="relative h-16 w-12 flex-shrink-0 overflow-hidden rounded">
-                <img
-                  src={mag.coverImageUrl}
-                  alt=""
-                  className="absolute inset-0 h-full w-full object-cover"
-                />
-              </div>
-            ) : (
-              <div className="flex h-16 w-12 flex-shrink-0 items-center justify-center rounded bg-gray-100 text-xs text-gray-400">
-                --
-              </div>
-            )}
+            <div className="group relative h-16 w-12 flex-shrink-0 overflow-hidden rounded bg-ink-deep">
+              <MagazineCover
+                coverImageUrl={mag.coverImageUrl}
+                contentType={mag.contentType}
+                coverLayout={mag.coverLayout}
+                title={mag.title}
+                placeholderClass="text-[9px]"
+              />
+            </div>
             <div className="min-w-0 flex-1">
               <p className="font-medium">
                 #{mag.issueNumber} {mag.title}
