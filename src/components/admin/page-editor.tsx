@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -67,6 +68,8 @@ export function PageEditor({
 }) {
   const router = useRouter();
   const canvasRef = useRef<HTMLDivElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [fitScale, setFitScale] = useState(1); // 캔버스를 가용 영역에 맞춰 축소(fit)
   const [blocks, setBlocks] = useState<Block[]>(initialLayout.blocks ?? []);
   const [pageBg, setPageBg] = useState(initialLayout.pageBg ?? "#ffffff");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -491,6 +494,23 @@ export function PageEditor({
     return () => { window.removeEventListener("pointerdown", close); window.removeEventListener("scroll", close, true); };
   }, [ctxMenu]);
 
+  // 캔버스 fit-scale — 가용 영역(wrapRef)에 맞춰 고정 캔버스를 균일 축소(드래그 좌표는 scaled rect 기준이라 무영향)
+  useLayoutEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const update = () => {
+      const w = el.clientWidth, h = el.clientHeight;
+      if (w > 0 && h > 0) {
+        const pad = 32;
+        setFitScale(Math.min(1, (w - pad) / BASE_W, (h - pad) / BASE_H));
+      }
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const round = (n: number) => Math.round(n * 10) / 10;
 
   return (
@@ -535,7 +555,7 @@ export function PageEditor({
 
         <div className="ml-auto flex items-center gap-2.5">
           <span className="font-mono text-[11px] text-muted-foreground">
-            페이지 {pageNumber}{totalPages ? ` / ${totalPages}` : ""} · 100%
+            페이지 {pageNumber}{totalPages ? ` / ${totalPages}` : ""} · {Math.round(fitScale * 100)}%
           </span>
           <span className="tbsep" />
           <select
@@ -576,13 +596,13 @@ export function PageEditor({
         </div>
       </div>
 
-      {/* 캔버스 래핑 (목업 .canvas-wrap): 중립 배경 + 강한 그림자 */}
-      <div className="flex flex-1 items-start justify-center overflow-auto bg-[#e9e7e4] p-8">
+      {/* 캔버스 래핑 (목업 .canvas-wrap): 중립 배경. 가용 영역에 맞춰 캔버스를 fit-scale */}
+      <div ref={wrapRef} className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-[#e9e7e4]">
         <div
           ref={canvasRef}
           onPointerDown={() => { setSelectedId(null); setEditingId(null); }}
-          className="relative shrink-0 overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.18)]"
-          style={{ width: BASE_W, height: BASE_H, background: pageBg, touchAction: "none" }}
+          className="absolute overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.18)]"
+          style={{ left: "50%", top: "50%", width: BASE_W, height: BASE_H, transform: `translate(-50%, -50%) scale(${fitScale})`, background: pageBg, touchAction: "none" }}
         >
           {[...blocks].sort((a, b) => a.z - b.z).map((b) => {
             const isSel = b.id === selectedId;

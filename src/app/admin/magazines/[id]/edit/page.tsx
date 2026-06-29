@@ -6,6 +6,7 @@ import { MagazineForm } from "@/components/admin/magazine-form";
 import { PageUploadZone } from "@/components/admin/page-upload-zone";
 import { PageListSortable } from "@/components/admin/page-list-sortable";
 import { MagazineEditorShell } from "@/components/admin/magazine-editor-shell";
+import { EditorSettingsDialogs } from "@/components/admin/editor-settings-dialogs";
 import { StatusActions } from "@/components/admin/status-actions";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { TocEditor } from "@/components/admin/toc-editor";
@@ -44,70 +45,50 @@ export default async function EditMagazinePage({
     return updateMagazine(id, formData);
   }
 
-  return (
-    <div className="space-y-6">
-      {/* 앱바: 매거진 편집 · Issue · 상태 · 발행 액션 (목업 상단 바) */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold">
-            매거진 {isComposed ? "편집" : "수정"}
-          </h1>
-          <span className="text-sm text-muted-foreground">
-            STAGE Issue {magazine.issueNumber}
-          </span>
-          <StatusBadge status={magazine.status} />
-          <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-            {isComposed
-              ? "구성형(자유배치)"
-              : isWeb
-                ? "웹(구조화 텍스트)"
-                : "이미지(JPG/WebP)"}
-          </span>
-        </div>
-        <StatusActions
-          magazineId={magazine.id}
-          status={magazine.status}
-          saveFormId="magazine-edit-form"
-        />
-      </div>
+  // 앱바 제목/상태(구성형·그외 공유)
+  const titleBlock = (
+    <div className="flex items-center gap-3">
+      <h1 className="text-2xl font-bold">
+        매거진 {isComposed ? "편집" : "수정"}
+      </h1>
+      <span className="text-sm text-muted-foreground">
+        STAGE Issue {magazine.issueNumber}
+      </span>
+      <StatusBadge status={magazine.status} />
+      <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+        {isComposed
+          ? "구성형(자유배치)"
+          : isWeb
+            ? "웹(구조화 텍스트)"
+            : "이미지(JPG/WebP)"}
+      </span>
+    </div>
+  );
 
-      {isComposed ? (
-        // 구성형: 매거진 정보(접이식·기본 펼침) + 단일 에디터 셸(3컬럼) 풀폭
-        <div className="space-y-3">
-          <details className="rounded-lg border bg-card">
-            <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium">
-              매거진 정보
-            </summary>
-            <div className="border-t p-4">
-              <MagazineForm
-                action={action}
-                defaultValues={{
-                  issueNumber: magazine.issueNumber,
-                  title: magazine.title,
-                  description: magazine.description,
-                  publishedAt: magazine.publishedAt,
-                }}
-                formId="magazine-edit-form"
-                bare
-              />
-            </div>
-          </details>
-          <details className="rounded-lg border bg-card">
-            <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium">
-              목차 설정
-              <span className="ml-2 font-normal text-muted-foreground">
-                · {magazine.tocEntries.length}개 항목
-              </span>
-            </summary>
-            <div className="border-t p-4">
-              <TocEditor
-                magazineId={magazine.id}
-                initialEntries={magazine.tocEntries}
-                totalPages={magazine.pages.length}
-              />
-            </div>
-          </details>
-          <div className="h-[calc(100vh-230px)] min-h-[560px]">
+  // 구성형: 뷰포트 높이 flex 컬럼 — 에디터가 남는 공간을 채움. 매거진정보·목차는 앱바 모달(캔버스 안 가림)
+  if (isComposed) {
+    return (
+      <div className="flex h-[calc(100vh-110px)] min-h-[520px] flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {titleBlock}
+          <div className="flex flex-wrap items-center gap-2">
+            <EditorSettingsDialogs
+              action={action}
+              defaultValues={{
+                issueNumber: magazine.issueNumber,
+                title: magazine.title,
+                description: magazine.description,
+                publishedAt: magazine.publishedAt,
+              }}
+              formId="magazine-edit-form"
+              magazineId={magazine.id}
+              tocEntries={magazine.tocEntries}
+              totalPages={magazine.pages.length}
+            />
+            <StatusActions magazineId={magazine.id} status={magazine.status} />
+          </div>
+        </div>
+        <div className="min-h-0 flex-1">
           <MagazineEditorShell
             magazineId={magazine.id}
             pages={magazine.pages.map((p) => ({
@@ -118,10 +99,22 @@ export default async function EditMagazinePage({
             }))}
             articles={articles}
           />
-          </div>
         </div>
-      ) : (
-        <div className="grid gap-6 lg:grid-cols-[1fr_2fr]">
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {titleBlock}
+        <StatusActions
+          magazineId={magazine.id}
+          status={magazine.status}
+          saveFormId="magazine-edit-form"
+        />
+      </div>
+      <div className="grid gap-6 lg:grid-cols-[1fr_2fr]">
           <div className="space-y-6">
             <MagazineForm
               action={action}
@@ -161,7 +154,6 @@ export default async function EditMagazinePage({
             </CardContent>
           </Card>
         </div>
-      )}
     </div>
   );
 }
