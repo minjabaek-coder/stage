@@ -981,18 +981,20 @@ export function MagazineViewer({
           </div>
         )}
         </div>
+        {/* 데스크톱: 목차 = 페이지 위 반투명 오버레이(뒤 페이지가 비쳐 보임, 모바일과 동일 톤) */}
+        {!dims?.isMobile && hasToc && tocOpen && (
+          <div className="absolute inset-x-0 bottom-0 z-30 border-t border-white/10 bg-ink/45 backdrop-blur-md">
+            <TocFilmstrip
+              overlay
+              entries={tocItems}
+              pages={pages}
+              currentPage={currentPage}
+              onNavigate={navigateToPage}
+              onClose={() => setTocOpen(false)}
+            />
+          </div>
+        )}
       </div>
-
-      {/* 데스크톱: 목차 = in-flow 필름스트립 밴드(페이지 리플로우, 약투명) */}
-      {!dims?.isMobile && hasToc && tocOpen && (
-        <TocFilmstrip
-          entries={tocItems}
-          pages={pages}
-          currentPage={currentPage}
-          onNavigate={navigateToPage}
-          onClose={() => setTocOpen(false)}
-        />
-      )}
 
       {/* 모바일: 하단 레이어 = 페이지 위 오버레이(고투명). 목차+컨트롤이 하나의 반투명 패널로 통일. */}
       {dims?.isMobile && (tocOpen || overlayVisible) && (
