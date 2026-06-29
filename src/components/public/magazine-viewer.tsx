@@ -473,6 +473,7 @@ export function MagazineViewer({
   const HTMLFlipBook = useFlipBook();
   const rootRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const fsAttempted = useRef(false); // 모바일 자동 전체화면 1회 시도(F5)
   // 리더 배경 다크/라이트 토글(◐) + 풀스크린(⛶)
   const [dark, setDark] = useState(true);
   const toggleFullscreen = useCallback(() => {
@@ -689,16 +690,8 @@ export function MagazineViewer({
     if (currentPage <= 0) return;
 
     if (dims?.isMobile) {
-      if (!flipEffect) {
-        // 넘김 효과 OFF: 즉시 전환(역방향 CSS 3D 오버레이 생략)
-        bookRef.current?.pageFlip()?.turnToPage(currentPage - 1);
-      } else {
-        // Mobile: use custom CSS 3D flip overlay (left→right)
-        setMobilePrevFlip({
-          prevPage: pages[currentPage - 1],
-          currentPage: pages[currentPage],
-        });
-      }
+      // rev.4 F4: 모바일은 항상 즉시 전환(넘김 효과 없음)
+      bookRef.current?.pageFlip()?.turnToPage(currentPage - 1);
     } else if (dims?.single) {
       // 데스크톱 단면(portrait): react-pageflip 역넘김이 불안정(무반응) →
       // turnToPage로 확실히 이전 페이지 이동(단면 역넘김 어색함도 함께 해소)
@@ -708,7 +701,7 @@ export function MagazineViewer({
       const pf = bookRef.current?.pageFlip();
       if (pf) pf.flipPrev("top");
     }
-  }, [currentPage, dims?.isMobile, dims?.single, pages, flipEffect]);
+  }, [currentPage, dims?.isMobile, dims?.single]);
 
   const flipNext = useCallback(() => {
     const pf = bookRef.current?.pageFlip();
@@ -744,8 +737,18 @@ export function MagazineViewer({
     return () => window.removeEventListener("keydown", handleKey);
   }, [flipPrev, flipNext]);
 
+  // rev.4 F5: 모바일 진입 시 전체화면 1회 시도(제스처 제약·미지원 시 조용히 폴백)
+  useEffect(() => {
+    if (!dims?.isMobile || fsAttempted.current) return;
+    fsAttempted.current = true;
+    const el = rootRef.current;
+    if (el && !document.fullscreenElement) el.requestFullscreen?.().catch(() => {});
+  }, [dims?.isMobile]);
+
   const total = pages.length;
   const isSingle = dims?.single ?? isPortrait;
+  // rev.4 F4: 넘김 효과는 데스크톱에서만(모바일은 항상 즉시 전환)
+  const flipOn = !dims?.isMobile && flipEffect;
   const displayPage = isSingle
     ? `${currentPage + 1}`
     : `${currentPage + 1}-${Math.min(currentPage + 2, total)}`;
@@ -870,7 +873,7 @@ export function MagazineViewer({
             */}
             {/* eslint-disable-next-line react-hooks/static-components */}
             <HTMLFlipBook
-              key={`${dims.single ? "single" : "spread"}-${flipEffect ? "flip" : "instant"}`}
+              key={`${dims.single ? "single" : "spread"}-${flipOn ? "flip" : "instant"}`}
               ref={bookRef}
               width={dims.pageW}
               height={dims.pageH}
@@ -882,7 +885,7 @@ export function MagazineViewer({
               drawShadow={!dims.isMobile}
               maxShadowOpacity={dims.isMobile ? 0 : 0.4}
               showCover={true}
-              flippingTime={flipEffect ? (dims.isMobile ? 600 : 800) : 1}
+              flippingTime={flipOn ? 800 : 1}
               usePortrait={dims.single}
               startPage={currentPage}
               startZIndex={0}
@@ -969,6 +972,7 @@ export function MagazineViewer({
       {dims?.isMobile && overlayVisible && (
         <div className="flex-none border-t border-white/10 bg-ink px-4 pb-[max(env(safe-area-inset-bottom),12px)] pt-3">
           <div className="mb-2.5 flex items-center justify-around text-white/80">
+            {/* rev.4: 모바일 컨트롤 = 목차·다크·전체 (확대·넘김 제거) */}
             {hasToc && (
               <button
                 onClick={() => setTocOpen((v) => !v)}
@@ -978,23 +982,6 @@ export function MagazineViewer({
                 <span className="text-lg leading-none">☰</span>목차
               </button>
             )}
-            {canZoom && (
-              <button
-                onClick={() => setZoomOpen(true)}
-                className="flex flex-col items-center gap-1 text-[10px]"
-              >
-                <span className="text-lg leading-none">⊕</span>확대
-              </button>
-            )}
-            <button
-              onClick={() => setFlipEffect((v) => !v)}
-              aria-pressed={flipEffect}
-              className={`flex flex-col items-center gap-1 text-[10px] ${
-                flipEffect ? "text-gold" : ""
-              }`}
-            >
-              <span className="text-lg leading-none">📖</span>넘김
-            </button>
             <button
               onClick={() => setDark((d) => !d)}
               className="flex flex-col items-center gap-1 text-[10px]"
