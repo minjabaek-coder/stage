@@ -13,7 +13,7 @@ export const MAESTRO_TOOLS = [
       {
         name: "search_content",
         description:
-          "STAGE 매거진·단독 기사의 본문에서 관련 내용을 의미 기반으로 검색한다. 작품·작곡가·공연 배경·기사 내용 등 '글 내용'에 대한 질문에 사용.",
+          "STAGE 기사·매거진 본문·문화예술 이벤트 설명에서 관련 내용을 의미 기반으로 검색한다. 작품·작곡가·공연 배경·기사/매거진 내용·이벤트 분위기 등 '내용'에 대한 질문에 사용.",
         parametersJsonSchema: {
           type: "object",
           properties: {
@@ -31,7 +31,7 @@ export const MAESTRO_TOOLS = [
       {
         name: "get_culture_events",
         description:
-          "STAGE가 안내하는 공연·전시·교육 이벤트 목록을 조회한다. '요즘 공연 뭐 있어', 'OO 전시 정보', '교육 프로그램' 등 이벤트 질문에 사용.",
+          "STAGE가 '지금 티켓 예매·할인을 안내하는' 현재/예정 공연·전시·교육 이벤트 목록을 조회한다. '지금 예매 가능한 공연', 'OO 티켓 할인' 등 현재 진행 이벤트에 한정. 매거진·기사에 실린 공연 소식/리뷰(예: '2025년 10월 공연 소식')는 이 도구가 아니라 search_content를 사용한다.",
         parametersJsonSchema: {
           type: "object",
           properties: {

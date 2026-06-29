@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod/v4";
 import { deleteUploadedFile } from "@/lib/upload";
+import { generateCultureEventEmbeddings, deleteContentChunks } from "@/lib/rag";
 
 function parseList(v: string): string[] {
   return v
@@ -140,6 +141,11 @@ export async function updateCultureEvent(id: string, formData: FormData) {
     await deleteUploadedFile(current.thumbnailUrl);
   }
 
+  // RAG: 수정 반영 — 발행 상태면 재색인, 아니면 청크 정리(함수가 자격 판단).
+  generateCultureEventEmbeddings(id).catch((err) =>
+    console.error("[RAG] CultureEvent re-embedding failed:", err)
+  );
+
   revalidate(id, parsed.data.slug);
   redirect("/admin/culture-events");
 }
@@ -154,6 +160,11 @@ export async function publishCultureEvent(id: string) {
     data: { status: "published", publishedAt: event.publishedAt ?? new Date() },
   });
 
+  // RAG: 발행 시 이벤트 색인(서술형 질의 대응). best-effort.
+  generateCultureEventEmbeddings(id).catch((err) =>
+    console.error("[RAG] CultureEvent embedding failed:", err)
+  );
+
   revalidate(id, event.slug);
   return { success: true };
 }
@@ -167,6 +178,11 @@ export async function unpublishCultureEvent(id: string) {
     data: { status: "draft" },
   });
 
+  // RAG: 발행취소 시 색인 제거. best-effort.
+  generateCultureEventEmbeddings(id).catch((err) =>
+    console.error("[RAG] CultureEvent embedding cleanup failed:", err)
+  );
+
   revalidate(id, event.slug);
   return { success: true };
 }
@@ -176,6 +192,12 @@ export async function deleteCultureEvent(id: string) {
   if (!event) return { error: "이벤트를 찾을 수 없습니다" };
 
   await prisma.cultureEvent.delete({ where: { id } });
+
+  // RAG: 삭제 시 청크 정리. best-effort.
+  await deleteContentChunks("culture", id).catch((err) =>
+    console.error("[RAG] CultureEvent chunk cleanup failed:", err)
+  );
+
   if (event.thumbnailUrl) await deleteUploadedFile(event.thumbnailUrl);
 
   revalidate(undefined, event.slug);

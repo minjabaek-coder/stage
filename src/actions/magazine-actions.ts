@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod/v4";
 import { deleteUploadedFile } from "@/lib/upload";
+import { generateMagazineEmbeddings, deleteContentChunks } from "@/lib/rag";
 
 function revalidateMagazinePaths(id?: string) {
   if (id) revalidatePath(`/admin/magazines/${id}/edit`);
@@ -122,6 +123,11 @@ export async function publishMagazine(id: string) {
     },
   });
 
+  // RAG: 발행 시 구성형 페이지 텍스트 색인(기사 연결 페이지 제외). best-effort.
+  generateMagazineEmbeddings(id).catch((err) =>
+    console.error("[RAG] Magazine embedding failed:", err)
+  );
+
   revalidateMagazinePaths(id);
   return { success: true };
 }
@@ -131,6 +137,11 @@ export async function unpublishMagazine(id: string) {
     where: { id },
     data: { status: "unpublished" },
   });
+
+  // RAG: 발행취소 시 색인에서 제거(함수가 비발행을 감지해 청크 삭제). best-effort.
+  generateMagazineEmbeddings(id).catch((err) =>
+    console.error("[RAG] Magazine embedding cleanup failed:", err)
+  );
 
   revalidateMagazinePaths(id);
   return { success: true };
@@ -153,6 +164,11 @@ export async function deleteMagazine(id: string) {
   }
 
   await prisma.magazine.delete({ where: { id } });
+
+  // RAG: 삭제 시 매거진 청크 정리(ContentChunk는 FK 없음 → 명시 삭제). best-effort.
+  await deleteContentChunks("magazine", id).catch((err) =>
+    console.error("[RAG] Magazine chunk cleanup failed:", err)
+  );
 
   const urls = new Set<string>();
   if (magazine.coverImageUrl) urls.add(magazine.coverImageUrl);

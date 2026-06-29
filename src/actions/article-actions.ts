@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod/v4";
 import { deleteUploadedFile } from "@/lib/upload";
-import { generateArticleEmbeddings } from "@/lib/rag";
+import { generateArticleEmbeddings, deleteContentChunks } from "@/lib/rag";
 
 function parseTags(tags: string): string[] {
   return tags
@@ -205,6 +205,11 @@ export async function unpublishArticle(id: string) {
     data: { status: "draft" },
   });
 
+  // RAG: 미발행 시 색인에서 제거(함수가 draft를 감지해 청크 삭제). best-effort.
+  generateArticleEmbeddings(id).catch((err) =>
+    console.error("[RAG] Article embedding cleanup failed:", err)
+  );
+
   revalidateArticlePaths(id, article.slug);
   return { success: true };
 }
@@ -214,6 +219,11 @@ export async function deleteArticle(id: string) {
   if (!article) return { error: "기사를 찾을 수 없습니다" };
 
   await prisma.article.delete({ where: { id } });
+
+  // RAG: 삭제 시 청크 정리(ContentChunk는 FK 없음 → 명시 삭제). best-effort.
+  await deleteContentChunks("article", id).catch((err) =>
+    console.error("[RAG] Article chunk cleanup failed:", err)
+  );
 
   if (article.thumbnailUrl) {
     await deleteUploadedFile(article.thumbnailUrl);
