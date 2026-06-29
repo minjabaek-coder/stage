@@ -13,7 +13,8 @@ import {
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { Editor } from "@tiptap/react";
-import { ComposedBlockBody } from "@/components/public/composed-page";
+import { ComposedBlockBody, ComposedPage } from "@/components/public/composed-page";
+import { PAGE_PRESETS, type PagePreset } from "@/lib/magazine-presets";
 import {
   type Block,
   type PageLayout,
@@ -87,6 +88,7 @@ export function PageEditor({
   // 우클릭 컨텍스트 메뉴(P1)
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
   const [shapePop, setShapePop] = useState(false); // 도형 팔레트 팝오버(P3)
+  const [layoutPop, setLayoutPop] = useState(false); // 레이아웃 프리셋 팝오버(P4b)
 
   const selectedId = selectedIds.length === 1 ? selectedIds[0] : null;
   const selected = selectedId ? (blocks.find((b) => b.id === selectedId) ?? null) : null;
@@ -178,6 +180,15 @@ export function PageEditor({
     };
     setBlocks((p) => [...p, b]);
     setSelectedId(b.id);
+  }
+  function applyPreset(preset: PagePreset) {
+    if (blocks.length > 0 && !window.confirm("현재 페이지 내용을 이 레이아웃으로 덮어쓸까요?")) return;
+    record();
+    const layout = preset.build();
+    setBlocks(layout.blocks);
+    setPageBg(layout.pageBg ?? "#ffffff");
+    setSelectedIds([]);
+    setLayoutPop(false);
   }
   function addShape(shape: "rect" | "ellipse" | "line") {
     record();
@@ -701,6 +712,24 @@ export function PageEditor({
                 <button type="button" title="선" onClick={() => { addShape("line"); setShapePop(false); }} className="flex h-10 items-center justify-center rounded border hover:bg-accent">
                   <span className="h-0.5 w-5 bg-foreground/70" />
                 </button>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="relative">
+          <RailTool icon="▤" label="레이아웃" active={layoutPop} onClick={() => setLayoutPop((v) => !v)} />
+          {layoutPop && (
+            <div className="absolute left-full top-0 z-50 ml-2 w-56 rounded-lg border bg-popover p-2 shadow-md">
+              <div className="ed-grouplabel mb-1.5">레이아웃 프리셋 · 현재 페이지에 적용</div>
+              <div className="grid grid-cols-3 gap-2">
+                {PAGE_PRESETS.map((preset) => (
+                  <button key={preset.id} type="button" onClick={() => applyPreset(preset)} className="group/preset text-left">
+                    <div className="relative aspect-[2/3] w-full overflow-hidden rounded border bg-neutral-50 group-hover/preset:border-primary">
+                      <ComposedPage layout={preset.build()} fit="cover" />
+                    </div>
+                    <div className="mt-0.5 truncate text-[9px] text-muted-foreground">{preset.name}</div>
+                  </button>
+                ))}
               </div>
             </div>
           )}
