@@ -65,10 +65,12 @@ export default async function EditMagazinePage({
     </div>
   );
 
-  // 구성형: 뷰포트 높이 flex 컬럼 — 에디터가 남는 공간을 채움. 매거진정보·목차는 앱바 모달(캔버스 안 가림)
+  // 구성형: 어드민 헤더(57px) 아래 풀블리드 고정 레이어 — 캔바식 전체화면 에디터.
+  // max-w-7xl·py-6 박스를 탈출해 캔버스가 가로/세로를 모두 활용(답답함 해소).
+  // 매거진정보·목차는 앱바 모달(캔버스 안 가림)
   if (isComposed) {
     return (
-      <div className="flex h-[calc(100vh-110px)] min-h-[520px] flex-col gap-3">
+      <div className="fixed inset-x-0 bottom-0 top-[57px] z-30 flex flex-col gap-2 bg-neutral-100 px-3 pb-3 pt-2">
         <div className="flex flex-wrap items-center justify-between gap-3">
           {titleBlock}
           <div className="flex flex-wrap items-center gap-2">
