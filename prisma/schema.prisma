@@ -194,6 +194,23 @@ model ArticleChunk {
   @@index([articleId])
 }
 
+// 통합 RAG 임베딩 청크 (pgvector). 다중 소스(기사/매거진/문화예술)를 한 테이블로.
+// sourceType+sourceId로 출처를 식별, href/title은 검색 시 join 없이 쓰도록 비정규화 저장.
+// 색인 대상: 발행 기사(aiIndexable) 본문 / 발행 매거진 페이지 블록 텍스트(기사 연결 페이지 제외) / 발행 문화예술 이벤트.
+model ContentChunk {
+  id         String                       @id @default(dbgenerated("gen_random_uuid()::text"))
+  sourceType String // "article" | "magazine" | "culture"
+  sourceId   String // Article.id | Magazine.id | CultureEvent.id
+  chunkIndex Int
+  title      String
+  content    String                       @db.Text
+  href       String // 출처 링크 (/articles/.. | /magazines/.. | /culture-events/..)
+  embedding  Unsupported("vector(1024)")?
+  createdAt  DateTime                     @default(now())
+
+  @@index([sourceType, sourceId])
+}
+
 // 회원의 기사 북마크
 model Bookmark {
   id        String   @id @default(cuid())

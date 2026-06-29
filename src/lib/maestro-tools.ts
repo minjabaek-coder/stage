@@ -13,7 +13,7 @@ export const MAESTRO_TOOLS = [
       {
         name: "search_content",
         description:
-          "STAGE 매거진·단독 기사의 본문에서 관련 내용을 의미 기반으로 검색한다. 작품·작곡가·공연 배경·기사 내용 등 '글 내용'에 대한 질문에 사용.",
+          "STAGE 기사·매거진 본문·문화예술 이벤트 설명에서 관련 내용을 의미 기반으로 검색한다. 작품·작곡가·공연 배경·기사/매거진 내용·이벤트 분위기 등 '내용'에 대한 질문에 사용.",
         parametersJsonSchema: {
           type: "object",
           properties: {

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod/v4";
 import { deleteUploadedFile } from "@/lib/upload";
+import { generateCultureEventEmbeddings } from "@/lib/rag";
 
 function parseList(v: string): string[] {
   return v
@@ -154,6 +155,11 @@ export async function publishCultureEvent(id: string) {
     data: { status: "published", publishedAt: event.publishedAt ?? new Date() },
   });
 
+  // RAG: 발행 시 이벤트 색인(서술형 질의 대응). best-effort.
+  generateCultureEventEmbeddings(id).catch((err) =>
+    console.error("[RAG] CultureEvent embedding failed:", err)
+  );
+
   revalidate(id, event.slug);
   return { success: true };
 }
@@ -166,6 +172,11 @@ export async function unpublishCultureEvent(id: string) {
     where: { id },
     data: { status: "draft" },
   });
+
+  // RAG: 발행취소 시 색인 제거. best-effort.
+  generateCultureEventEmbeddings(id).catch((err) =>
+    console.error("[RAG] CultureEvent embedding cleanup failed:", err)
+  );
 
   revalidate(id, event.slug);
   return { success: true };
