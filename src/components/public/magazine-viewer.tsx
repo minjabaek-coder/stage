@@ -474,6 +474,8 @@ export function MagazineViewer({
   const rootRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const fsAttempted = useRef(false); // 모바일 자동 전체화면 1회 시도(F5)
+  const scrubRef = useRef<HTMLDivElement>(null); // 모바일 하단 진행률 스크러버(F6)
+  const lastScrubIdx = useRef(-1);
   // 리더 배경 다크/라이트 토글(◐) + 풀스크린(⛶)
   const [dark, setDark] = useState(true);
   const toggleFullscreen = useCallback(() => {
@@ -583,6 +585,23 @@ export function MagazineViewer({
       }
     },
     []
+  );
+
+  // F6: 하단 진행률 스크러버 — 트랙 좌표 → 페이지 시크(인덱스 변할 때만 이동)
+  const scrubTo = useCallback(
+    (clientX: number) => {
+      const el = scrubRef.current;
+      const tot = pages.length;
+      if (!el || tot <= 1) return;
+      const r = el.getBoundingClientRect();
+      const ratio = Math.min(1, Math.max(0, (clientX - r.left) / r.width));
+      const idx = Math.round(ratio * (tot - 1));
+      if (idx !== lastScrubIdx.current) {
+        lastScrubIdx.current = idx;
+        navigateToPage(idx + 1);
+      }
+    },
+    [pages.length, navigateToPage]
   );
 
   // Mobile prev flip overlay state
@@ -995,13 +1014,39 @@ export function MagazineViewer({
               <span className="text-lg leading-none">⛶</span>전체
             </button>
           </div>
-          <div className="h-[3px] overflow-hidden rounded bg-white/20">
-            <div
-              className="h-full bg-gold transition-all duration-300"
-              style={{ width: `${total ? ((currentPage + 1) / total) * 100 : 0}%` }}
+          {/* F6: 드래그 스크러버 — 바를 드래그/탭하면 해당 페이지로 이동 */}
+          <div
+            ref={scrubRef}
+            role="slider"
+            aria-label="페이지 이동"
+            aria-valuemin={1}
+            aria-valuemax={total}
+            aria-valuenow={currentPage + 1}
+            className="relative flex h-6 cursor-pointer touch-none select-none items-center"
+            onPointerDown={(e) => {
+              e.currentTarget.setPointerCapture(e.pointerId);
+              lastScrubIdx.current = -1;
+              scrubTo(e.clientX);
+            }}
+            onPointerMove={(e) => {
+              if (e.currentTarget.hasPointerCapture(e.pointerId)) scrubTo(e.clientX);
+            }}
+            onPointerUp={(e) => {
+              e.currentTarget.releasePointerCapture(e.pointerId);
+            }}
+          >
+            <div className="h-[3px] w-full overflow-hidden rounded bg-white/20">
+              <div
+                className="h-full bg-gold"
+                style={{ width: `${total > 1 ? (currentPage / (total - 1)) * 100 : 0}%` }}
+              />
+            </div>
+            <span
+              className="pointer-events-none absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-gold bg-white shadow"
+              style={{ left: `${total > 1 ? (currentPage / (total - 1)) * 100 : 0}%` }}
             />
           </div>
-          <div className="mt-1.5 text-center font-label text-[10px] tracking-wide text-white/55">
+          <div className="mt-1 text-center font-label text-[10px] tracking-wide text-white/55">
             {displayPage} / {total}
           </div>
         </div>
