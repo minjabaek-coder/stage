@@ -19,6 +19,7 @@ import {
   type PageLayout,
   type ImageBlock,
   type TextBlock,
+  type ShapeBlock,
   LAYOUT_BASE_WIDTH,
 } from "@/types/magazine-layout";
 import { updatePageLayout } from "@/actions/page-actions";
@@ -85,6 +86,7 @@ export function PageEditor({
   const [saveState, setSaveState] = useState<"idle" | "dirty" | "saving" | "saved">("idle");
   // 우클릭 컨텍스트 메뉴(P1)
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
+  const [shapePop, setShapePop] = useState(false); // 도형 팔레트 팝오버(P3)
 
   const selectedId = selectedIds.length === 1 ? selectedIds[0] : null;
   const selected = selectedId ? (blocks.find((b) => b.id === selectedId) ?? null) : null;
@@ -174,6 +176,15 @@ export function PageEditor({
       id: uid(), type: "image", x: 10, y: 10, w: 50, h: 38, z: maxZ + 1,
       src: "", fit: "cover",
     };
+    setBlocks((p) => [...p, b]);
+    setSelectedId(b.id);
+  }
+  function addShape(shape: "rect" | "ellipse" | "line") {
+    record();
+    const b: ShapeBlock =
+      shape === "line"
+        ? { id: uid(), type: "shape", shape, x: 20, y: 48, w: 60, h: 4, z: maxZ + 1, stroke: "#1c1b1b", strokeWidth: 2 }
+        : { id: uid(), type: "shape", shape, x: 30, y: 38, w: 40, h: shape === "ellipse" ? 28 : 18, z: maxZ + 1, fill: "#1f6f72", radius: shape === "rect" ? 4 : 0 };
     setBlocks((p) => [...p, b]);
     setSelectedId(b.id);
   }
@@ -672,9 +683,28 @@ export function PageEditor({
     <div className="flex h-full gap-3">
       {/* 좌: 도구 레일 (캔바식) — 요소 추가 */}
       <nav className="flex w-16 flex-none flex-col items-center gap-1 rounded-lg bg-ink-deep py-2.5">
-        <RailTool icon="↖" label="선택" active={!selectedId} onClick={() => { setSelectedId(null); setEditingId(null); }} />
+        <RailTool icon="↖" label="선택" active={selectedIds.length === 0} onClick={() => { setSelectedIds([]); setEditingId(null); }} />
         <RailTool icon="T" label="텍스트" onClick={addText} />
         <RailTool icon="🖼" label="이미지" onClick={addImage} />
+        <div className="relative">
+          <RailTool icon="▭" label="도형" active={shapePop} onClick={() => setShapePop((v) => !v)} />
+          {shapePop && (
+            <div className="absolute left-full top-0 z-50 ml-2 w-44 rounded-lg border bg-popover p-2 shadow-md">
+              <div className="ed-grouplabel mb-1.5">도형</div>
+              <div className="grid grid-cols-3 gap-1.5">
+                <button type="button" title="사각형" onClick={() => { addShape("rect"); setShapePop(false); }} className="flex h-10 items-center justify-center rounded border hover:bg-accent">
+                  <span className="h-4 w-5 rounded-sm bg-foreground/70" />
+                </button>
+                <button type="button" title="원" onClick={() => { addShape("ellipse"); setShapePop(false); }} className="flex h-10 items-center justify-center rounded border hover:bg-accent">
+                  <span className="h-5 w-5 rounded-full bg-foreground/70" />
+                </button>
+                <button type="button" title="선" onClick={() => { addShape("line"); setShapePop(false); }} className="flex h-10 items-center justify-center rounded border hover:bg-accent">
+                  <span className="h-0.5 w-5 bg-foreground/70" />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </nav>
       {/* 가운데 컬럼: 툴바 + 캔버스 (목업 .col.center) */}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border">
@@ -917,7 +947,7 @@ export function PageEditor({
               {/* 헤더: 속성 [typetag] */}
               <h4 className="mb-2.5 flex items-center gap-1.5">
                 <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-muted-foreground">속성</span>
-                <span className="ed-typetag">{selected.type === "image" ? "이미지 블록" : "텍스트 블록"}</span>
+                <span className="ed-typetag">{selected.type === "image" ? "이미지 블록" : selected.type === "shape" ? `도형 · ${({ rect: "사각형", ellipse: "원", line: "선" } as const)[(selected as ShapeBlock).shape]}` : "텍스트 블록"}</span>
                 <button type="button" onClick={removeSelected} className="ml-auto rounded border px-2 py-0.5 text-xs text-red-600 hover:bg-red-50">삭제</button>
               </h4>
 
@@ -1000,6 +1030,29 @@ export function PageEditor({
                     </div>
                   )}
                 </Group>
+              ) : selected.type === "shape" ? (
+                <Group title="도형">
+                  <div className="ed-grouplabel">채움색</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {["#1f6f72", "#c4a35a", "#1c1b1b", "#b91c1c", "#2563eb", "#ffffff"].map((c) => (
+                      <button key={c} type="button" onClick={() => patch(selected.id, { fill: c } as Partial<ShapeBlock>)} className={`h-6 w-6 rounded-full border ${(selected as ShapeBlock).fill === c ? "ring-2 ring-[#2563eb] ring-offset-1" : ""}`} style={{ background: c }} />
+                    ))}
+                  </div>
+                  {(selected as ShapeBlock).shape !== "line" && (
+                    <div className="mt-2">
+                      <LabeledField label="모서리" unit="px" value={(selected as ShapeBlock).radius ?? 0} onChange={(v) => patch(selected.id, { radius: v } as Partial<ShapeBlock>)} />
+                    </div>
+                  )}
+                  <div className="ed-grouplabel mt-3">{(selected as ShapeBlock).shape === "line" ? "선" : "테두리"}</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {["#1c1b1b", "#c4a35a", "#1f6f72", "#b91c1c", "#ffffff"].map((c) => (
+                      <button key={c} type="button" onClick={() => patch(selected.id, { stroke: c } as Partial<ShapeBlock>)} className={`h-6 w-6 rounded-full border ${(selected as ShapeBlock).stroke === c ? "ring-2 ring-[#2563eb] ring-offset-1" : ""}`} style={{ background: c }} />
+                    ))}
+                  </div>
+                  <div className="mt-2">
+                    <LabeledField label="두께" unit="px" value={(selected as ShapeBlock).strokeWidth ?? 0} onChange={(v) => patch(selected.id, { strokeWidth: v } as Partial<ShapeBlock>)} />
+                  </div>
+                </Group>
               ) : (
                 <Group title="텍스트">
                   <div className="mb-2">
@@ -1053,10 +1106,12 @@ export function PageEditor({
             ) : (
               [...blocks].sort((a, b) => b.z - a.z).map((b) => {
                 const isSel = selectedIds.includes(b.id);
-                const icon = b.type === "image" ? "🖼" : "T";
+                const icon = b.type === "image" ? "🖼" : b.type === "shape" ? ((b as ShapeBlock).shape === "ellipse" ? "○" : (b as ShapeBlock).shape === "line" ? "—" : "▭") : "T";
                 const name = b.type === "image"
                   ? (b.src ? "이미지" : "이미지(빈)")
-                  : ((b as TextBlock).html || "텍스트").replace(/<[^>]+>/g, " ").trim().slice(0, 16) || "텍스트";
+                  : b.type === "shape"
+                    ? ({ rect: "사각형", ellipse: "원", line: "선" } as const)[(b as ShapeBlock).shape]
+                    : ((b as TextBlock).html || "텍스트").replace(/<[^>]+>/g, " ").trim().slice(0, 16) || "텍스트";
                 return (
                   <button
                     key={b.id}

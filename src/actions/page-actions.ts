@@ -11,8 +11,14 @@ import { revalidatePath } from "next/cache";
 function sanitizeLayout(layout: unknown): { blocks: unknown[]; pageBg?: string } {
   const obj = layout as { blocks?: unknown[]; pageBg?: unknown } | null;
   if (!obj || !Array.isArray(obj.blocks)) return { blocks: [] };
+  // 색/그라데이션 문자열만 허용(CSS 주입 차단). 위험 토큰 포함 시 제거.
+  const safeColor = (v: unknown): string | undefined => {
+    if (typeof v !== "string") return undefined;
+    if (/[<>]|url\(|expression|javascript:/i.test(v)) return undefined;
+    return v.slice(0, 200);
+  };
   const blocks = obj.blocks.map((b) => {
-    const blk = b as { type?: string; html?: unknown };
+    const blk = b as { type?: string; html?: unknown; fill?: unknown; stroke?: unknown };
     if (blk && blk.type === "text" && typeof blk.html === "string") {
       return {
         ...blk,
@@ -21,6 +27,9 @@ function sanitizeLayout(layout: unknown): { blocks: unknown[]; pageBg?: string }
           allowedAttributes: { a: ["href", "target", "rel"] },
         }),
       };
+    }
+    if (blk && blk.type === "shape") {
+      return { ...blk, fill: safeColor(blk.fill), stroke: safeColor(blk.stroke) };
     }
     return b;
   });

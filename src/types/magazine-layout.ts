@@ -37,7 +37,16 @@ export type TextBlock = BlockBase & {
   padding?: number; // px
 };
 
-export type Block = ImageBlock | TextBlock;
+export type ShapeBlock = BlockBase & {
+  type: "shape";
+  shape: "rect" | "ellipse" | "line";
+  fill?: string; // 색 또는 그라데이션 문자열
+  stroke?: string; // 테두리/선 색
+  strokeWidth?: number; // px
+  radius?: number; // px (rect 모서리)
+};
+
+export type Block = ImageBlock | TextBlock | ShapeBlock;
 
 export type PageLayout = {
   blocks: Block[];
@@ -57,7 +66,8 @@ export function parsePageLayout(raw: unknown): PageLayout | null {
       !!b &&
       typeof b === "object" &&
       (((b as Block).type === "image" && typeof (b as ImageBlock).src === "string") ||
-        ((b as Block).type === "text" && typeof (b as TextBlock).html === "string"))
+        ((b as Block).type === "text" && typeof (b as TextBlock).html === "string") ||
+        ((b as Block).type === "shape" && typeof (b as ShapeBlock).shape === "string"))
   );
   return { blocks, pageBg: typeof obj.pageBg === "string" ? obj.pageBg : undefined };
 }
