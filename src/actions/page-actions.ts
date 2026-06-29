@@ -27,8 +27,37 @@ function sanitizeLayout(layout: unknown): { blocks: unknown[]; pageBg?: string }
   return { blocks, pageBg: typeof obj.pageBg === "string" ? obj.pageBg : undefined };
 }
 
-// 구성형(39호+) 빈 페이지 추가
-export async function createComposedPage(magazineId: string) {
+function genBlockId() {
+  return "b" + Math.random().toString(36).slice(2, 9);
+}
+// layout의 모든 블록 id를 새로 발급(복제 시 원본과 id 충돌 방지 — dnd-kit/React key/patch 안정성)
+function regenBlockIds(layout: unknown): Prisma.InputJsonValue {
+  const obj = layout as { blocks?: Array<Record<string, unknown>>; pageBg?: string } | null;
+  if (!obj || !Array.isArray(obj.blocks)) return { blocks: [] };
+  const blocks = obj.blocks.map((b) => ({ ...b, id: genBlockId() }));
+  return { blocks, ...(typeof obj.pageBg === "string" ? { pageBg: obj.pageBg } : {}) } as Prisma.InputJsonValue;
+}
+
+// 새 페이지(orderedIds 기준)에서 newId를 afterId 바로 다음에 배치하도록 재정렬
+async function placeAfter(magazineId: string, newId: string, afterId?: string) {
+  if (!afterId) return;
+  const pages = await prisma.magazinePage.findMany({
+    where: { magazineId },
+    orderBy: { sortOrder: "asc" },
+    select: { id: true },
+  });
+  const ids = pages.map((p) => p.id).filter((id) => id !== newId);
+  const idx = ids.indexOf(afterId);
+  if (idx >= 0) ids.splice(idx + 1, 0, newId);
+  else ids.push(newId);
+  await applyPageOrder(ids);
+}
+
+// 구성형(39호+) 빈 페이지 추가. afterPageId 지정 시 그 페이지 '다음'에 삽입(D5).
+export async function createComposedPage(
+  magazineId: string,
+  opts?: { afterPageId?: string }
+) {
   const agg = await prisma.magazinePage.aggregate({
     where: { magazineId },
     _max: { sortOrder: true, pageNumber: true },
@@ -44,9 +73,37 @@ export async function createComposedPage(magazineId: string) {
       pageNumber,
     },
   });
+  await placeAfter(magazineId, page.id, opts?.afterPageId);
   revalidatePath(`/admin/magazines/${magazineId}/edit`);
   revalidatePath(`/magazines/${magazineId}`);
   return { success: true as const, pageId: page.id };
+}
+
+// 페이지 복제 — layout 깊은 복사 + 블록 id 재생성, 원본 다음에 삽입. articleId는 비움(딥링크 중복 방지).
+export async function duplicatePage(pageId: string) {
+  const src = await prisma.magazinePage.findUnique({
+    where: { id: pageId },
+    select: { magazineId: true, kind: true, layout: true },
+  });
+  if (!src) return { error: "페이지를 찾을 수 없습니다" as const };
+  const agg = await prisma.magazinePage.aggregate({
+    where: { magazineId: src.magazineId },
+    _max: { sortOrder: true, pageNumber: true },
+  });
+  const copy = await prisma.magazinePage.create({
+    data: {
+      magazineId: src.magazineId,
+      kind: src.kind,
+      layout: regenBlockIds(src.layout),
+      sortOrder: (agg._max.sortOrder ?? -1) + 1,
+      pageNumber: (agg._max.pageNumber ?? 0) + 1,
+      articleId: null,
+    },
+  });
+  await placeAfter(src.magazineId, copy.id, pageId);
+  revalidatePath(`/admin/magazines/${src.magazineId}/edit`);
+  revalidatePath(`/magazines/${src.magazineId}`);
+  return { success: true as const, pageId: copy.id };
 }
 
 // 구성형 페이지 레이아웃 저장(에디터). articleId 연동도 함께.

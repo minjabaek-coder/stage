@@ -25,6 +25,7 @@ import { PageEditor } from "@/components/admin/page-editor";
 import { parsePageLayout } from "@/types/magazine-layout";
 import {
   createComposedPage,
+  duplicatePage,
   deletePage,
   reorderPages,
 } from "@/actions/page-actions";
@@ -97,11 +98,24 @@ export function MagazineEditorShell({
   }
   function addPage() {
     start(async () => {
-      const r = await createComposedPage(magazineId);
+      // D5: 현재 선택된 페이지 '다음'에 삽입(없으면 맨 끝)
+      const r = await createComposedPage(magazineId, { afterPageId: selectedId ?? undefined });
       if (r?.pageId) {
-        setSelectedId(r.pageId); // 라우트 이동 없이 새 페이지 선택
+        setSelectedId(r.pageId);
         router.refresh();
         toast.success("새 페이지를 추가했습니다");
+      }
+    });
+  }
+  function duplicate(id: string) {
+    start(async () => {
+      const r = await duplicatePage(id);
+      if (r && "pageId" in r && r.pageId) {
+        setSelectedId(r.pageId);
+        router.refresh();
+        toast.success("페이지를 복제했습니다");
+      } else {
+        toast.error("복제 실패");
       }
     });
   }
@@ -167,6 +181,7 @@ export function MagazineEditorShell({
                     onSelect={() => setSelectedId(p.id)}
                     onMove={(dir) => move(i, dir)}
                     onDelete={() => del(p.id)}
+                    onDuplicate={() => duplicate(p.id)}
                     isFirst={i === 0}
                     isLast={i === items.length - 1}
                     disabled={pending}
@@ -198,6 +213,7 @@ function PageStripItem({
   onSelect,
   onMove,
   onDelete,
+  onDuplicate,
   isFirst,
   isLast,
   disabled,
@@ -208,6 +224,7 @@ function PageStripItem({
   onSelect: () => void;
   onMove: (dir: -1 | 1) => void;
   onDelete: () => void;
+  onDuplicate: () => void;
   isFirst: boolean;
   isLast: boolean;
   disabled: boolean;
@@ -240,7 +257,8 @@ function PageStripItem({
       {/* ⋯ 메뉴 */}
       <details className="absolute right-0.5 top-0.5 hidden group-hover:block">
         <summary className="flex h-4 w-4 cursor-pointer list-none items-center justify-center rounded border bg-white/90 text-[10px] text-muted-foreground">⋯</summary>
-        <div className="absolute right-0 z-30 mt-1 w-24 rounded-md border bg-popover p-1 text-[11px] shadow-md">
+        <div className="absolute right-0 z-30 mt-1 w-28 rounded-md border bg-popover p-1 text-[11px] shadow-md">
+          <button type="button" onClick={onDuplicate} disabled={disabled} className="block w-full rounded px-2 py-1 text-left hover:bg-accent disabled:opacity-30">⧉ 복제</button>
           <button type="button" onClick={() => onMove(-1)} disabled={isFirst || disabled} className="block w-full rounded px-2 py-1 text-left hover:bg-accent disabled:opacity-30">← 앞으로</button>
           <button type="button" onClick={() => onMove(1)} disabled={isLast || disabled} className="block w-full rounded px-2 py-1 text-left hover:bg-accent disabled:opacity-30">→ 뒤로</button>
           <button type="button" onClick={onDelete} disabled={disabled} className="block w-full rounded px-2 py-1 text-left text-red-600 hover:bg-red-50 disabled:opacity-50">🗑 삭제</button>
