@@ -48,6 +48,18 @@ async function replaceChunks(
   console.log(`[RAG] ${sourceType} "${title}" → ${chunks.length} chunks`);
 }
 
+// 소스 삭제 시 청크 정리(ContentChunk는 FK 없는 독립 테이블 → 명시적 삭제 필요).
+export async function deleteContentChunks(
+  sourceType: SourceType,
+  sourceId: string,
+): Promise<void> {
+  await prisma.$executeRawUnsafe(
+    `DELETE FROM "ContentChunk" WHERE "sourceType" = $1 AND "sourceId" = $2`,
+    sourceType,
+    sourceId,
+  );
+}
+
 // ── 기사 ───────────────────────────────────────────────────────────────────
 // 발행 + aiIndexable + 본문 있는 기사만 색인. 그 외는 기존 청크 제거.
 export async function generateArticleEmbeddings(articleId: string): Promise<void> {

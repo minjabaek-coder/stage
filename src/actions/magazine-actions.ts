@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod/v4";
 import { deleteUploadedFile } from "@/lib/upload";
-import { generateMagazineEmbeddings } from "@/lib/rag";
+import { generateMagazineEmbeddings, deleteContentChunks } from "@/lib/rag";
 
 function revalidateMagazinePaths(id?: string) {
   if (id) revalidatePath(`/admin/magazines/${id}/edit`);
@@ -164,6 +164,11 @@ export async function deleteMagazine(id: string) {
   }
 
   await prisma.magazine.delete({ where: { id } });
+
+  // RAG: 삭제 시 매거진 청크 정리(ContentChunk는 FK 없음 → 명시 삭제). best-effort.
+  await deleteContentChunks("magazine", id).catch((err) =>
+    console.error("[RAG] Magazine chunk cleanup failed:", err)
+  );
 
   const urls = new Set<string>();
   if (magazine.coverImageUrl) urls.add(magazine.coverImageUrl);
