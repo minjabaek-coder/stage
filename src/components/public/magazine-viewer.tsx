@@ -369,153 +369,80 @@ function MobilePrevFlipOverlay({
   );
 }
 
-// ── TOC Panel (Desktop: side panel, Mobile: bottom carousel modal) ──
-export function TocPanel({
-  tocEntries,
+// ── TOC 필름스트립 (rev.4) — 하단 가로 밴드(데스크톱·모바일 공통).
+// 오버레이가 아니라 레이아웃 밴드: 열리면 페이지 영역이 줄어 페이지가 가려지지 않음.
+// 항목 = 썸네일 + 쪽번호(제목 생략, 가독성). 현재 페이지 골드 하이라이트·자동 센터.
+export function TocFilmstrip({
   pages,
   currentPage,
-  isOpen,
-  onClose,
   onNavigate,
-  isMobile,
+  onClose,
 }: {
-  tocEntries: MagazineTocEntry[];
   pages: MagazinePage[];
-  currentPage: number;
-  isOpen: boolean;
+  currentPage: number; // 0-based
+  onNavigate: (pageNumber: number) => void; // 1-based
   onClose: () => void;
-  onNavigate: (pageNumber: number) => void;
-  isMobile: boolean;
 }) {
-  const activeCardRef = useRef<HTMLButtonElement>(null);
+  const activeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (isOpen && activeCardRef.current) {
-      activeCardRef.current.scrollIntoView({
-        behavior: "smooth",
-        inline: "center",
-        block: "nearest",
-      });
-    }
-  }, [isOpen, currentPage]);
+    activeRef.current?.scrollIntoView({
+      behavior: "smooth",
+      inline: "center",
+      block: "nearest",
+    });
+  }, [currentPage]);
 
-  if (!isOpen) return null;
-
-  if (isMobile) {
-    // 하단 시트 + 세로 리스트(썸네일 + 제목 + 쪽) — 데스크톱과 통일된 리스트
-    return (
-      <>
-        <div className="fixed inset-0 z-[99] bg-black/40" onClick={onClose} />
-        <div className="fixed bottom-0 left-0 right-0 z-[100] max-h-[62%] overflow-hidden rounded-t-2xl bg-ink/95 pb-[max(env(safe-area-inset-bottom),12px)] backdrop-blur-sm">
-          <div className="mx-auto mb-1 mt-2 h-1 w-10 rounded-full bg-white/25" />
-          <div className="flex items-center justify-between px-4 py-2">
-            <span className="font-label text-[10px] font-bold uppercase tracking-[0.2em] text-gold">
-              목차
-            </span>
-            <button
-              onClick={onClose}
-              aria-label="닫기"
-              className="text-lg leading-none text-white/50"
-            >
-              ✕
-            </button>
-          </div>
-          <div className="max-h-[50vh] overflow-y-auto px-2 pb-2">
-            {tocEntries.map((entry) => {
-              const page = pages.find((p) => p.pageNumber === entry.pageNumber);
-              const isActive = currentPage + 1 === entry.pageNumber;
-              return (
-                <button
-                  key={entry.id}
-                  ref={isActive ? activeCardRef : undefined}
-                  onClick={() => {
-                    onNavigate(entry.pageNumber);
-                    onClose();
-                  }}
-                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors ${
-                    isActive ? "bg-gold/15" : "active:bg-white/10"
-                  }`}
-                >
-                  <div className="relative h-14 w-10 flex-shrink-0 overflow-hidden rounded bg-ink-deep">
-                    {page &&
-                      (page.kind === "composed" ? (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <ComposedPage layout={parsePageLayout(page.layout)} />
-                        </div>
-                      ) : (
-                        <img
-                          src={page.imageUrl ?? ""}
-                          alt=""
-                          className="absolute inset-0 h-full w-full object-cover"
-                        />
-                      ))}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <span
-                      className={`block truncate text-[13px] ${
-                        isActive ? "text-white" : "text-white/80"
-                      }`}
-                    >
-                      {entry.title}
-                    </span>
-                    <span className="font-label text-[11px] text-gold">
-                      p.{entry.pageNumber}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </>
-    );
-  }
-
-  // Desktop: side panel
   return (
-    <div className="absolute right-0 top-0 bottom-0 z-50 flex w-72 flex-col border-l border-white/10 bg-ink/95 backdrop-blur-sm">
-      <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-        <span className="font-label text-xs font-bold uppercase tracking-[0.2em] text-gold">목차</span>
+    <div className="flex-none border-t border-white/10 bg-ink/95 backdrop-blur-sm">
+      <div className="flex items-center justify-between px-3 pt-1.5">
+        <span className="font-label text-[10px] font-bold uppercase tracking-[0.2em] text-gold">
+          목차
+        </span>
         <button
           onClick={onClose}
-          className="flex h-8 w-8 items-center justify-center rounded-md text-white/55 transition-colors hover:bg-white/10 hover:text-white"
+          aria-label="목차 닫기"
+          className="flex h-6 w-6 items-center justify-center rounded text-white/50 transition-colors hover:bg-white/10 hover:text-white"
         >
           ✕
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto p-2">
-        {tocEntries.map((entry) => {
-          const isActive = currentPage + 1 === entry.pageNumber;
-          const page = pages.find((p) => p.pageNumber === entry.pageNumber);
+      <div className="flex gap-2 overflow-x-auto px-3 pb-2.5 pt-1 [-ms-overflow-style:none] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20">
+        {pages.map((page, i) => {
+          const isActive = i === currentPage;
           return (
             <button
-              key={entry.id}
-              onClick={() => onNavigate(entry.pageNumber)}
-              className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors ${
-                isActive
-                  ? "bg-gold/15 text-white"
-                  : "text-white/70 hover:bg-white/10 hover:text-white"
-              }`}
+              key={page.id}
+              ref={isActive ? activeRef : undefined}
+              onClick={() => onNavigate(page.pageNumber)}
+              aria-current={isActive}
+              className="group flex-none"
             >
-              <div className="min-w-0 flex-1">
-                <span className="block truncate">{entry.title}</span>
-                <span className="font-label text-xs text-white/40">p.{entry.pageNumber}</span>
+              <div
+                className={`relative aspect-[2/3] w-12 overflow-hidden rounded bg-ink-deep transition ${
+                  isActive
+                    ? "ring-2 ring-gold ring-offset-2 ring-offset-ink"
+                    : "opacity-70 group-hover:opacity-100"
+                }`}
+              >
+                {page.kind === "composed" ? (
+                  <ComposedPage layout={parsePageLayout(page.layout)} fit="cover" />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={page.imageUrl ?? ""}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                )}
               </div>
-              {page && (
-                <div className="relative h-14 w-10 flex-shrink-0 overflow-hidden rounded">
-                  {page.kind === "composed" ? (
-                    <div className="absolute inset-0 flex items-center justify-center bg-ink-deep">
-                      <ComposedPage layout={parsePageLayout(page.layout)} />
-                    </div>
-                  ) : (
-                    <img
-                      src={page.imageUrl ?? ""}
-                      alt={entry.title}
-                      className="absolute inset-0 h-full w-full object-cover"
-                    />
-                  )}
-                </div>
-              )}
+              <span
+                className={`mt-1 block text-center font-label text-[9px] ${
+                  isActive ? "text-gold" : "text-white/45"
+                }`}
+              >
+                {page.pageNumber}
+              </span>
             </button>
           );
         })}
@@ -526,13 +453,12 @@ export function TocPanel({
 
 export function MagazineViewer({
   pages,
-  tocEntries = [],
   initialPage = 1,
   issueNumber,
   title,
 }: {
   pages: MagazinePage[];
-  tocEntries?: MagazineTocEntry[];
+  tocEntries?: MagazineTocEntry[]; // rev.4: 필름스트립은 전체 페이지 기반(미사용, API 호환 유지)
   initialPage?: number; // 1-based, ?page= 딥링크 진입 페이지
   issueNumber?: number;
   title?: string;
@@ -571,7 +497,8 @@ export function MagazineViewer({
   const ready = HTMLFlipBook && dims;
   const [tocOpen, setTocOpen] = useState(false);
   const [zoomOpen, setZoomOpen] = useState(false);
-  const hasToc = tocEntries.length > 0;
+  // rev.4: 목차 = 페이지 필름스트립(내비게이터) → 페이지 2장 이상이면 사용
+  const hasToc = pages.length > 1;
   // 모바일 오버레이(헤더·하단 컨트롤) 표시 — 탭으로 토글(자동숨김, rev.3 모바일)
   const [overlayVisible, setOverlayVisible] = useState(true);
 
@@ -721,9 +648,13 @@ export function MagazineViewer({
     }
 
     window.addEventListener("resize", onResize);
+    // 컨테이너 자체 크기 변화(목차 필름스트립 토글 등)에도 재측정 — 페이지 리플로우
+    const ro = new ResizeObserver(() => computeDims());
+    if (containerRef.current) ro.observe(containerRef.current);
     return () => {
       cancelled = true;
       window.removeEventListener("resize", onResize);
+      ro.disconnect();
     };
   }, [pages, forceSingle]);
 
@@ -859,7 +790,7 @@ export function MagazineViewer({
         </div>
       </header>
 
-      <div className="relative flex flex-1 overflow-hidden">
+      <div className="relative flex min-h-0 flex-1 overflow-hidden">
         <div
           ref={containerRef}
           className="flex flex-1 items-center justify-center overflow-hidden"
@@ -1010,28 +941,21 @@ export function MagazineViewer({
           </div>
         )}
         </div>
-
-        {hasToc && (
-          // 모바일: 탭=하단 캐러셀 / 데스크톱: 우측 사이드패널
-          <TocPanel
-            tocEntries={tocEntries}
-            pages={pages}
-            currentPage={currentPage}
-            isOpen={tocOpen}
-            onClose={() => setTocOpen(false)}
-            onNavigate={navigateToPage}
-            isMobile={dims?.isMobile ?? false}
-          />
-        )}
       </div>
+
+      {/* 목차 = 하단 가로 필름스트립(rev.4): in-flow 밴드 → 페이지 영역이 줄어 가려지지 않음 */}
+      {hasToc && tocOpen && (
+        <TocFilmstrip
+          pages={pages}
+          currentPage={currentPage}
+          onNavigate={navigateToPage}
+          onClose={() => setTocOpen(false)}
+        />
+      )}
 
       {/* 모바일 하단 오버레이 (rev.3): 목차·확대·다크·전체 + 진행률 (탭 토글) */}
       {dims?.isMobile && (
-        <div
-          className={`absolute bottom-0 left-0 right-0 z-40 bg-gradient-to-t from-black/70 to-transparent px-4 pb-[max(env(safe-area-inset-bottom),14px)] pt-7 transition-opacity duration-200 ${
-            overlayVisible ? "opacity-100" : "pointer-events-none opacity-0"
-          }`}
-        >
+        <div className="flex-none border-t border-white/10 bg-ink px-4 pb-[max(env(safe-area-inset-bottom),12px)] pt-3">
           <div className="mb-2.5 flex items-center justify-around text-white/80">
             {hasToc && (
               <button
