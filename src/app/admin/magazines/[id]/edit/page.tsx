@@ -72,6 +72,14 @@ export default async function EditMagazinePage({
         <div className="flex flex-wrap items-center justify-between gap-3">
           {titleBlock}
           <div className="flex flex-wrap items-center gap-2">
+            <a
+              href={`/magazines/${magazine.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-md border bg-white px-3 py-1.5 text-sm hover:bg-accent"
+            >
+              미리보기 ↗
+            </a>
             <EditorSettingsDialogs
               action={action}
               defaultValues={{

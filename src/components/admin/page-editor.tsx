@@ -69,7 +69,8 @@ export function PageEditor({
   const router = useRouter();
   const canvasRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const [fitScale, setFitScale] = useState(1); // 캔버스를 가용 영역에 맞춰 축소(fit)
+  const [fitScale, setFitScale] = useState(1); // 가용 영역 기준 fit 배율(baseline)
+  const [userZoom, setUserZoom] = useState(1); // 사용자 줌(P5a) — fit 위에 곱)
   const [blocks, setBlocks] = useState<Block[]>(initialLayout.blocks ?? []);
   const [pageBg, setPageBg] = useState(initialLayout.pageBg ?? "#ffffff");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -511,7 +512,23 @@ export function PageEditor({
     return () => ro.disconnect();
   }, []);
 
+  // ⌘/Ctrl + 휠 → 줌(P5a). passive:false라 native 리스너로.
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      e.preventDefault();
+      setUserZoom((z) => Math.min(5 / fitScale, Math.max(0.25 / fitScale, z * (e.deltaY < 0 ? 1.12 : 1 / 1.12))));
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [fitScale]);
+
   const round = (n: number) => Math.round(n * 10) / 10;
+  const scale = Math.max(0.05, fitScale * userZoom); // 캔버스 표시 배율(fit × 사용자 줌)
+  const zoomBy = (f: number) => setUserZoom((z) => Math.min(5 / fitScale, Math.max(0.25 / fitScale, z * f)));
+  const zoomFit = () => setUserZoom(1);
 
   return (
     <div className="flex h-full gap-3">
@@ -555,7 +572,13 @@ export function PageEditor({
 
         <div className="ml-auto flex items-center gap-2.5">
           <span className="font-mono text-[11px] text-muted-foreground">
-            페이지 {pageNumber}{totalPages ? ` / ${totalPages}` : ""} · {Math.round(fitScale * 100)}%
+            페이지 {pageNumber}{totalPages ? ` / ${totalPages}` : ""}
+          </span>
+          {/* 줌 컨트롤(P5a) */}
+          <span className="inline-flex items-center overflow-hidden rounded-md border">
+            <button type="button" onClick={() => zoomBy(1 / 1.2)} title="축소" className="px-2 py-1 text-sm text-muted-foreground hover:bg-accent">−</button>
+            <button type="button" onClick={zoomFit} title="화면 맞춤" className="w-12 border-x py-1 text-center font-mono text-[11px] hover:bg-accent">{Math.round(scale * 100)}%</button>
+            <button type="button" onClick={() => zoomBy(1.2)} title="확대" className="px-2 py-1 text-sm text-muted-foreground hover:bg-accent">＋</button>
           </span>
           <span className="tbsep" />
           <select
@@ -596,13 +619,15 @@ export function PageEditor({
         </div>
       </div>
 
-      {/* 캔버스 래핑 (목업 .canvas-wrap): 중립 배경. 가용 영역에 맞춰 캔버스를 fit-scale */}
-      <div ref={wrapRef} className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-[#e9e7e4]">
+      {/* 캔버스 래핑: fit×줌 배율로 표시. 줌인 시 overflow-auto로 패닝 스크롤. */}
+      <div ref={wrapRef} className="flex min-h-0 flex-1 overflow-auto bg-[#e9e7e4] p-6">
+        {/* 실제 크기 sizer(m-auto 중앙·스크롤 안전) + 좌상단 기준 scale */}
+        <div className="m-auto flex-none" style={{ width: BASE_W * scale, height: BASE_H * scale }}>
         <div
           ref={canvasRef}
           onPointerDown={() => { setSelectedId(null); setEditingId(null); }}
-          className="absolute overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.18)]"
-          style={{ left: "50%", top: "50%", width: BASE_W, height: BASE_H, transform: `translate(-50%, -50%) scale(${fitScale})`, background: pageBg, touchAction: "none" }}
+          className="overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.18)]"
+          style={{ width: BASE_W, height: BASE_H, transform: `scale(${scale})`, transformOrigin: "0 0", background: pageBg, touchAction: "none" }}
         >
           {[...blocks].sort((a, b) => a.z - b.z).map((b) => {
             const isSel = b.id === selectedId;
@@ -676,6 +701,7 @@ export function PageEditor({
           {snap.h != null && (
             <div style={{ position: "absolute", top: `${snap.h}%`, left: 0, right: 0, height: 1, background: "#ec4899", zIndex: 1000, pointerEvents: "none" }} />
           )}
+        </div>
         </div>
         </div>
       </div>
