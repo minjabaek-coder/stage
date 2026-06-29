@@ -10,7 +10,6 @@ import {
   type ChangeEvent as ReactChangeEvent,
 } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { toast } from "sonner";
 import type { Editor } from "@tiptap/react";
 import { ComposedBlockBody } from "@/components/public/composed-page";
@@ -57,7 +56,6 @@ export function PageEditor({
   initialLayout,
   initialArticleId,
   articles,
-  embedded = false,
 }: {
   magazineId: string;
   pageId: string;
@@ -66,7 +64,6 @@ export function PageEditor({
   initialLayout: PageLayout;
   initialArticleId: string | null;
   articles: ArticleOpt[];
-  embedded?: boolean; // 단일 에디터 셸에 임베드 시 '← 매거진' 백링크 숨김
 }) {
   const router = useRouter();
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -159,16 +156,6 @@ export function PageEditor({
     const b: ImageBlock = {
       id: uid(), type: "image", x: 10, y: 10, w: 50, h: 38, z: maxZ + 1,
       src: "", fit: "cover",
-    };
-    setBlocks((p) => [...p, b]);
-    setSelectedId(b.id);
-  }
-  // 이미지 프레임: 원본 비율 유지(contain) 자리표시 — 이미지를 채워넣는 틀
-  function addImageFrame() {
-    record();
-    const b: ImageBlock = {
-      id: uid(), type: "image", x: 10, y: 10, w: 44, h: 44, z: maxZ + 1,
-      src: "", fit: "contain", radius: 4,
     };
     setBlocks((p) => [...p, b]);
     setSelectedId(b.id);
@@ -507,23 +494,17 @@ export function PageEditor({
   const round = (n: number) => Math.round(n * 10) / 10;
 
   return (
-    <div className="flex gap-4">
+    <div className="flex h-full gap-3">
+      {/* 좌: 도구 레일 (캔바식) — 요소 추가 */}
+      <nav className="flex w-16 flex-none flex-col items-center gap-1 rounded-lg bg-ink-deep py-2.5">
+        <RailTool icon="↖" label="선택" active={!selectedId} onClick={() => { setSelectedId(null); setEditingId(null); }} />
+        <RailTool icon="T" label="텍스트" onClick={addText} />
+        <RailTool icon="🖼" label="이미지" onClick={addImage} />
+      </nav>
       {/* 가운데 컬럼: 툴바 + 캔버스 (목업 .col.center) */}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border">
-      {/* 캔버스 툴바 (목업 .canvas-toolbar): 추가 · 실행취소/다시실행 · 정렬/레이어 · 페이지/줌 */}
+      {/* 캔버스 툴바: 실행취소/다시실행 · 정렬/레이어 · 페이지/줌 · 저장 */}
       <div className="flex flex-wrap items-center gap-1.5 border-b bg-card px-3 py-2">
-        {!embedded && (
-          <Link
-            href={`/admin/magazines/${magazineId}/edit`}
-            className="mr-1 text-sm text-muted-foreground hover:underline"
-          >
-            ←
-          </Link>
-        )}
-        <button type="button" onClick={addText} className="tbtn">＋ 텍스트</button>
-        <button type="button" onClick={addImage} className="tbtn">＋ 이미지</button>
-        <button type="button" onClick={addImageFrame} className="tbtn">＋ 이미지 프레임</button>
-        <span className="tbsep" />
         <button type="button" onClick={undo} disabled={past.current.length === 0} title="실행취소 (⌘Z)" className="tbtn ghost">↶ 실행취소</button>
         <button type="button" onClick={redo} disabled={future.current.length === 0} title="다시실행 (⌘⇧Z)" className="tbtn ghost">↷ 다시실행</button>
         <span className="tbsep" />
@@ -680,7 +661,8 @@ export function PageEditor({
       </div>
 
         {/* 속성 패널 (목업 .col.right · .props) */}
-        <aside className="w-64 shrink-0 self-start rounded-lg border bg-card p-3.5 text-sm">
+        <aside className="flex w-64 shrink-0 flex-col self-stretch overflow-hidden rounded-lg border bg-card text-sm">
+          <div className="min-h-0 flex-1 overflow-y-auto p-3.5">
           {!selected ? (
             <div>
               <h4 className="mb-2.5 font-mono text-[9px] uppercase tracking-[0.15em] text-muted-foreground">
@@ -833,6 +815,34 @@ export function PageEditor({
               )}
             </div>
           )}
+          </div>
+
+          {/* 레이어 패널 (D6) — z 역순, 클릭 선택 */}
+          <div className="max-h-[38%] flex-none overflow-y-auto border-t bg-muted/30 p-2.5">
+            <p className="mb-1.5 font-mono text-[9px] uppercase tracking-[0.15em] text-muted-foreground">레이어</p>
+            {blocks.length === 0 ? (
+              <p className="px-1 py-2 text-[11px] text-muted-foreground">블록 없음</p>
+            ) : (
+              [...blocks].sort((a, b) => b.z - a.z).map((b) => {
+                const isSel = b.id === selectedId;
+                const icon = b.type === "image" ? "🖼" : "T";
+                const name = b.type === "image"
+                  ? (b.src ? "이미지" : "이미지(빈)")
+                  : ((b as TextBlock).html || "텍스트").replace(/<[^>]+>/g, " ").trim().slice(0, 16) || "텍스트";
+                return (
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={() => { setSelectedId(b.id); setEditingId(null); }}
+                    className={`flex w-full items-center gap-2 rounded px-2 py-1 text-left text-[11px] ${isSel ? "bg-primary/10 text-primary" : "hover:bg-accent"}`}
+                  >
+                    <span className="w-4 text-center text-muted-foreground">{icon}</span>
+                    <span className="flex-1 truncate">{name}</span>
+                  </button>
+                );
+              })
+            )}
+          </div>
         </aside>
 
       {/* 우클릭 컨텍스트 메뉴(P1) */}
@@ -851,6 +861,22 @@ export function PageEditor({
         </div>
       )}
     </div>
+  );
+}
+
+// 좌측 도구 레일 버튼(캔바식)
+function RailTool({ icon, label, active, onClick }: { icon: string; label: string; active?: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-12 flex-col items-center gap-0.5 rounded-lg py-2 text-[10px] transition-colors ${
+        active ? "bg-white/15 text-white" : "text-white/65 hover:bg-white/10 hover:text-white"
+      }`}
+    >
+      <span className="text-lg leading-none">{icon}</span>
+      {label}
+    </button>
   );
 }
 

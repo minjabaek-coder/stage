@@ -73,8 +73,8 @@ export default async function EditMagazinePage({
 
       {isComposed ? (
         // 구성형: 매거진 정보(접이식·기본 펼침) + 단일 에디터 셸(3컬럼) 풀폭
-        <div className="space-y-5">
-          <details open className="rounded-lg border bg-card">
+        <div className="space-y-3">
+          <details className="rounded-lg border bg-card">
             <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium">
               매거진 정보
             </summary>
@@ -107,6 +107,7 @@ export default async function EditMagazinePage({
               />
             </div>
           </details>
+          <div className="h-[calc(100vh-230px)] min-h-[560px]">
           <MagazineEditorShell
             magazineId={magazine.id}
             pages={magazine.pages.map((p) => ({
@@ -117,6 +118,7 @@ export default async function EditMagazinePage({
             }))}
             articles={articles}
           />
+          </div>
         </div>
       ) : (
         <div className="grid gap-6 lg:grid-cols-[1fr_2fr]">

@@ -16,7 +16,7 @@ import {
   arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
+  horizontalListSortingStrategy,
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -58,14 +58,12 @@ export function MagazineEditorShell({
   const [selectedId, setSelectedId] = useState<string | null>(
     pages[0]?.id ?? null,
   );
-  const [view, setView] = useState<"rail" | "grid">("rail"); // 페이지 패널 표시 방식
   const [pending, start] = useTransition();
   const dndId = useId();
 
   // 서버 refresh로 pages가 갱신되면 items 동기화(낙관적 업데이트 후 정합).
   // 선택은 렌더에서 파생(유효치 않으면 첫 페이지 폴백)하므로 여기선 items만.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setItems(pages);
   }, [pages]);
 
@@ -125,64 +123,46 @@ export function MagazineEditorShell({
     : -1;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[208px_1fr]">
-      {/* 좌: 페이지 패널 (rail/grid 토글) */}
-      <aside className="space-y-3 rounded-lg border bg-card p-2.5">
-        <div className="flex items-center justify-between">
-          <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+    <div className="flex h-full flex-col gap-3">
+      {/* 위: 활성 페이지 편집기 (좌 레일·캔버스·속성 — 라우트 전환 없이 key로 스위칭) */}
+      <div className="min-h-0 flex-1">
+        {selected ? (
+          <PageEditor
+            key={selected.id}
+            magazineId={magazineId}
+            pageId={selected.id}
+            pageNumber={selectedIndex + 1}
+            totalPages={items.length}
+            initialLayout={parsePageLayout(selected.layout) ?? { blocks: [] }}
+            initialArticleId={selected.articleId}
+            articles={articles}
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
+            아래에서 페이지를 선택하거나 새로 추가하세요.
+          </div>
+        )}
+      </div>
+
+      {/* 아래: 페이지 스트립 (가로 · PPT/캔바식) */}
+      <div className="flex-none rounded-lg border bg-card">
+        <div className="flex items-center gap-2 overflow-x-auto p-2.5">
+          <span className="flex-none self-stretch pr-1 font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground [writing-mode:initial]">
             페이지 · {items.length}
           </span>
-          <div className="flex items-center gap-0.5 rounded-md border p-0.5">
-            <button
-              type="button"
-              onClick={() => setView("rail")}
-              aria-label="목록 보기"
-              title="목록 보기"
-              className={`rounded px-1.5 text-xs ${view === "rail" ? "bg-accent" : "text-muted-foreground"}`}
-            >
-              ▤
-            </button>
-            <button
-              type="button"
-              onClick={() => setView("grid")}
-              aria-label="격자 보기"
-              title="격자 보기"
-              className={`rounded px-1.5 text-xs ${view === "grid" ? "bg-accent" : "text-muted-foreground"}`}
-            >
-              ▦
-            </button>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={addPage}
-          disabled={pending}
-          className="w-full rounded-md border border-dashed px-2 py-1.5 text-xs text-muted-foreground hover:border-primary hover:text-primary disabled:opacity-50"
-        >
-          ＋ 새 페이지
-        </button>
-        {items.length === 0 ? (
-          <p className="py-8 text-center text-xs text-muted-foreground">
-            “새 페이지”로 추가하세요.
-          </p>
-        ) : (
           <DndContext
             id={dndId}
             sensors={sensors}
             collisionDetection={closestCenter}
             onDragEnd={handleDragEnd}
           >
-            <SortableContext items={items} strategy={verticalListSortingStrategy}>
-              <div
-                className={`max-h-[70vh] overflow-y-auto pr-1 ${
-                  view === "grid" ? "grid grid-cols-2 gap-2" : "space-y-2"
-                }`}
-              >
+            <SortableContext items={items} strategy={horizontalListSortingStrategy}>
+              <div className="flex items-center gap-2">
                 {items.map((p, i) => (
-                  <PageRailItem
+                  <PageStripItem
                     key={p.id}
                     page={p}
-                    grid={view === "grid"}
+                    index={i}
                     selected={p.id === selectedId}
                     onSelect={() => setSelectedId(p.id)}
                     onMove={(dir) => move(i, dir)}
@@ -195,36 +175,25 @@ export function MagazineEditorShell({
               </div>
             </SortableContext>
           </DndContext>
-        )}
-      </aside>
-
-      {/* 우: 활성 페이지 편집기 (라우트 전환 없이 key로 스위칭) */}
-      <div className="min-w-0">
-        {selected ? (
-          <PageEditor
-            key={selected.id}
-            embedded
-            magazineId={magazineId}
-            pageId={selected.id}
-            pageNumber={selectedIndex + 1}
-            totalPages={items.length}
-            initialLayout={parsePageLayout(selected.layout) ?? { blocks: [] }}
-            initialArticleId={selected.articleId}
-            articles={articles}
-          />
-        ) : (
-          <div className="flex h-64 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
-            왼쪽에서 페이지를 선택하거나 새로 추가하세요.
-          </div>
-        )}
+          <button
+            type="button"
+            onClick={addPage}
+            disabled={pending}
+            title="새 페이지"
+            className="flex h-[81px] w-[54px] flex-none items-center justify-center rounded-md border border-dashed text-xl text-muted-foreground hover:border-primary hover:text-primary disabled:opacity-50"
+          >
+            ＋
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-function PageRailItem({
+// 하단 가로 페이지 스트립 항목(PPT/캔바식): 썸네일 + 쪽번호 + ⋯ 메뉴, 드래그 재정렬
+function PageStripItem({
   page,
-  grid,
+  index,
   selected,
   onSelect,
   onMove,
@@ -234,7 +203,7 @@ function PageRailItem({
   disabled,
 }: {
   page: PageItem;
-  grid: boolean;
+  index: number;
   selected: boolean;
   onSelect: () => void;
   onMove: (dir: -1 | 1) => void;
@@ -252,46 +221,31 @@ function PageRailItem({
     zIndex: isDragging ? 10 : undefined,
   };
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={`group relative rounded-lg border p-1.5 ${
-        selected ? "border-primary ring-2 ring-primary/20" : "bg-card"
-      }`}
-    >
-      <div className="mb-1 flex items-center justify-between text-[11px]">
-        <button
-          type="button"
-          {...attributes}
-          {...listeners}
-          aria-label="드래그하여 순서 변경"
-          className="cursor-grab touch-none px-1 text-gray-400 active:cursor-grabbing"
-        >
-          ⠿
-        </button>
-        <span className="text-muted-foreground">P.{page.pageNumber}</span>
-        {/* 컨텍스트 메뉴(···): 위로/아래로/삭제 */}
-        <details className="relative">
-          <summary className="cursor-pointer list-none px-1 text-muted-foreground hover:text-foreground">
-            ⋯
-          </summary>
-          <div className="absolute right-0 z-30 mt-1 w-24 rounded-md border bg-popover p-1 text-[11px] shadow-md">
-            <button type="button" onClick={() => onMove(-1)} disabled={isFirst || disabled} className="block w-full rounded px-2 py-1 text-left hover:bg-accent disabled:opacity-30">↑ 위로</button>
-            <button type="button" onClick={() => onMove(1)} disabled={isLast || disabled} className="block w-full rounded px-2 py-1 text-left hover:bg-accent disabled:opacity-30">↓ 아래로</button>
-            <button type="button" onClick={onDelete} disabled={disabled} className="block w-full rounded px-2 py-1 text-left text-red-600 hover:bg-red-50 disabled:opacity-50">🗑 삭제</button>
-          </div>
-        </details>
-      </div>
+    <div ref={setNodeRef} style={style} className="group relative flex-none text-center">
       <button
         type="button"
         onClick={onSelect}
-        className="block w-full"
-        aria-label={`페이지 ${page.pageNumber} 편집`}
+        aria-label={`페이지 ${index + 1} 편집`}
+        {...attributes}
+        {...listeners}
+        className={`relative block h-[81px] w-[54px] cursor-pointer touch-none overflow-hidden rounded-md border bg-neutral-900 active:cursor-grabbing ${
+          selected ? "border-primary ring-2 ring-primary/30" : "border-line2"
+        }`}
       >
-        <div className={`relative w-full overflow-hidden rounded bg-neutral-900 ${grid ? "aspect-[2/3]" : "aspect-[2/3]"}`}>
-          <ComposedPage layout={parsePageLayout(page.layout)} />
-        </div>
+        <ComposedPage layout={parsePageLayout(page.layout)} fit="cover" />
       </button>
+      <div className={`mt-1 font-mono text-[10px] ${selected ? "text-primary" : "text-muted-foreground"}`}>
+        {index + 1}
+      </div>
+      {/* ⋯ 메뉴 */}
+      <details className="absolute right-0.5 top-0.5 hidden group-hover:block">
+        <summary className="flex h-4 w-4 cursor-pointer list-none items-center justify-center rounded border bg-white/90 text-[10px] text-muted-foreground">⋯</summary>
+        <div className="absolute right-0 z-30 mt-1 w-24 rounded-md border bg-popover p-1 text-[11px] shadow-md">
+          <button type="button" onClick={() => onMove(-1)} disabled={isFirst || disabled} className="block w-full rounded px-2 py-1 text-left hover:bg-accent disabled:opacity-30">← 앞으로</button>
+          <button type="button" onClick={() => onMove(1)} disabled={isLast || disabled} className="block w-full rounded px-2 py-1 text-left hover:bg-accent disabled:opacity-30">→ 뒤로</button>
+          <button type="button" onClick={onDelete} disabled={disabled} className="block w-full rounded px-2 py-1 text-left text-red-600 hover:bg-red-50 disabled:opacity-50">🗑 삭제</button>
+        </div>
+      </details>
     </div>
   );
 }
