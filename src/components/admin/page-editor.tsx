@@ -1124,11 +1124,13 @@ export function PageEditor({
               </Group>
 
               {selected.type === "image" ? (
-                <Group title="이미지 프레임">
+                <Group title="이미지">
                   <div className="mb-2">
-                    <div className="ed-grouplabel">이미지 파일 (업로드 / 교체)</div>
-                    <input type="file" accept="image/*" onChange={(e) => handleFileFor(selected.id, e)} className="block w-full text-xs" />
-                    {uploading && <p className="mt-1 text-xs text-gray-500">업로드 중...</p>}
+                    <label className="flex cursor-pointer items-center justify-center gap-1.5 rounded-md border bg-white py-2 text-xs hover:bg-accent">
+                      📤 {selected.src ? "이미지 교체" : "이미지 업로드"}
+                      <input type="file" accept="image/*" onChange={(e) => handleFileFor(selected.id, e)} className="hidden" />
+                    </label>
+                    {uploading && <p className="mt-1 text-center text-xs text-muted-foreground">업로드 중…</p>}
                   </div>
                   {/* 채움 / 맞춤 */}
                   <div className="ed-iconrow mb-2 flex gap-1.5">
