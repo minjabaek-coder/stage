@@ -398,10 +398,11 @@ export function TocFilmstrip({
   }, [currentPage]);
 
   return (
-    // 투명도 + 블러. overlay(모바일)는 페이지 위에 떠서 투명도 크게, 데스크톱은 약간만.
+    // overlay(모바일): 배경은 상위 컨테이너가 제공(투명) → 컨트롤과 동일 패널.
+    // 데스크톱(in-flow): 고투명 패널(bg-ink/45) + 블러.
     <div
-      className={`flex-none border-t border-white/10 backdrop-blur-md ${
-        overlay ? "rounded-t-xl bg-ink/45" : "bg-ink/75"
+      className={`flex-none ${
+        overlay ? "" : "border-t border-white/10 bg-ink/45 backdrop-blur-md"
       }`}
     >
       <div className="flex items-center justify-between px-3 pt-1.5">
@@ -993,9 +994,9 @@ export function MagazineViewer({
         />
       )}
 
-      {/* 모바일: 하단 레이어 = 페이지 위 오버레이(고투명). 페이지 위치는 유지(리플로우 없음). */}
+      {/* 모바일: 하단 레이어 = 페이지 위 오버레이(고투명). 목차+컨트롤이 하나의 반투명 패널로 통일. */}
       {dims?.isMobile && (tocOpen || overlayVisible) && (
-        <div className="absolute inset-x-0 bottom-0 z-40">
+        <div className="absolute inset-x-0 bottom-0 z-40 rounded-t-xl border-t border-white/10 bg-ink/45 backdrop-blur-md">
           {hasToc && tocOpen && (
             <TocFilmstrip
               overlay
@@ -1007,8 +1008,12 @@ export function MagazineViewer({
             />
           )}
           {overlayVisible && (
-            <div className="bg-gradient-to-t from-black/75 via-black/40 to-transparent px-4 pb-[max(env(safe-area-inset-bottom),12px)] pt-7">
-              <div className="mb-2.5 flex items-center justify-around text-white/85">
+            <div
+              className={`px-4 pb-[max(env(safe-area-inset-bottom),10px)] pt-2.5 ${
+                hasToc && tocOpen ? "border-t border-white/10" : ""
+              }`}
+            >
+              <div className="mb-2 flex items-center justify-around text-white/85">
                 {/* rev.4: 모바일 컨트롤 = 목차·다크·전체 (확대·넘김 제거) */}
                 {hasToc && (
                   <button
