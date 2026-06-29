@@ -35,6 +35,12 @@ function uid() {
   return "b" + Math.random().toString(36).slice(2, 9);
 }
 
+const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
+const clampPct = (v: number, size: number) => Math.max(0, Math.min(100 - size, v));
+
+// 앱 내부 클립보드 — 모듈 스코프라 PageEditor가 page key로 리마운트돼도 유지 → 페이지 간 복붙(D3)
+let clipboardStore: Block[] | null = null;
+
 
 type ArticleOpt = {
   id: string;
@@ -74,17 +80,73 @@ export function PageEditor({
   const [ratioLock, setRatioLock] = useState(false); // 비율 잠금(W/H 동시 변경)
   // 저장 상태(E2.6): idle(초기) → dirty(변경) → saving → saved
   const [saveState, setSaveState] = useState<"idle" | "dirty" | "saving" | "saved">("idle");
+  // 우클릭 컨텍스트 메뉴(P1)
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
 
   const selected = blocks.find((b) => b.id === selectedId) ?? null;
   const maxZ = blocks.reduce((m, b) => Math.max(m, b.z), 0);
 
+  // ── P1: 실행취소/다시실행 (전체 스냅샷 히스토리) ──
+  type Doc = { blocks: Block[]; pageBg: string };
+  const past = useRef<Doc[]>([]);
+  const future = useRef<Doc[]>([]);
+  const [, bumpHist] = useState(0);
+  const dragSnap = useRef<Doc | null>(null); // 드래그 시작 시점 스냅샷(드래그 1회=1엔트리)
+  const editSnap = useRef<Doc | null>(null); // 속성 편집 시작 스냅샷(디바운스 커밋)
+  const editTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const pushPast = (doc: Doc) => {
+    past.current.push(doc);
+    if (past.current.length > 100) past.current.shift();
+    future.current = [];
+    bumpHist((v) => v + 1);
+  };
+  // 속성/정렬/z 변경: 디바운스 커밋(연속 입력은 1엔트리로 합침)
+  function commitDebounced() {
+    if (!editSnap.current) editSnap.current = { blocks: clone(blocks), pageBg };
+    if (editTimer.current) clearTimeout(editTimer.current);
+    editTimer.current = setTimeout(() => {
+      if (editSnap.current) { pushPast(editSnap.current); editSnap.current = null; }
+    }, 500);
+  }
+  function flushEdit() {
+    if (editTimer.current) { clearTimeout(editTimer.current); editTimer.current = null; }
+    if (editSnap.current) { pushPast(editSnap.current); editSnap.current = null; }
+  }
+  // 구조적 변경(추가/삭제/복제/붙여넣기): 변경 직전 스냅샷을 즉시 기록
+  function record() { flushEdit(); pushPast({ blocks: clone(blocks), pageBg }); }
+  function undo() {
+    flushEdit();
+    if (!past.current.length) return;
+    future.current.push({ blocks: clone(blocks), pageBg });
+    const prev = past.current.pop()!;
+    setBlocks(prev.blocks); setPageBg(prev.pageBg);
+    setSelectedId(null); setEditingId(null); bumpHist((v) => v + 1);
+  }
+  function redo() {
+    if (!future.current.length) return;
+    past.current.push({ blocks: clone(blocks), pageBg });
+    const nxt = future.current.pop()!;
+    setBlocks(nxt.blocks); setPageBg(nxt.pageBg);
+    setSelectedId(null); setEditingId(null); bumpHist((v) => v + 1);
+  }
+
+  // 커밋용 패치(속성/정렬/z) — 디바운스 히스토리
   function patch(id: string, p: Partial<Block>) {
+    commitDebounced();
+    setBlocks((prev) =>
+      prev.map((b) => (b.id === id ? ({ ...b, ...p } as Block) : b))
+    );
+  }
+  // 라이브 패치(드래그/리사이즈/nudge) — 히스토리 미기록(시작·종료에서 처리)
+  function patchLive(id: string, p: Partial<Block>) {
     setBlocks((prev) =>
       prev.map((b) => (b.id === id ? ({ ...b, ...p } as Block) : b))
     );
   }
 
   function addText() {
+    record();
     const b: TextBlock = {
       id: uid(), type: "text", x: 10, y: 10, w: 60, h: 14, z: maxZ + 1,
       html: "텍스트를 입력하세요", color: "#1c1b1b", fontSizePx: 16, align: "left",
@@ -93,6 +155,7 @@ export function PageEditor({
     setSelectedId(b.id);
   }
   function addImage() {
+    record();
     const b: ImageBlock = {
       id: uid(), type: "image", x: 10, y: 10, w: 50, h: 38, z: maxZ + 1,
       src: "", fit: "cover",
@@ -102,6 +165,7 @@ export function PageEditor({
   }
   // 이미지 프레임: 원본 비율 유지(contain) 자리표시 — 이미지를 채워넣는 틀
   function addImageFrame() {
+    record();
     const b: ImageBlock = {
       id: uid(), type: "image", x: 10, y: 10, w: 44, h: 44, z: maxZ + 1,
       src: "", fit: "contain", radius: 4,
@@ -111,8 +175,47 @@ export function PageEditor({
   }
   function removeSelected() {
     if (!selectedId) return;
+    record();
     setBlocks((p) => p.filter((b) => b.id !== selectedId));
     setSelectedId(null);
+  }
+  // ── P1: 복제 / 복사 / 붙여넣기 / nudge ──
+  function duplicateSelected() {
+    if (!selected) return;
+    record();
+    const copy = {
+      ...clone(selected), id: uid(), z: maxZ + 1,
+      x: clampPct(selected.x + 2.3, selected.w),
+      y: clampPct(selected.y + 2.3, selected.h),
+    } as Block;
+    setBlocks((p) => [...p, copy]);
+    setSelectedId(copy.id);
+  }
+  function copySelected() {
+    if (selected) clipboardStore = [clone(selected)];
+  }
+  function pasteClipboard() {
+    if (!clipboardStore || !clipboardStore.length) return;
+    record();
+    const baseZ = maxZ;
+    const copies = clipboardStore.map((b, i) => ({
+      ...clone(b), id: uid(), z: baseZ + 1 + i,
+      x: clampPct(b.x + 3, b.w), y: clampPct(b.y + 3, b.h),
+    } as Block));
+    setBlocks((p) => [...p, ...copies]);
+    setSelectedId(copies[copies.length - 1].id);
+  }
+  function nudge(key: string, big: boolean) {
+    if (!selected) return;
+    commitDebounced();
+    const sx = (big ? 10 : 1) / BASE_W * 100;
+    const sy = (big ? 10 : 1) / BASE_H * 100;
+    let { x, y } = selected;
+    if (key === "ArrowLeft") x = Math.max(0, x - sx);
+    else if (key === "ArrowRight") x = Math.min(100 - selected.w, x + sx);
+    else if (key === "ArrowUp") y = Math.max(0, y - sy);
+    else if (key === "ArrowDown") y = Math.min(100 - selected.h, y + sy);
+    patchLive(selected.id, { x: round(x), y: round(y) });
   }
 
   // ── 정렬(캔버스 기준) / 레이어(z-order) / 비율잠금 크기 ──
@@ -194,8 +297,11 @@ export function PageEditor({
   // 캡처를 누른 요소(currentTarget)에 걸고, move/up도 같은 요소에서 처리 → 안정적 드래그
   function onBlockPointerDown(e: ReactPointerEvent, b: Block) {
     e.stopPropagation();
+    if (e.button !== 0) { setSelectedId(b.id); return; } // 우클릭=선택만(컨텍스트 메뉴)
     setSelectedId(b.id);
     setEditingId(null); // 다른 블록으로 이동하면 인라인 편집 종료
+    flushEdit();
+    dragSnap.current = { blocks: clone(blocks), pageBg }; // 드래그 전 스냅샷
     e.currentTarget.setPointerCapture(e.pointerId);
     drag.current = { mode: "move", id: b.id, sx: e.clientX, sy: e.clientY, bx: b.x, by: b.y, bw: b.w, bh: b.h };
   }
@@ -207,6 +313,8 @@ export function PageEditor({
   ) {
     e.stopPropagation();
     setSelectedId(b.id);
+    flushEdit();
+    dragSnap.current = { blocks: clone(blocks), pageBg }; // 리사이즈 전 스냅샷
     e.currentTarget.setPointerCapture(e.pointerId);
     drag.current = { mode: "resize", id: b.id, sx: e.clientX, sy: e.clientY, bx: b.x, by: b.y, bw: b.w, bh: b.h, dx, dy };
   }
@@ -224,7 +332,7 @@ export function PageEditor({
       nx = Math.max(0, Math.min(100 - d.bw, s.nx));
       ny = Math.max(0, Math.min(100 - d.bh, s.ny));
       setSnap({ v: s.gv, h: s.gh });
-      patch(d.id, { x: nx, y: ny });
+      patchLive(d.id, { x: nx, y: ny });
       return;
     }
 
@@ -259,11 +367,18 @@ export function PageEditor({
       }
     }
     setSnap({ v: gv, h: gh });
-    patch(d.id, { x: nx, y: ny, w: Math.max(4, nw), h: Math.max(3, nh) });
+    patchLive(d.id, { x: nx, y: ny, w: Math.max(4, nw), h: Math.max(3, nh) });
   }
   function onDragEnd() {
     drag.current = null;
     setSnap({ v: null, h: null });
+    // 드래그/리사이즈 1회 = 히스토리 1엔트리(실제 변경 시에만)
+    if (dragSnap.current) {
+      if (JSON.stringify(dragSnap.current.blocks) !== JSON.stringify(blocks)) {
+        pushPast(dragSnap.current);
+      }
+      dragSnap.current = null;
+    }
   }
 
   // 8방향 핸들 정의(방향 + 커서 + 위치)
@@ -358,6 +473,37 @@ export function PageEditor({
     return () => window.removeEventListener("keydown", h);
   }, [editingId]);
 
+  // ── P1: 캔버스 키보드 단축키 (인라인 편집·입력 포커스 시 가드) ──
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const t = e.target as HTMLElement | null;
+      if (editingId || !t) return;
+      if (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable) return;
+      const meta = e.metaKey || e.ctrlKey;
+      const k = e.key.toLowerCase();
+      if (meta && k === "z") { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
+      if (meta && k === "y") { e.preventDefault(); redo(); return; }
+      if (meta && k === "d") { e.preventDefault(); duplicateSelected(); return; }
+      if (meta && k === "c") { copySelected(); return; }
+      if (meta && k === "v") { e.preventDefault(); pasteClipboard(); return; }
+      if (e.key === "Delete" || e.key === "Backspace") { if (selectedId) { e.preventDefault(); removeSelected(); } return; }
+      if (e.key === "Escape") { setSelectedId(null); setCtxMenu(null); return; }
+      if (e.key.startsWith("Arrow") && selected) { e.preventDefault(); nudge(e.key, e.shiftKey); }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingId, selectedId, blocks, pageBg]);
+
+  // 컨텍스트 메뉴 바깥 클릭/스크롤 시 닫기
+  useEffect(() => {
+    if (!ctxMenu) return;
+    const close = () => setCtxMenu(null);
+    window.addEventListener("pointerdown", close);
+    window.addEventListener("scroll", close, true);
+    return () => { window.removeEventListener("pointerdown", close); window.removeEventListener("scroll", close, true); };
+  }, [ctxMenu]);
+
   const round = (n: number) => Math.round(n * 10) / 10;
 
   return (
@@ -378,8 +524,8 @@ export function PageEditor({
         <button type="button" onClick={addImage} className="tbtn">＋ 이미지</button>
         <button type="button" onClick={addImageFrame} className="tbtn">＋ 이미지 프레임</button>
         <span className="tbsep" />
-        <button type="button" disabled title="실행취소(준비 중)" className="tbtn ghost">↶ 실행취소</button>
-        <button type="button" disabled title="다시실행(준비 중)" className="tbtn ghost">↷ 다시실행</button>
+        <button type="button" onClick={undo} disabled={past.current.length === 0} title="실행취소 (⌘Z)" className="tbtn ghost">↶ 실행취소</button>
+        <button type="button" onClick={redo} disabled={future.current.length === 0} title="다시실행 (⌘⇧Z)" className="tbtn ghost">↷ 다시실행</button>
         <span className="tbsep" />
         {/* 정렬 ▾ */}
         <details className="relative">
@@ -467,6 +613,12 @@ export function PageEditor({
                 onPointerDown={(e) => { if (!isEditing) onBlockPointerDown(e, b); }}
                 onPointerMove={isEditing ? undefined : onDragMove}
                 onPointerUp={isEditing ? undefined : onDragEnd}
+                onContextMenu={(e) => {
+                  if (isEditing) return;
+                  e.preventDefault();
+                  setSelectedId(b.id);
+                  setCtxMenu({ x: e.clientX, y: e.clientY });
+                }}
                 onDoubleClick={(e) => {
                   if (b.type !== "text") return;
                   e.stopPropagation();
@@ -541,11 +693,11 @@ export function PageEditor({
                 <div className="ed-grouplabel">페이지 배경색</div>
                 <div className="ed-field">
                   <span className="k">#</span>
-                  <input value={pageBg.replace(/^#/, "")} onChange={(e) => setPageBg("#" + e.target.value.replace(/^#/, ""))} />
+                  <input value={pageBg.replace(/^#/, "")} onChange={(e) => { commitDebounced(); setPageBg("#" + e.target.value.replace(/^#/, "")); }} />
                 </div>
                 <div className="mt-2 flex gap-1.5">
                   {["#ffffff", "#faf7f2", "#111111", "#000000"].map((c) => (
-                    <button key={c} type="button" onClick={() => setPageBg(c)} className="h-6 w-6 rounded border" style={{ background: c }} />
+                    <button key={c} type="button" onClick={() => { commitDebounced(); setPageBg(c); }} className="h-6 w-6 rounded border" style={{ background: c }} />
                   ))}
                 </div>
               </div>
@@ -682,7 +834,36 @@ export function PageEditor({
             </div>
           )}
         </aside>
+
+      {/* 우클릭 컨텍스트 메뉴(P1) */}
+      {ctxMenu && selected && (
+        <div
+          className="fixed z-[100] min-w-[168px] rounded-md border bg-popover p-1 text-xs shadow-md"
+          style={{ left: Math.min(ctxMenu.x, window.innerWidth - 180), top: ctxMenu.y }}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <CtxItem onClick={() => { duplicateSelected(); setCtxMenu(null); }} label="복제" kbd="⌘D" />
+          <CtxItem onClick={() => { copySelected(); setCtxMenu(null); }} label="복사" kbd="⌘C" />
+          <CtxItem onClick={() => { zOrder("front"); setCtxMenu(null); }} label="맨 앞으로" />
+          <CtxItem onClick={() => { zOrder("back"); setCtxMenu(null); }} label="맨 뒤로" />
+          <div className="my-1 h-px bg-border" />
+          <CtxItem onClick={() => { removeSelected(); setCtxMenu(null); }} label="삭제" kbd="Del" danger />
+        </div>
+      )}
     </div>
+  );
+}
+
+function CtxItem({ onClick, label, kbd, danger }: { onClick: () => void; label: string; kbd?: string; danger?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-full items-center justify-between gap-6 rounded px-2 py-1.5 text-left hover:bg-accent ${danger ? "text-red-600" : ""}`}
+    >
+      <span>{label}</span>
+      {kbd && <span className="font-mono text-[10px] text-muted-foreground">{kbd}</span>}
+    </button>
   );
 }
 
