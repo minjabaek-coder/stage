@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { chunkBlogContent } from "@/lib/chunker";
-import { embedDocuments, embedQuery } from "@/lib/voyage";
+import { embedDocuments, embedQuery } from "@/lib/embeddings";
 import { parsePageLayout } from "@/types/magazine-layout";
 
 export interface ChunkResult {
@@ -155,7 +155,7 @@ export async function searchChunks(
   query: string,
   topK: number = 5,
 ): Promise<ChunkResult[]> {
-  if (!process.env.VOYAGE_API_KEY) return [];
+  if (!process.env.GEMINI_API_KEY) return [];
 
   const queryEmbedding = await embedQuery(query);
   const vec = `[${queryEmbedding.join(",")}]`;
