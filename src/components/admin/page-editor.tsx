@@ -911,7 +911,9 @@ export function PageEditor({
                 onContextMenu={(e) => {
                   if (isEditing) return;
                   e.preventDefault();
-                  setSelectedId(b.id);
+                  if (!selectedIds.includes(b.id)) {
+                    setSelectedIds(b.groupId ? blocks.filter((x) => x.groupId === b.groupId).map((x) => x.id) : [b.id]);
+                  }
                   setCtxMenu({ x: e.clientX, y: e.clientY });
                 }}
                 onDoubleClick={(e) => {
@@ -992,6 +994,21 @@ export function PageEditor({
           {marquee && (
             <div style={{ position: "absolute", left: `${marquee.x}%`, top: `${marquee.y}%`, width: `${marquee.w}%`, height: `${marquee.h}%`, border: "1px solid #2563eb", background: "rgba(37,99,235,0.10)", zIndex: 1001, pointerEvents: "none" }} />
           )}
+          {/* 플로팅 텍스트 서식 툴바(P5b) — 편집 중 블록 위, 캔버스 스케일 역보정 */}
+          {editingId && activeEditor && (() => {
+            const eb = blocks.find((x) => x.id === editingId);
+            if (!eb) return null;
+            return (
+              <div
+                style={{ position: "absolute", left: `${eb.x}%`, top: `${eb.y}%`, transform: `translateY(-100%) scale(${1 / scale})`, transformOrigin: "left bottom", zIndex: 1002 }}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                <div className="mb-1 rounded-md border bg-popover p-1 shadow-md">
+                  <FmtToolbar editor={activeEditor} />
+                </div>
+              </div>
+            );
+          })()}
         </div>
         </div>
         </div>
@@ -1058,7 +1075,8 @@ export function PageEditor({
               <h4 className="mb-2.5 flex items-center gap-1.5">
                 <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-muted-foreground">속성</span>
                 <span className="ed-typetag">{selected.type === "image" ? "이미지 블록" : selected.type === "shape" ? `도형 · ${({ rect: "사각형", ellipse: "원", line: "선" } as const)[(selected as ShapeBlock).shape]}` : "텍스트 블록"}</span>
-                <button type="button" onClick={removeSelected} className="ml-auto rounded border px-2 py-0.5 text-xs text-red-600 hover:bg-red-50">삭제</button>
+                <button type="button" onClick={duplicateSelected} title="복제 (⌘D)" className="ml-auto rounded border px-2 py-0.5 text-xs hover:bg-accent">복제</button>
+                <button type="button" onClick={removeSelected} title="삭제 (Del)" className="rounded border px-2 py-0.5 text-xs text-red-600 hover:bg-red-50">삭제</button>
               </h4>
 
               {/* 위치 · 크기 */}
@@ -1240,8 +1258,8 @@ export function PageEditor({
           </div>
         </aside>
 
-      {/* 우클릭 컨텍스트 메뉴(P1) */}
-      {ctxMenu && selected && (
+      {/* 우클릭 컨텍스트 메뉴(P1/P2) */}
+      {ctxMenu && selectedIds.length > 0 && (
         <div
           className="fixed z-[100] min-w-[168px] rounded-md border bg-popover p-1 text-xs shadow-md"
           style={{ left: Math.min(ctxMenu.x, window.innerWidth - 180), top: ctxMenu.y }}
@@ -1249,8 +1267,20 @@ export function PageEditor({
         >
           <CtxItem onClick={() => { duplicateSelected(); setCtxMenu(null); }} label="복제" kbd="⌘D" />
           <CtxItem onClick={() => { copySelected(); setCtxMenu(null); }} label="복사" kbd="⌘C" />
-          <CtxItem onClick={() => { zOrder("front"); setCtxMenu(null); }} label="맨 앞으로" />
-          <CtxItem onClick={() => { zOrder("back"); setCtxMenu(null); }} label="맨 뒤로" />
+          {clipboardStore && clipboardStore.length > 0 && (
+            <CtxItem onClick={() => { pasteClipboard(); setCtxMenu(null); }} label="붙여넣기" kbd="⌘V" />
+          )}
+          {selectedIds.length > 1 ? (
+            <>
+              <CtxItem onClick={() => { groupSelected(); setCtxMenu(null); }} label="그룹" kbd="⌘G" />
+              <CtxItem onClick={() => { ungroupSelected(); setCtxMenu(null); }} label="그룹 해제" />
+            </>
+          ) : (
+            <>
+              <CtxItem onClick={() => { zOrder("front"); setCtxMenu(null); }} label="맨 앞으로" />
+              <CtxItem onClick={() => { zOrder("back"); setCtxMenu(null); }} label="맨 뒤로" />
+            </>
+          )}
           <div className="my-1 h-px bg-border" />
           <CtxItem onClick={() => { removeSelected(); setCtxMenu(null); }} label="삭제" kbd="Del" danger />
         </div>
