@@ -17,15 +17,19 @@ interface Message {
 const WELCOME_MESSAGE: Message = {
   role: "ai",
   content:
-    "안녕하세요, STAGE의 AI 도슨트 마에스트로입니다. STAGE가 읽은 매거진·기사를 바탕으로 작품 배경·작곡가·공연 정보를 함께 풀어드려요. 아래에서 골라 시작하거나, 무엇이든 물어보세요.",
+    "안녕하세요, STAGE의 AI 도슨트 마에스트로예요. 매거진·기사에 실린 작품 배경·작곡가·공연 정보를 함께 풀어드릴게요.",
 };
 
-// 빈 화면 시작 프롬프트 — 누르면 바로 전송.
+// 빈 상태(대화 시작 전) 중앙에 보여줄 안내 한 줄
+const EMPTY_HINT = "이런 것들을 물어볼 수 있어요";
+
+// 빈 화면 시작 프롬프트 — 누르면 바로 전송. 독립 페이지·팝업 어디서나 맥락 없이
+// 자연스럽도록 일반 질문으로 구성(특정 호·기사 맥락 가정 금지).
 const STARTERS = [
-  "이번 호 핵심만 요약해줘",
-  "이 작곡가에 대해 더 알려줘",
-  "비슷한 공연 추천해줘",
-  "용어가 어려워요, 쉽게 설명해줘",
+  "최신호에는 어떤 이야기가 있어?",
+  "요즘 볼만한 공연 추천해줘",
+  "이 달의 전시 소식 알려줘",
+  "성악·오페라 용어를 쉽게 설명해줘",
 ];
 
 // 스트리밍 대기 중 표시(점 3개 애니메이션)
@@ -58,10 +62,18 @@ export function ChatBody({ seedQuestion }: { seedQuestion?: string }) {
   const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
   const [input, setInput] = useState(seedQuestion ?? "");
   const [isLoading, setIsLoading] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const mounted = useRef(false);
 
+  // 새 메시지 시 '내부 메시지 영역'만 맨 아래로(윈도우는 그대로 — 페이지가 통째로
+  // 내려가 히어로가 가려지던 문제 방지). 첫 마운트(인사말만)에선 스크롤하지 않음.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!mounted.current) {
+      mounted.current = true;
+      return;
+    }
+    const el = scrollRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
   // 이미 열린 채팅에서 다른 시드 질문(기사 위젯 칩)을 누르면 입력창을 갱신
@@ -160,72 +172,90 @@ export function ChatBody({ seedQuestion }: { seedQuestion?: string }) {
     sendMessage(input);
   }
 
-  // 시작 프롬프트는 환영 메시지만 있을 때(대화 시작 전) 노출
-  const showStarters = messages.length === 1 && !isLoading;
+  // 대화 시작 전(인사말만): 빈 상태 — 인사말+시작칩을 중앙에 배치(허전함 방지)
+  const isEmpty = messages.length === 1 && !isLoading;
+
+  const starterChips = (
+    <div className="flex flex-wrap justify-center gap-2">
+      {STARTERS.map((q) => (
+        <button
+          key={q}
+          onClick={() => sendMessage(q)}
+          className="rounded-full border border-teal/30 bg-white px-3.5 py-1.5 text-sm text-teal-deep transition-colors hover:border-teal hover:bg-teal/5"
+        >
+          {q}
+        </button>
+      ))}
+    </div>
+  );
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 min-h-0 overflow-y-auto space-y-3">
-        {messages.map((msg, i) => {
-          const isLastAi = i === messages.length - 1 && msg.role === "ai";
-          const isStreaming = isLastAi && isLoading && msg.content === "";
-          return (
-          <div key={i}>
-            <div
-              className={
-                msg.role === "ai"
-                  ? "bg-surface-warm text-ink rounded-lg p-3 text-sm leading-relaxed max-w-[80%]"
-                  : "bg-ink text-white rounded-lg p-3 text-sm max-w-[80%] ml-auto"
-              }
-            >
-              {isStreaming ? <TypingDots /> : msg.content}
-            </div>
-            {msg.sources && msg.sources.length > 0 && (
-              <div className="mt-1.5 flex flex-wrap gap-1.5 max-w-[80%]">
-                {msg.sources.map((src, j) => (
-                  <Link
-                    key={j}
-                    href={src.href}
-                    target="_blank"
-                    className="inline-flex items-center gap-1 px-2 py-1 bg-surface-warm rounded text-[10px] font-label text-teal-deep hover:bg-surface-warm/70 transition-colors"
-                  >
-                    <svg
-                      width="10"
-                      height="10"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                      <polyline points="15 3 21 3 21 9" />
-                      <line x1="10" y1="14" x2="21" y2="3" />
-                    </svg>
-                    {src.title}
-                  </Link>
-                ))}
+      <div
+        ref={scrollRef}
+        className={
+          isEmpty
+            ? "flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center gap-5 px-4 text-center"
+            : "flex-1 min-h-0 overflow-y-auto space-y-3"
+        }
+      >
+        {isEmpty ? (
+          <>
+            <p className="max-w-md text-sm leading-relaxed text-ink-muted">
+              {WELCOME_MESSAGE.content}
+            </p>
+            <p className="font-label text-[11px] uppercase tracking-[0.2em] text-ink-muted/70">
+              {EMPTY_HINT}
+            </p>
+            {starterChips}
+          </>
+        ) : (
+          messages.map((msg, i) => {
+            const isLastAi = i === messages.length - 1 && msg.role === "ai";
+            const isStreaming = isLastAi && isLoading && msg.content === "";
+            return (
+              <div key={i}>
+                <div
+                  className={
+                    msg.role === "ai"
+                      ? "bg-surface-warm text-ink rounded-lg p-3 text-sm leading-relaxed max-w-[80%]"
+                      : "bg-ink text-white rounded-lg p-3 text-sm max-w-[80%] ml-auto"
+                  }
+                >
+                  {isStreaming ? <TypingDots /> : msg.content}
+                </div>
+                {msg.sources && msg.sources.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1.5 max-w-[80%]">
+                    {msg.sources.map((src, j) => (
+                      <Link
+                        key={j}
+                        href={src.href}
+                        target="_blank"
+                        className="inline-flex items-center gap-1 px-2 py-1 bg-surface-warm rounded text-[10px] font-label text-teal-deep hover:bg-surface-warm/70 transition-colors"
+                      >
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                          <polyline points="15 3 21 3 21 9" />
+                          <line x1="10" y1="14" x2="21" y2="3" />
+                        </svg>
+                        {src.title}
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-          );
-        })}
-
-        {showStarters && (
-          <div className="flex flex-wrap gap-2 pt-1">
-            {STARTERS.map((q) => (
-              <button
-                key={q}
-                onClick={() => sendMessage(q)}
-                className="rounded-full border border-teal/30 bg-white px-3.5 py-1.5 text-sm text-teal-deep transition-colors hover:border-teal hover:bg-teal/5"
-              >
-                {q}
-              </button>
-            ))}
-          </div>
+            );
+          })
         )}
-        <div ref={bottomRef} />
       </div>
 
       <div className="flex gap-2 mt-3 shrink-0">

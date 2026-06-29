@@ -163,6 +163,8 @@ type RawChunk = {
   href: string;
 };
 
+const SIMILARITY_FLOOR = 0.3; // 코사인 유사도 하한(노이즈 컷)
+
 export async function searchChunks(
   query: string,
   topK: number = 5,
@@ -172,6 +174,9 @@ export async function searchChunks(
   const queryEmbedding = await embedQuery(query);
   const vec = `[${queryEmbedding.join(",")}]`;
 
+  // 후보 풀을 topK보다 넉넉히 가져온 뒤 임계값 필터 → topK 슬라이스.
+  // (이전엔 DB에서 topK개만 가져와 약한 매치가 섞이면 결과가 줄던 문제)
+  const candidates = Math.max(20, topK * 4);
   const rows = await prisma.$queryRawUnsafe<RawChunk[]>(
     `SELECT "id", "title", "content", "href",
             1 - ("embedding" <=> $1::vector) AS similarity
@@ -180,11 +185,11 @@ export async function searchChunks(
      ORDER BY "embedding" <=> $1::vector
      LIMIT $2`,
     vec,
-    topK,
+    candidates,
   );
 
   return rows
-    .filter((r) => r.similarity > 0.3)
+    .filter((r) => r.similarity > SIMILARITY_FLOOR)
     .sort((a, b) => b.similarity - a.similarity)
     .slice(0, topK);
 }
