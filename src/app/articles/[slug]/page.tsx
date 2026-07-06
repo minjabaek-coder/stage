@@ -54,12 +54,31 @@ async function getArticleContent(id: string): Promise<string> {
   return row?.content ?? "";
 }
 
+// 에디터 저장형(<img data-caption="…">)을 공개용 figure+figcaption으로 변환.
+// 캡션 텍스트는 sanitize 단계에서 다시 정제되므로 여기선 태그 깨짐만 방지.
+function figureizeCaptions(html: string): string {
+  return html.replace(/<img\b[^>]*>/gi, (tag) => {
+    const m = tag.match(/\sdata-caption="([^"]*)"/i);
+    if (!m || !m[1].trim()) return tag;
+    const caption = m[1].replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const imgClean = tag.replace(/\sdata-caption="[^"]*"/i, "");
+    return `<figure class="article-figure">${imgClean}<figcaption>${caption}</figcaption></figure>`;
+  });
+}
+
 function sanitizeArticle(html: string): string {
-  return sanitizeHtml(html, {
-    allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img", "h1", "h2"]),
+  return sanitizeHtml(figureizeCaptions(html), {
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat([
+      "img",
+      "h1",
+      "h2",
+      "figure",
+      "figcaption",
+    ]),
     allowedAttributes: {
       ...sanitizeHtml.defaults.allowedAttributes,
       img: ["src", "alt", "width", "height"],
+      figure: ["class"],
     },
   });
 }

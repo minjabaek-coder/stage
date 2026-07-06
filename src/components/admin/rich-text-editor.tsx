@@ -3,8 +3,8 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import TiptapLink from "@tiptap/extension-link";
-import TiptapImage from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
+import { CaptionedImage } from "@/components/admin/captioned-image";
 import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
@@ -184,8 +184,8 @@ export function RichTextEditor({
     extensions: [
       StarterKit,
       TiptapLink.configure({ openOnClick: false }),
-      TiptapImage,
-      Placeholder.configure({ placeholder: "블로그 내용을 입력하세요..." }),
+      CaptionedImage,
+      Placeholder.configure({ placeholder: "기사 본문을 입력하세요…" }),
     ],
     content,
     immediatelyRender: false,
