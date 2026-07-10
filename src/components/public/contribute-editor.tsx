@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState, useCallback, useId } from "react";
+import { useActionState, useEffect, useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
 import { RichTextEditor } from "@/components/admin/rich-text-editor";
@@ -59,9 +59,20 @@ export function ContributeEditor({
     accept: Object.fromEntries(ACCEPTED_IMAGE_TYPES.map((t) => [t, []])),
     maxFiles: 1,
     maxSize: MAX_FILE_SIZE,
-    noClick: true, // 드래그만 담당. 파일 선택은 아래 label→input(네이티브)로 열기
+    noClick: true, // 드래그만 담당. 파일 선택은 label 안의 input(네이티브)으로 열기
   });
-  const thumbInputId = useId();
+  // label로 감싸는 파일 input(하이드레이션 무관하게 항상 열림). 여러 label에서 재사용.
+  const thumbFileInput = (
+    <input
+      type="file"
+      accept="image/*"
+      className="sr-only"
+      onChange={(e) => {
+        if (e.target.files?.length) onDrop(Array.from(e.target.files));
+        e.currentTarget.value = "";
+      }}
+    />
+  );
 
   const labelClass =
     "font-label text-[11px] uppercase tracking-wider text-gold-deep";
@@ -147,16 +158,6 @@ export function ContributeEditor({
           }`}
         >
           <input {...getInputProps()} />
-          <input
-            id={thumbInputId}
-            type="file"
-            accept="image/*"
-            className="sr-only"
-            onChange={(e) => {
-              if (e.target.files?.length) onDrop(Array.from(e.target.files));
-              e.currentTarget.value = "";
-            }}
-          />
           {uploading ? (
             <p className="text-sm text-taupe">업로드 중…</p>
           ) : thumbnailUrl ? (
@@ -166,11 +167,9 @@ export function ContributeEditor({
                 <img src={thumbnailUrl} alt="썸네일" className="absolute inset-0 h-full w-full object-cover" />
               </div>
               <div className="flex justify-center gap-2">
-                <label
-                  htmlFor={thumbInputId}
-                  className="cursor-pointer border border-ink/20 px-3 py-1.5 font-label text-[11px] uppercase tracking-wider text-ink hover:border-gold-deep hover:text-gold-deep"
-                >
+                <label className="cursor-pointer border border-ink/20 px-3 py-1.5 font-label text-[11px] uppercase tracking-wider text-ink hover:border-gold-deep hover:text-gold-deep">
                   이미지 변경
+                  {thumbFileInput}
                 </label>
                 <button
                   type="button"
@@ -183,11 +182,9 @@ export function ContributeEditor({
             </div>
           ) : (
             <div className="space-y-2 py-2">
-              <label
-                htmlFor={thumbInputId}
-                className="inline-block cursor-pointer border border-ink/30 px-4 py-2 font-label text-[11px] font-bold uppercase tracking-wider text-ink hover:border-gold-deep hover:text-gold-deep"
-              >
+              <label className="inline-block cursor-pointer border border-ink/30 px-4 py-2 font-label text-[11px] font-bold uppercase tracking-wider text-ink hover:border-gold-deep hover:text-gold-deep">
                 📁 파일 선택
+                {thumbFileInput}
               </label>
               <p className="text-xs text-taupe">또는 이미지를 여기로 드래그 · JPG/PNG/WebP</p>
             </div>
