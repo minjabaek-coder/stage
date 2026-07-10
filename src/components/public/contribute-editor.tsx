@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState, useCallback } from "react";
+import { useActionState, useEffect, useState, useCallback, useRef } from "react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
 import { RichTextEditor } from "@/components/admin/rich-text-editor";
@@ -54,13 +54,16 @@ export function ContributeEditor({
     setUploading(false);
   }, []);
 
-  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: Object.fromEntries(ACCEPTED_IMAGE_TYPES.map((t) => [t, []])),
     maxFiles: 1,
     maxSize: MAX_FILE_SIZE,
-    noClick: true, // 명시적 '파일 선택'·'변경' 버튼으로만 열기
+    noClick: true, // 드래그만 담당. 버튼 클릭은 아래 파일 input(ref)으로 직접 열기
   });
+  // 브라우저 호환을 위해 파일 선택은 react-dropzone open() 대신 직접 input.click().
+  const thumbFileRef = useRef<HTMLInputElement>(null);
+  const pickThumbnail = () => thumbFileRef.current?.click();
 
   const labelClass =
     "font-label text-[11px] uppercase tracking-wider text-gold-deep";
@@ -109,7 +112,7 @@ export function ContributeEditor({
           name="subtitle"
           defaultValue={initial.subtitle ?? ""}
           maxLength={300}
-          placeholder="제목 아래 표시되는 한 줄 (예: 그리스 섬 동부지중해 크루즈 여행기 ① 프롤로그)"
+          placeholder="제목 아래 표시되는 한 줄"
           className={fieldClass}
         />
       </div>
@@ -146,6 +149,16 @@ export function ContributeEditor({
           }`}
         >
           <input {...getInputProps()} />
+          <input
+            ref={thumbFileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files?.length) onDrop(Array.from(e.target.files));
+              e.currentTarget.value = "";
+            }}
+          />
           {uploading ? (
             <p className="text-sm text-taupe">업로드 중…</p>
           ) : thumbnailUrl ? (
@@ -157,7 +170,7 @@ export function ContributeEditor({
               <div className="flex justify-center gap-2">
                 <button
                   type="button"
-                  onClick={open}
+                  onClick={pickThumbnail}
                   className="border border-ink/20 px-3 py-1.5 font-label text-[11px] uppercase tracking-wider text-ink hover:border-gold-deep hover:text-gold-deep"
                 >
                   이미지 변경
@@ -175,7 +188,7 @@ export function ContributeEditor({
             <div className="space-y-2 py-2">
               <button
                 type="button"
-                onClick={open}
+                onClick={pickThumbnail}
                 className="border border-ink/30 px-4 py-2 font-label text-[11px] font-bold uppercase tracking-wider text-ink hover:border-gold-deep hover:text-gold-deep"
               >
                 📁 파일 선택

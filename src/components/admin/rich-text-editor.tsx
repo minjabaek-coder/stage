@@ -6,7 +6,7 @@ import TiptapLink from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import { CaptionedImage } from "@/components/admin/captioned-image";
 import { ImageGallery } from "@/components/admin/image-gallery";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
 import {
@@ -56,6 +56,8 @@ function ImageInsertDialog({
 }) {
   const [uploading, setUploading] = useState(false);
   const [urlInput, setUrlInput] = useState("");
+  // 파일 선택은 react-dropzone open() 대신 직접 input.click()(브라우저 호환).
+  const fileRef = useRef<HTMLInputElement>(null);
 
   // 1장이면 단일 이미지, 2장 이상이면 한 행 그리드로 삽입(상위에서 분기).
   async function handleFiles(files: File[]) {
@@ -71,7 +73,7 @@ function ImageInsertDialog({
     setUploading(false);
   }
 
-  const { getRootProps, getInputProps, isDragActive, open: openFilePicker } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: (files) => handleFiles(files),
     onDropRejected: (rejections) => {
       const tooLarge = rejections[0]?.errors.some(
@@ -118,13 +120,24 @@ function ImageInsertDialog({
               } ${uploading ? "pointer-events-none opacity-60" : ""}`}
             >
               <input {...getInputProps()} />
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files?.length) handleFiles(Array.from(e.target.files));
+                  e.currentTarget.value = "";
+                }}
+              />
               {uploading ? (
                 <p className="text-sm text-gray-500">업로드 중...</p>
               ) : (
                 <div className="space-y-2">
                   <Button
                     type="button"
-                    onClick={openFilePicker}
+                    onClick={() => fileRef.current?.click()}
                     variant="secondary"
                     size="sm"
                   >

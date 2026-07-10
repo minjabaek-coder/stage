@@ -164,7 +164,7 @@ export function ArticleForm({
                 name="subtitle"
                 defaultValue={defaultValues?.subtitle ?? ""}
                 maxLength={300}
-                placeholder="제목 아래 표시되는 한 줄 (선택)"
+                placeholder="제목 아래 표시되는 한 줄"
               />
             </div>
 
