@@ -18,20 +18,9 @@ import {
   heroAspectRatio,
 } from "@/lib/article-taxonomy";
 import { FocusPicker } from "@/components/admin/focus-picker";
+import { slugify } from "@/lib/article-utils";
 
 type FormState = { error?: string; success?: boolean } | undefined;
-
-function slugify(text: string): string {
-  const base = text
-    .toLowerCase()
-    .replace(/[가-힣]/g, "")
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-
-  return base || `article-${Date.now()}`;
-}
 
 export function ArticleForm({
   action,
@@ -42,6 +31,7 @@ export function ArticleForm({
   defaultValues?: {
     title?: string;
     slug?: string;
+    subtitle?: string | null;
     excerpt?: string | null;
     author?: string;
     genre?: string | null;
@@ -139,29 +129,47 @@ export function ArticleForm({
             <input type="hidden" name="thumbnailZoom" value={zoom} />
             <input type="hidden" name="heroAspect" value={heroAspect} />
 
+            <p className="text-xs text-gray-500">
+              <span className="text-red-500">＊</span> 발행에 필요한 항목입니다.
+              기고 요청만 만들 때는 비워둬도 됩니다(발행 시 확인).
+            </p>
+
             <div className="space-y-2">
-              <Label htmlFor="title">제목</Label>
+              <Label htmlFor="title">
+                제목 <span className="text-red-500">＊</span>
+              </Label>
               <Input
                 id="title"
                 name="title"
                 value={title}
                 onChange={(e) => handleTitleChange(e.target.value)}
-                required
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="slug">슬러그</Label>
+              <Label htmlFor="subtitle">부제 (소제목)</Label>
+              <Input
+                id="subtitle"
+                name="subtitle"
+                defaultValue={defaultValues?.subtitle ?? ""}
+                maxLength={300}
+                placeholder="제목 아래 표시되는 한 줄"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="slug">
+                슬러그 <span className="text-red-500">＊</span>
+              </Label>
               <Input
                 id="slug"
                 name="slug"
                 value={slug}
                 onChange={(e) => setSlug(e.target.value)}
-                placeholder="url-friendly-slug"
-                required
+                placeholder="비우면 자동 생성"
               />
               <p className="text-xs text-gray-500">
-                URL에 사용됩니다: /articles/{slug || "..."}
+                URL에 사용됩니다: /articles/{slug || "(자동)"}
               </p>
             </div>
 

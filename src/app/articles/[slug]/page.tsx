@@ -28,6 +28,7 @@ const getArticleMeta = cache(async (slug: string) => {
       id: true,
       title: true,
       slug: true,
+      subtitle: true,
       excerpt: true,
       author: true,
       category: true,
@@ -54,12 +55,66 @@ async function getArticleContent(id: string): Promise<string> {
   return row?.content ?? "";
 }
 
+// 에디터 저장형(<img data-caption="…">)을 공개용 figure+figcaption으로 변환.
+// 캡션 텍스트는 sanitize 단계에서 다시 정제되므로 여기선 태그 깨짐만 방지.
+function figureizeCaptions(html: string): string {
+  return html.replace(/<img\b[^>]*>/gi, (tag) => {
+    const m = tag.match(/\sdata-caption="([^"]*)"/i);
+    if (!m || !m[1].trim()) return tag;
+    const caption = m[1].replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const imgClean = tag.replace(/\sdata-caption="[^"]*"/i, "");
+    return `<figure class="article-figure">${imgClean}<figcaption>${caption}</figcaption></figure>`;
+  });
+}
+
+// 갤러리 저장형(<div class="article-gallery" data-gallery='[…]'></div>)을
+// 공개용 figure 그리드로 확장. data-gallery JSON은 HTML 엔티티로 이스케이프돼 있음.
+function galleryizeCaptions(html: string): string {
+  return html.replace(
+    /<div\b([^>]*\bclass="article-gallery"[^>]*)><\/div>/gi,
+    (whole, attrs: string) => {
+      const m = attrs.match(/data-gallery="([^"]*)"/i);
+      if (!m) return whole;
+      const json = m[1]
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&amp;/g, "&");
+      let imgs: { src?: string; caption?: string }[];
+      try {
+        imgs = JSON.parse(json);
+      } catch {
+        return whole;
+      }
+      if (!Array.isArray(imgs) || imgs.length === 0) return whole;
+      const cells = imgs
+        .filter((im) => im?.src)
+        .map((im) => {
+          const src = String(im.src).replace(/"/g, "&quot;");
+          const cap = (im.caption || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          return `<figure><img src="${src}" alt="${cap}" />${cap ? `<figcaption>${cap}</figcaption>` : ""}</figure>`;
+        })
+        .join("");
+      return `<div class="article-gallery">${cells}</div>`;
+    },
+  );
+}
+
 function sanitizeArticle(html: string): string {
-  return sanitizeHtml(html, {
-    allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img", "h1", "h2"]),
+  return sanitizeHtml(figureizeCaptions(galleryizeCaptions(html)), {
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat([
+      "img",
+      "h1",
+      "h2",
+      "figure",
+      "figcaption",
+    ]),
     allowedAttributes: {
       ...sanitizeHtml.defaults.allowedAttributes,
       img: ["src", "alt", "width", "height"],
+      figure: ["class"],
+      div: ["class"],
     },
   });
 }
@@ -192,6 +247,12 @@ export default async function ArticlePage({
           {article.title}
         </h1>
 
+        {article.subtitle && (
+          <p className="mt-3 font-headline text-lg leading-snug text-taupe md:text-xl">
+            {article.subtitle}
+          </p>
+        )}
+
         <div className="mt-5 flex items-center gap-2 text-sm text-taupe">
           {article.author && (
             <span className="font-medium text-ink-muted">{article.author}</span>
@@ -242,7 +303,7 @@ export default async function ArticlePage({
         {locked ? (
           <div className="mt-8">
             {article.excerpt && (
-              <p className="text-lg leading-[1.9] text-ink-muted">
+              <p className="text-lg leading-[1.7] text-ink-muted">
                 {article.excerpt}
               </p>
             )}
@@ -269,7 +330,7 @@ export default async function ArticlePage({
           </div>
         ) : (
           <div
-            className="prose prose-stone mt-8 max-w-none leading-[1.9] prose-headings:font-headline prose-headings:text-ink prose-p:text-ink-muted prose-a:text-gold-deep prose-strong:text-ink prose-img:w-full prose-blockquote:border-gold-deep prose-blockquote:text-ink-muted"
+            className="prose prose-stone mt-8 max-w-none leading-[1.6] prose-headings:font-headline prose-headings:text-ink prose-p:text-ink-muted prose-a:text-gold-deep prose-strong:text-ink prose-img:w-full prose-blockquote:border-gold-deep prose-blockquote:text-ink-muted"
             dangerouslySetInnerHTML={{ __html: safeContent ?? "" }}
           />
         )}

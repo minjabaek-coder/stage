@@ -2,10 +2,10 @@
 
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import TiptapLink from "@tiptap/extension-link";
-import TiptapImage from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
-import { useCallback, useState } from "react";
+import { CaptionedImage } from "@/components/admin/captioned-image";
+import { ImageGallery } from "@/components/admin/image-gallery";
+import { useCallback, useId, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
 import {
@@ -51,16 +51,20 @@ function ImageInsertDialog({
 }: {
   open: boolean;
   onClose: () => void;
-  onInsert: (url: string) => void;
+  onInsert: (urls: string[]) => void;
 }) {
   const [uploading, setUploading] = useState(false);
   const [urlInput, setUrlInput] = useState("");
+  // 파일 선택은 label→input(네이티브)로 열기 — 브라우저 호환·JS 불필요.
+  const imgInputId = useId();
 
-  async function handleFile(file: File) {
+  // 1장이면 단일 이미지, 2장 이상이면 한 행 그리드로 삽입(상위에서 분기).
+  async function handleFiles(files: File[]) {
+    if (files.length === 0) return;
     setUploading(true);
     try {
-      const url = await uploadImage(file);
-      onInsert(url);
+      const urls = await Promise.all(files.map((f) => uploadImage(f)));
+      onInsert(urls);
       setUrlInput("");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "업로드 실패");
@@ -69,9 +73,7 @@ function ImageInsertDialog({
   }
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop: (files) => {
-      if (files[0]) handleFile(files[0]);
-    },
+    onDrop: (files) => handleFiles(files),
     onDropRejected: (rejections) => {
       const tooLarge = rejections[0]?.errors.some(
         (e) => e.code === "file-too-large"
@@ -83,14 +85,14 @@ function ImageInsertDialog({
       );
     },
     accept: Object.fromEntries(ACCEPTED_IMAGE_TYPES.map((t) => [t, []])),
-    maxFiles: 1,
     maxSize: MAX_FILE_SIZE,
     disabled: uploading,
+    noClick: true, // 영역 클릭 대신 명시적 '파일 선택' 버튼으로만 열기
   });
 
   function handleUrlSubmit() {
     if (urlInput.trim()) {
-      onInsert(urlInput.trim());
+      onInsert([urlInput.trim()]);
       setUrlInput("");
     }
   }
@@ -117,15 +119,32 @@ function ImageInsertDialog({
               } ${uploading ? "pointer-events-none opacity-60" : ""}`}
             >
               <input {...getInputProps()} />
+              <input
+                id={imgInputId}
+                type="file"
+                accept="image/*"
+                multiple
+                className="sr-only"
+                onChange={(e) => {
+                  if (e.target.files?.length) handleFiles(Array.from(e.target.files));
+                  e.currentTarget.value = "";
+                }}
+              />
               {uploading ? (
                 <p className="text-sm text-gray-500">업로드 중...</p>
               ) : (
-                <div className="space-y-1">
-                  <p className="text-sm text-gray-500">
-                    클릭하거나 이미지를 드래그하세요
-                  </p>
+                <div className="space-y-2">
+                  <label
+                    htmlFor={imgInputId}
+                    className="inline-flex cursor-pointer items-center rounded-md border bg-white px-3 py-1.5 text-sm font-medium shadow-sm hover:bg-gray-50"
+                  >
+                    📁 파일 선택
+                  </label>
                   <p className="text-xs text-gray-400">
-                    JPG, PNG, WebP
+                    또는 여기로 드래그 · JPG, PNG, WebP
+                  </p>
+                  <p className="text-[11px] text-gray-400">
+                    여러 장 선택하면 한 행 그리드로 삽입됩니다
                   </p>
                 </div>
               )}
@@ -182,10 +201,12 @@ export function RichTextEditor({
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
-      TiptapLink.configure({ openOnClick: false }),
-      TiptapImage,
-      Placeholder.configure({ placeholder: "블로그 내용을 입력하세요..." }),
+      // StarterKit(v3)이 Link를 포함 → 별도 extension-link 추가 시 'link' 중복 경고.
+      // StarterKit의 link를 직접 설정.
+      StarterKit.configure({ link: { openOnClick: false } }),
+      CaptionedImage,
+      ImageGallery,
+      Placeholder.configure({ placeholder: "기사 본문을 입력하세요…" }),
     ],
     content,
     immediatelyRender: false,
@@ -243,9 +264,20 @@ export function RichTextEditor({
   }, [editor]);
 
   const handleImageInsert = useCallback(
-    (url: string) => {
-      if (editor) {
-        editor.chain().focus().setImage({ src: url }).run();
+    (urls: string[]) => {
+      if (editor && urls.length > 0) {
+        if (urls.length === 1) {
+          editor.chain().focus().setImage({ src: urls[0] }).run();
+        } else {
+          // 여러 장 → 한 행 그리드
+          editor
+            .chain()
+            .focus()
+            .setImageGallery({
+              images: urls.map((src) => ({ src, caption: "" })),
+            })
+            .run();
+        }
       }
       setImageDialogOpen(false);
     },
@@ -256,8 +288,9 @@ export function RichTextEditor({
 
   return (
     <>
-      <div className="overflow-hidden rounded-lg border">
-        <div className="flex flex-wrap gap-1 border-b bg-gray-50 p-2">
+      <div className="rounded-lg border">
+        <div className="sticky top-0 z-20 flex flex-wrap gap-1 rounded-t-lg border-b bg-gray-50/95 p-2 backdrop-blur">
+
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleBold().run()}
             active={editor.isActive("bold")}

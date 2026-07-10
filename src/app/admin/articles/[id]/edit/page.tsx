@@ -72,6 +72,7 @@ export default async function EditArticlePage({
           defaultValues={{
             title: article.title,
             slug: article.slug,
+            subtitle: article.subtitle,
             excerpt: article.excerpt,
             author: article.author,
             genre: article.genre,

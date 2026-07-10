@@ -80,7 +80,7 @@ export function ArticleListTable({ articles }: { articles: Article[] }) {
                   </span>
                 </TableCell>
                 <TableCell className="text-sm text-gray-500">
-                  {article.category || "-"}
+                  {article.genre || article.subCategory || article.category || "-"}
                 </TableCell>
                 <TableCell>
                   <StatusBadge status={article.status} />

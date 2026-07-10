@@ -4,12 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { isAdmin } from "@/lib/auth";
 import { generateEditToken, hashEditToken } from "@/lib/article-token";
+import { parseTags } from "@/lib/article-utils";
 
 const DEFAULT_TTL_DAYS = 30; // #5: 기본 30일, 관리자가 변경 가능
-
-function parseTags(tags: string): string[] {
-  return tags.split(",").map((t) => t.trim()).filter(Boolean);
-}
 
 // ── 관리자: 토큰 발급/재발급 ── (기존 토큰 있으면 교체)
 export async function issueArticleToken(
@@ -55,7 +52,7 @@ export async function setArticleTokenExpiry(articleId: string, ttlDays: number) 
 
 // ── 토큰 검증(공개) — /contribute에서 사용 ──
 export type TokenResolution =
-  | { ok: true; article: { id: string; title: string; slug: string; excerpt: string | null; content: string; thumbnailUrl: string | null; tags: string[]; status: string } }
+  | { ok: true; article: { id: string; title: string; slug: string; subtitle: string | null; excerpt: string | null; content: string; thumbnailUrl: string | null; tags: string[]; status: string } }
   | { ok: false; reason: "invalid" | "revoked" | "expired" | "published"; slug?: string; magazineLink?: boolean };
 
 export async function resolveEditToken(token: string): Promise<TokenResolution> {
@@ -65,7 +62,7 @@ export async function resolveEditToken(token: string): Promise<TokenResolution> 
     include: {
       article: {
         select: {
-          id: true, title: true, slug: true, excerpt: true, content: true,
+          id: true, title: true, slug: true, subtitle: true, excerpt: true, content: true,
           thumbnailUrl: true, tags: true, status: true,
         },
       },
@@ -99,6 +96,7 @@ export async function contributeAction(
     where: { id: res.article.id },
     data: {
       title: title.slice(0, 200),
+      subtitle: (formData.get("subtitle") ?? "").toString().slice(0, 300) || null,
       content: (formData.get("content") ?? "").toString(),
       excerpt: (formData.get("excerpt") ?? "").toString() || null,
       thumbnailUrl: (formData.get("thumbnailUrl") ?? "").toString() || null,

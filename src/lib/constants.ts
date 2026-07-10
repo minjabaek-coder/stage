@@ -20,8 +20,5 @@ export const CLIENT_COMPRESS_THRESHOLD = 4 * 1024 * 1024; // 4MB (Vercel Hobby b
 export const CLIENT_COMPRESS_MAX_WIDTH = 1920;
 export const CLIENT_COMPRESS_QUALITY = 0.85;
 
-export const UPLOAD_DIR = "uploads/magazines";
-export const BLOG_UPLOAD_DIR = "uploads/blog";
-
 export const MAGAZINES_PER_CAROUSEL = 5;
 export const LATEST_BLOG_POSTS_COUNT = 3;
