@@ -68,7 +68,7 @@ function ImageInsertDialog({
     setUploading(false);
   }
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive, open: openFilePicker } = useDropzone({
     onDrop: (files) => {
       if (files[0]) handleFile(files[0]);
     },
@@ -86,6 +86,7 @@ function ImageInsertDialog({
     maxFiles: 1,
     maxSize: MAX_FILE_SIZE,
     disabled: uploading,
+    noClick: true, // 영역 클릭 대신 명시적 '파일 선택' 버튼으로만 열기
   });
 
   function handleUrlSubmit() {
@@ -120,12 +121,17 @@ function ImageInsertDialog({
               {uploading ? (
                 <p className="text-sm text-gray-500">업로드 중...</p>
               ) : (
-                <div className="space-y-1">
-                  <p className="text-sm text-gray-500">
-                    클릭하거나 이미지를 드래그하세요
-                  </p>
+                <div className="space-y-2">
+                  <Button
+                    type="button"
+                    onClick={openFilePicker}
+                    variant="secondary"
+                    size="sm"
+                  >
+                    📁 파일 선택
+                  </Button>
                   <p className="text-xs text-gray-400">
-                    JPG, PNG, WebP
+                    또는 이미지를 여기로 드래그 · JPG, PNG, WebP
                   </p>
                 </div>
               )}
@@ -256,8 +262,9 @@ export function RichTextEditor({
 
   return (
     <>
-      <div className="overflow-hidden rounded-lg border">
-        <div className="flex flex-wrap gap-1 border-b bg-gray-50 p-2">
+      <div className="rounded-lg border">
+        <div className="sticky top-0 z-20 flex flex-wrap gap-1 rounded-t-lg border-b bg-gray-50/95 p-2 backdrop-blur">
+
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleBold().run()}
             active={editor.isActive("bold")}

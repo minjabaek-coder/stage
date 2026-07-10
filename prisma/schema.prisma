@@ -139,6 +139,7 @@ model Article {
   id           String         @id @default(cuid())
   title        String
   slug         String         @unique
+  subtitle     String?        // 부제/deck — 제목 아래 표시(기고자 작성 가능). excerpt(목록·검색용 요약)와 별개
   excerpt      String?
   content      String         @default("") @db.Text
   author       String         @default("")

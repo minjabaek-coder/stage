@@ -55,7 +55,7 @@ export async function setArticleTokenExpiry(articleId: string, ttlDays: number) 
 
 // ── 토큰 검증(공개) — /contribute에서 사용 ──
 export type TokenResolution =
-  | { ok: true; article: { id: string; title: string; slug: string; excerpt: string | null; content: string; thumbnailUrl: string | null; tags: string[]; status: string } }
+  | { ok: true; article: { id: string; title: string; slug: string; subtitle: string | null; excerpt: string | null; content: string; thumbnailUrl: string | null; tags: string[]; status: string } }
   | { ok: false; reason: "invalid" | "revoked" | "expired" | "published"; slug?: string; magazineLink?: boolean };
 
 export async function resolveEditToken(token: string): Promise<TokenResolution> {
@@ -65,7 +65,7 @@ export async function resolveEditToken(token: string): Promise<TokenResolution> 
     include: {
       article: {
         select: {
-          id: true, title: true, slug: true, excerpt: true, content: true,
+          id: true, title: true, slug: true, subtitle: true, excerpt: true, content: true,
           thumbnailUrl: true, tags: true, status: true,
         },
       },
@@ -99,6 +99,7 @@ export async function contributeAction(
     where: { id: res.article.id },
     data: {
       title: title.slice(0, 200),
+      subtitle: (formData.get("subtitle") ?? "").toString().slice(0, 300) || null,
       content: (formData.get("content") ?? "").toString(),
       excerpt: (formData.get("excerpt") ?? "").toString() || null,
       thumbnailUrl: (formData.get("thumbnailUrl") ?? "").toString() || null,

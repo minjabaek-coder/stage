@@ -94,6 +94,7 @@ export default async function ContributePage({
           token={token}
           initial={{
             title: res.article.title,
+            subtitle: res.article.subtitle,
             excerpt: res.article.excerpt,
             content: res.article.content,
             thumbnailUrl: res.article.thumbnailUrl,

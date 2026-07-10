@@ -23,11 +23,15 @@ function revalidateArticlePaths(id?: string, slug?: string) {
 }
 
 const articleSchema = z.object({
-  title: z.string().min(1, "제목을 입력해주세요").max(200),
+  // 생성 단계는 관대(기고자 셸 대비 — 관리자가 주제·제목을 모를 수 있음).
+  // 발행은 publishArticle에서 제목·본문을 별도 검증.
+  title: z.string().max(200).optional().default(""),
   slug: z
     .string()
-    .min(1, "슬러그를 입력해주세요")
-    .regex(/^[a-z0-9-]+$/, "슬러그는 소문자, 숫자, 하이픈만 사용 가능합니다"),
+    .regex(/^[a-z0-9-]*$/, "슬러그는 소문자, 숫자, 하이픈만 사용 가능합니다")
+    .optional()
+    .default(""),
+  subtitle: z.string().max(300).optional().default(""),
   excerpt: z.string().optional().default(""),
   author: z.string().optional().default(""),
   genre: z.string().optional().default(""), // 대분류(예술 장르)
@@ -49,6 +53,7 @@ function readForm(formData: FormData) {
   return articleSchema.safeParse({
     title: formData.get("title"),
     slug: formData.get("slug"),
+    subtitle: formData.get("subtitle"),
     excerpt: formData.get("excerpt"),
     author: formData.get("author"),
     genre: formData.get("genre"),
@@ -71,17 +76,21 @@ export async function createArticle(formData: FormData) {
   const parsed = readForm(formData);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
-  const existing = await prisma.article.findUnique({
-    where: { slug: parsed.data.slug },
-  });
+  // 기고자 셸 대비: 제목·슬러그 미입력 허용(발행 시 검증). 슬러그 비면 자동 발급.
+  const title = parsed.data.title.trim() || "(제목 미정)";
+  const slug =
+    parsed.data.slug.trim() || `article-${Math.random().toString(36).slice(2, 10)}`;
+
+  const existing = await prisma.article.findUnique({ where: { slug } });
   if (existing) {
-    return { error: `슬러그 "${parsed.data.slug}"은(는) 이미 존재합니다` };
+    return { error: `슬러그 "${slug}"은(는) 이미 존재합니다` };
   }
 
   const article = await prisma.article.create({
     data: {
-      title: parsed.data.title,
-      slug: parsed.data.slug,
+      title,
+      slug,
+      subtitle: parsed.data.subtitle || null,
       excerpt: parsed.data.excerpt || null,
       author: parsed.data.author || "",
       genre: parsed.data.genre || null,
@@ -110,25 +119,29 @@ export async function updateArticle(id: string, formData: FormData) {
   const parsed = readForm(formData);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
-  const conflict = await prisma.article.findFirst({
-    where: { slug: parsed.data.slug, NOT: { id } },
-  });
-  if (conflict) {
-    return { error: `슬러그 "${parsed.data.slug}"은(는) 이미 존재합니다` };
-  }
-
   const current = await prisma.article.findUnique({
     where: { id },
-    select: { thumbnailUrl: true, status: true },
+    select: { thumbnailUrl: true, status: true, slug: true },
   });
+
+  // 슬러그 비우면 기존 값 유지(빈 슬러그로 URL 깨짐 방지)
+  const slug = parsed.data.slug.trim() || current?.slug || `article-${id.slice(0, 8)}`;
+
+  const conflict = await prisma.article.findFirst({
+    where: { slug, NOT: { id } },
+  });
+  if (conflict) {
+    return { error: `슬러그 "${slug}"은(는) 이미 존재합니다` };
+  }
 
   const newThumbnail = parsed.data.thumbnailUrl || null;
 
   await prisma.article.update({
     where: { id },
     data: {
-      title: parsed.data.title,
-      slug: parsed.data.slug,
+      title: parsed.data.title.trim() || "(제목 미정)",
+      slug,
+      subtitle: parsed.data.subtitle || null,
       excerpt: parsed.data.excerpt || null,
       author: parsed.data.author || "",
       genre: parsed.data.genre || null,

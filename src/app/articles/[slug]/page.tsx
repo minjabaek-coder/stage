@@ -28,6 +28,7 @@ const getArticleMeta = cache(async (slug: string) => {
       id: true,
       title: true,
       slug: true,
+      subtitle: true,
       excerpt: true,
       author: true,
       category: true,
@@ -210,6 +211,12 @@ export default async function ArticlePage({
         <h1 className="font-headline mt-3 text-[28px] font-bold leading-[1.25] tracking-tight text-ink md:text-[40px] md:leading-[1.2]">
           {article.title}
         </h1>
+
+        {article.subtitle && (
+          <p className="mt-3 font-headline text-lg leading-snug text-taupe md:text-xl">
+            {article.subtitle}
+          </p>
+        )}
 
         <div className="mt-5 flex items-center gap-2 text-sm text-taupe">
           {article.author && (
