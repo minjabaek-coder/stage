@@ -18,20 +18,9 @@ import {
   heroAspectRatio,
 } from "@/lib/article-taxonomy";
 import { FocusPicker } from "@/components/admin/focus-picker";
+import { slugify } from "@/lib/article-utils";
 
 type FormState = { error?: string; success?: boolean } | undefined;
-
-function slugify(text: string): string {
-  const base = text
-    .toLowerCase()
-    .replace(/[가-힣]/g, "")
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-
-  return base || `article-${Date.now()}`;
-}
 
 export function ArticleForm({
   action,

@@ -6,12 +6,30 @@ import { redirect } from "next/navigation";
 import { z } from "zod/v4";
 import { deleteUploadedFile } from "@/lib/upload";
 import { generateArticleEmbeddings, deleteContentChunks } from "@/lib/rag";
+import { slugify, randomSlug, parseTags } from "@/lib/article-utils";
 
-function parseTags(tags: string): string[] {
-  return tags
-    .split(",")
-    .map((t) => t.trim())
-    .filter(Boolean);
+// 폼 파싱 결과 → Article 공통 필드(제목·슬러그 제외 — 액션별로 다르게 처리).
+// createArticle/updateArticle가 공유.
+function articleContentData(d: z.infer<typeof articleSchema>) {
+  return {
+    subtitle: d.subtitle || null,
+    excerpt: d.excerpt || null,
+    author: d.author || "",
+    genre: d.genre || null,
+    subCategory: d.subCategory || null,
+    category: d.subCategory || "", // 레거시 미러(소분류)
+    tags: parseTags(d.tags),
+    content: d.content || "",
+    thumbnailUrl: d.thumbnailUrl || null,
+    thumbnailFocusX: d.thumbnailFocusX ?? null,
+    thumbnailFocusY: d.thumbnailFocusY ?? null,
+    thumbnailZoom: d.thumbnailZoom ?? null,
+    heroAspect: d.heroAspect || null,
+    isFeatured: d.isFeatured,
+    isPremium: d.isPremium,
+    aiIndexable: d.aiIndexable,
+    publishedAt: d.publishedAt ? new Date(d.publishedAt) : null,
+  };
 }
 
 function revalidateArticlePaths(id?: string, slug?: string) {
@@ -78,8 +96,7 @@ export async function createArticle(formData: FormData) {
 
   // 기고자 셸 대비: 제목·슬러그 미입력 허용(발행 시 검증). 슬러그 비면 자동 발급.
   const title = parsed.data.title.trim() || "(제목 미정)";
-  const slug =
-    parsed.data.slug.trim() || `article-${Math.random().toString(36).slice(2, 10)}`;
+  const slug = parsed.data.slug.trim() || slugify(title) || randomSlug();
 
   const existing = await prisma.article.findUnique({ where: { slug } });
   if (existing) {
@@ -87,29 +104,7 @@ export async function createArticle(formData: FormData) {
   }
 
   const article = await prisma.article.create({
-    data: {
-      title,
-      slug,
-      subtitle: parsed.data.subtitle || null,
-      excerpt: parsed.data.excerpt || null,
-      author: parsed.data.author || "",
-      genre: parsed.data.genre || null,
-      subCategory: parsed.data.subCategory || null,
-      category: parsed.data.subCategory || "", // 레거시 미러(소분류)
-      tags: parseTags(parsed.data.tags),
-      content: parsed.data.content || "",
-      thumbnailUrl: parsed.data.thumbnailUrl || null,
-      thumbnailFocusX: parsed.data.thumbnailFocusX ?? null,
-      thumbnailFocusY: parsed.data.thumbnailFocusY ?? null,
-      thumbnailZoom: parsed.data.thumbnailZoom ?? null,
-      heroAspect: parsed.data.heroAspect || null,
-      isFeatured: parsed.data.isFeatured,
-      isPremium: parsed.data.isPremium,
-      aiIndexable: parsed.data.aiIndexable,
-      publishedAt: parsed.data.publishedAt
-        ? new Date(parsed.data.publishedAt)
-        : null,
-    },
+    data: { title, slug, ...articleContentData(parsed.data) },
   });
 
   redirect(`/admin/articles/${article.id}/edit`);
@@ -141,25 +136,7 @@ export async function updateArticle(id: string, formData: FormData) {
     data: {
       title: parsed.data.title.trim() || "(제목 미정)",
       slug,
-      subtitle: parsed.data.subtitle || null,
-      excerpt: parsed.data.excerpt || null,
-      author: parsed.data.author || "",
-      genre: parsed.data.genre || null,
-      subCategory: parsed.data.subCategory || null,
-      category: parsed.data.subCategory || "", // 레거시 미러(소분류)
-      tags: parseTags(parsed.data.tags),
-      content: parsed.data.content || "",
-      thumbnailUrl: newThumbnail,
-      thumbnailFocusX: parsed.data.thumbnailFocusX ?? null,
-      thumbnailFocusY: parsed.data.thumbnailFocusY ?? null,
-      thumbnailZoom: parsed.data.thumbnailZoom ?? null,
-      heroAspect: parsed.data.heroAspect || null,
-      isFeatured: parsed.data.isFeatured,
-      isPremium: parsed.data.isPremium,
-      aiIndexable: parsed.data.aiIndexable,
-      publishedAt: parsed.data.publishedAt
-        ? new Date(parsed.data.publishedAt)
-        : null,
+      ...articleContentData(parsed.data),
     },
   });
 

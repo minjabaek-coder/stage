@@ -4,12 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { isAdmin } from "@/lib/auth";
 import { generateEditToken, hashEditToken } from "@/lib/article-token";
+import { parseTags } from "@/lib/article-utils";
 
 const DEFAULT_TTL_DAYS = 30; // #5: 기본 30일, 관리자가 변경 가능
-
-function parseTags(tags: string): string[] {
-  return tags.split(",").map((t) => t.trim()).filter(Boolean);
-}
 
 // ── 관리자: 토큰 발급/재발급 ── (기존 토큰 있으면 교체)
 export async function issueArticleToken(
