@@ -268,7 +268,7 @@ export default async function ArticlePage({
         {locked ? (
           <div className="mt-8">
             {article.excerpt && (
-              <p className="text-lg leading-[1.9] text-ink-muted">
+              <p className="text-lg leading-[1.8] text-ink-muted">
                 {article.excerpt}
               </p>
             )}
@@ -295,7 +295,7 @@ export default async function ArticlePage({
           </div>
         ) : (
           <div
-            className="prose prose-stone mt-8 max-w-none leading-[1.9] prose-headings:font-headline prose-headings:text-ink prose-p:text-ink-muted prose-a:text-gold-deep prose-strong:text-ink prose-img:w-full prose-blockquote:border-gold-deep prose-blockquote:text-ink-muted"
+            className="prose prose-stone mt-8 max-w-none leading-[1.8] prose-headings:font-headline prose-headings:text-ink prose-p:text-ink-muted prose-a:text-gold-deep prose-strong:text-ink prose-img:w-full prose-blockquote:border-gold-deep prose-blockquote:text-ink-muted"
             dangerouslySetInnerHTML={{ __html: safeContent ?? "" }}
           />
         )}
