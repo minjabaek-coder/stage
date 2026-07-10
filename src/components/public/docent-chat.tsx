@@ -298,12 +298,13 @@ export function DocentChatFAB() {
     return () => window.removeEventListener("stage:open-docent", open);
   }, []);
 
-  // Lock body scroll when chat is open on mobile
+  // 배경 스크롤 잠금은 '모바일 전체화면'일 때만. 데스크톱은 우하단 작은 팝업이라
+  // 잠그면 뒤 기사를 못 읽고 맨 위로 튕김 → 데스크톱에선 배경 스크롤 유지.
   useEffect(() => {
     if (!isOpen) return;
+    if (window.innerWidth >= 1024) return; // lg 이상(데스크톱)은 잠그지 않음
     const orig = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    // Scroll to top to prevent offset issues
     window.scrollTo(0, 0);
     return () => {
       document.body.style.overflow = orig;
@@ -339,7 +340,7 @@ export function DocentChatFAB() {
       {isOpen && (
         <div
           ref={panelRef}
-          className="fixed inset-0 z-50 bg-white flex flex-col p-6 lg:inset-auto lg:bottom-24 lg:right-6 lg:w-[calc(100vw-3rem)] lg:max-w-md lg:h-auto lg:rounded-2xl lg:shadow-2xl lg:flex-none"
+          className="fixed inset-0 z-50 bg-white flex flex-col p-6 lg:inset-auto lg:bottom-24 lg:right-6 lg:w-[calc(100vw-3rem)] lg:max-w-md lg:h-[600px] lg:max-h-[calc(100vh-8rem)] lg:rounded-2xl lg:shadow-2xl lg:flex-none"
         >
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-label text-sm font-black tracking-[0.2em] uppercase">
