@@ -2,7 +2,6 @@
 
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import TiptapLink from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import { CaptionedImage } from "@/components/admin/captioned-image";
 import { ImageGallery } from "@/components/admin/image-gallery";
@@ -202,8 +201,9 @@ export function RichTextEditor({
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
-      TiptapLink.configure({ openOnClick: false }),
+      // StarterKit(v3)이 Link를 포함 → 별도 extension-link 추가 시 'link' 중복 경고.
+      // StarterKit의 link를 직접 설정.
+      StarterKit.configure({ link: { openOnClick: false } }),
       CaptionedImage,
       ImageGallery,
       Placeholder.configure({ placeholder: "기사 본문을 입력하세요…" }),
