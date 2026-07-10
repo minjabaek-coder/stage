@@ -1,7 +1,16 @@
 "use client";
 
+import { useEffect } from "react";
+import { setCurrentArticleTitle } from "@/lib/article-context";
+
 // 기사 내 AI 위젯 — 클릭 시 도슨트 챗을 열고 이 기사 관련 질문을 입력창에 미리 채운다.
+// 또한 현재 기사 제목을 전역에 설정 → FAB로 연 도슨트도 "이 기사"를 이해한다.
 export function ArticleMaestroWidget({ title }: { title: string }) {
+  useEffect(() => {
+    setCurrentArticleTitle(title);
+    return () => setCurrentArticleTitle(null);
+  }, [title]);
+
   function ask(question: string) {
     window.dispatchEvent(
       new CustomEvent("stage:open-docent", { detail: { question } }),

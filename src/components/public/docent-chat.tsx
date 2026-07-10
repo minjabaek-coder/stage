@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { getCurrentArticleTitle } from "@/lib/article-context";
 
 interface SourceRef {
   title: string;
@@ -101,6 +102,7 @@ export function ChatBody({ seedQuestion }: { seedQuestion?: string }) {
         body: JSON.stringify({
           messages: updatedMessages,
           sessionId: getSessionId(),
+          articleContext: getCurrentArticleTitle(),
         }),
       });
 
