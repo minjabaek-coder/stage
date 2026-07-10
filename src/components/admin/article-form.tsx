@@ -95,6 +95,7 @@ export function ArticleForm({
   }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    noClick: true, // 클릭 업로드는 label 안의 input(네이티브)으로, 드래그만 dropzone
     onDrop,
     onDropRejected: (rejections) => {
       const tooLarge = rejections[0]?.errors.some(
@@ -108,6 +109,19 @@ export function ArticleForm({
     maxFiles: 1,
     maxSize: MAX_FILE_SIZE,
   });
+
+  // label로 감싸는 파일 input(id 연결 없이 항상 열림). 파일선택·교체 label에서 재사용.
+  const thumbFileInput = (
+    <input
+      type="file"
+      accept="image/*"
+      className="sr-only"
+      onChange={(e) => {
+        if (e.target.files?.length) onDrop(Array.from(e.target.files));
+        e.currentTarget.value = "";
+      }}
+    />
+  );
 
   function handleTitleChange(value: string) {
     setTitle(value);
@@ -291,10 +305,10 @@ export function ArticleForm({
               <Label>썸네일</Label>
               <div
                 {...getRootProps()}
-                className={`cursor-pointer rounded-lg border-2 border-dashed p-4 text-center transition-colors ${
+                className={`rounded-lg border-2 border-dashed p-4 text-center transition-colors ${
                   isDragActive
                     ? "border-gray-900 bg-gray-50"
-                    : "border-gray-300 hover:border-gray-400"
+                    : "border-gray-300"
                 }`}
               >
                 <input {...getInputProps()} />
@@ -307,19 +321,20 @@ export function ArticleForm({
                       alt="업로드된 원본"
                       className="absolute inset-0 h-full w-full object-contain"
                     />
-                    <span className="absolute bottom-1 left-1 rounded bg-black/50 px-1.5 py-0.5 text-[10px] text-white">
-                      원본 (클릭해 교체)
-                    </span>
+                    <label className="absolute bottom-1 left-1 cursor-pointer rounded bg-black/50 px-1.5 py-0.5 text-[10px] text-white hover:bg-black/70">
+                      이미지 교체
+                      {thumbFileInput}
+                    </label>
                   </div>
                 ) : (
-                  <div className="space-y-1">
-                    <p className="text-sm text-gray-500">
-                      클릭하거나 이미지를 드래그하세요
-                    </p>
+                  <div className="space-y-2">
+                    <label className="inline-flex cursor-pointer items-center rounded-md border bg-white px-3 py-1.5 text-sm font-medium shadow-sm hover:bg-gray-50">
+                      📁 파일 선택
+                      {thumbFileInput}
+                    </label>
                     <p className="text-xs text-gray-400">
-                      권장 사이즈: 1200 x 675px (16:9 비율)
+                      또는 여기로 드래그 · 권장 1200×675 (16:9) · JPG, PNG, WebP
                     </p>
-                    <p className="text-xs text-gray-400">JPG, PNG, WebP</p>
                   </div>
                 )}
               </div>

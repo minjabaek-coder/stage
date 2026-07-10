@@ -6,7 +6,6 @@ import {
   ReactNodeViewRenderer,
   type NodeViewProps,
 } from "@tiptap/react";
-import { useId } from "react";
 import { toast } from "sonner";
 import { uploadBlogImage } from "@/lib/upload-client";
 import { ACCEPTED_IMAGE_TYPES } from "@/lib/constants";
@@ -28,8 +27,6 @@ function GalleryView({ node, updateAttributes, deleteNode, selected }: NodeViewP
   const images: GalleryImage[] = Array.isArray(node.attrs.images)
     ? node.attrs.images
     : [];
-  const addInputId = useId();
-
   function setCaption(i: number, caption: string) {
     updateAttributes({
       images: images.map((im, idx) => (idx === i ? { ...im, caption } : im)),
@@ -99,24 +96,20 @@ function GalleryView({ node, updateAttributes, deleteNode, selected }: NodeViewP
         ))}
       </div>
       <div className="mt-2 flex items-center gap-2 text-xs">
-        <label
-          htmlFor={addInputId}
-          className="cursor-pointer rounded border bg-white px-2 py-1 font-medium text-gray-700 hover:bg-gray-50"
-        >
+        <label className="cursor-pointer rounded border bg-white px-2 py-1 font-medium text-gray-700 hover:bg-gray-50">
           ＋ 사진 추가
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            className="sr-only"
+            onChange={(e) => {
+              addFiles(e.target.files);
+              e.currentTarget.value = "";
+            }}
+          />
         </label>
         <span className="text-gray-500">{images.length}장 · 한 행에 나란히 표시</span>
-        <input
-          id={addInputId}
-          type="file"
-          accept="image/*"
-          multiple
-          className="sr-only"
-          onChange={(e) => {
-            addFiles(e.target.files);
-            e.currentTarget.value = "";
-          }}
-        />
       </div>
     </NodeViewWrapper>
   );

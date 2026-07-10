@@ -5,7 +5,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import { CaptionedImage } from "@/components/admin/captioned-image";
 import { ImageGallery } from "@/components/admin/image-gallery";
-import { useCallback, useId, useState } from "react";
+import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
 import {
@@ -55,8 +55,6 @@ function ImageInsertDialog({
 }) {
   const [uploading, setUploading] = useState(false);
   const [urlInput, setUrlInput] = useState("");
-  // 파일 선택은 label→input(네이티브)로 열기 — 브라우저 호환·JS 불필요.
-  const imgInputId = useId();
 
   // 1장이면 단일 이미지, 2장 이상이면 한 행 그리드로 삽입(상위에서 분기).
   async function handleFiles(files: File[]) {
@@ -119,26 +117,22 @@ function ImageInsertDialog({
               } ${uploading ? "pointer-events-none opacity-60" : ""}`}
             >
               <input {...getInputProps()} />
-              <input
-                id={imgInputId}
-                type="file"
-                accept="image/*"
-                multiple
-                className="sr-only"
-                onChange={(e) => {
-                  if (e.target.files?.length) handleFiles(Array.from(e.target.files));
-                  e.currentTarget.value = "";
-                }}
-              />
               {uploading ? (
                 <p className="text-sm text-gray-500">업로드 중...</p>
               ) : (
                 <div className="space-y-2">
-                  <label
-                    htmlFor={imgInputId}
-                    className="inline-flex cursor-pointer items-center rounded-md border bg-white px-3 py-1.5 text-sm font-medium shadow-sm hover:bg-gray-50"
-                  >
+                  <label className="inline-flex cursor-pointer items-center rounded-md border bg-white px-3 py-1.5 text-sm font-medium shadow-sm hover:bg-gray-50">
                     📁 파일 선택
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="sr-only"
+                      onChange={(e) => {
+                        if (e.target.files?.length) handleFiles(Array.from(e.target.files));
+                        e.currentTarget.value = "";
+                      }}
+                    />
                   </label>
                   <p className="text-xs text-gray-400">
                     또는 여기로 드래그 · JPG, PNG, WebP

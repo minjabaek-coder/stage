@@ -53,7 +53,7 @@ function* chunkText(s: string, size = 40): Generator<string> {
 }
 
 export async function POST(req: NextRequest) {
-  const { messages, sessionId } = await req.json();
+  const { messages, sessionId, articleContext } = await req.json();
   const startTime = Date.now();
 
   if (!process.env.GEMINI_API_KEY) {
@@ -88,6 +88,12 @@ export async function POST(req: NextRequest) {
   }
 
   const lastUserMsg = messages[messages.length - 1]?.content || "";
+
+  // 기사 페이지에서 연 도슨트면 현재 기사 맥락을 주입 → "이 기사/해당 기사" 이해.
+  const systemInstruction =
+    typeof articleContext === "string" && articleContext.trim()
+      ? `${SYSTEM_PROMPT}\n\n[현재 맥락] 사용자는 지금 「${articleContext.trim()}」 기사를 읽고 있습니다. 사용자가 "이 기사"·"해당 기사"·"요약해줘"처럼 대상을 생략하면 이 기사를 가리킵니다. 그럴 땐 되묻지 말고 search_content로 「${articleContext.trim()}」를 검색해 근거로 답하세요.`
+      : SYSTEM_PROMPT;
 
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   const contents: Content[] = messages.map(
@@ -142,7 +148,7 @@ export async function POST(req: NextRequest) {
             model: MODEL,
             contents,
             config: {
-              systemInstruction: SYSTEM_PROMPT,
+              systemInstruction,
               tools: MAESTRO_TOOLS,
               maxOutputTokens: MAX_OUTPUT_TOKENS,
             },
