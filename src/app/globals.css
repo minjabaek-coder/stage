@@ -227,3 +227,23 @@
 /* 속성 그룹 라벨 + typetag */
 .ed-grouplabel { font-size: 11px; color: #71717a; margin-bottom: 8px; }
 .ed-typetag { background: rgba(37,99,235,.08); color: #2563eb; border-radius: 4px; padding: 1px 6px; font-size: 10px; }
+
+/* 기사 본문 이미지 캡션 + 한 행 이미지 그리드(갤러리) — 공개 렌더 */
+.prose figure.article-figure { margin: 1.5rem 0; }
+.prose figcaption {
+  text-align: center;
+  font-size: 0.8rem;
+  font-style: italic;
+  color: #78716c;
+  margin-top: 0.4rem;
+}
+.prose .article-gallery {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 8px;
+  margin: 1.5rem 0;
+  align-items: start;
+}
+.prose .article-gallery figure { margin: 0; }
+.prose .article-gallery img { width: 100%; height: auto; margin: 0; }

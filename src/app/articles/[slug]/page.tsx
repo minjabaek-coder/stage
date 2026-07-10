@@ -67,8 +67,42 @@ function figureizeCaptions(html: string): string {
   });
 }
 
+// 갤러리 저장형(<div class="article-gallery" data-gallery='[…]'></div>)을
+// 공개용 figure 그리드로 확장. data-gallery JSON은 HTML 엔티티로 이스케이프돼 있음.
+function galleryizeCaptions(html: string): string {
+  return html.replace(
+    /<div\b([^>]*\bclass="article-gallery"[^>]*)><\/div>/gi,
+    (whole, attrs: string) => {
+      const m = attrs.match(/data-gallery="([^"]*)"/i);
+      if (!m) return whole;
+      const json = m[1]
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&amp;/g, "&");
+      let imgs: { src?: string; caption?: string }[];
+      try {
+        imgs = JSON.parse(json);
+      } catch {
+        return whole;
+      }
+      if (!Array.isArray(imgs) || imgs.length === 0) return whole;
+      const cells = imgs
+        .filter((im) => im?.src)
+        .map((im) => {
+          const src = String(im.src).replace(/"/g, "&quot;");
+          const cap = (im.caption || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          return `<figure><img src="${src}" alt="${cap}" />${cap ? `<figcaption>${cap}</figcaption>` : ""}</figure>`;
+        })
+        .join("");
+      return `<div class="article-gallery">${cells}</div>`;
+    },
+  );
+}
+
 function sanitizeArticle(html: string): string {
-  return sanitizeHtml(figureizeCaptions(html), {
+  return sanitizeHtml(figureizeCaptions(galleryizeCaptions(html)), {
     allowedTags: sanitizeHtml.defaults.allowedTags.concat([
       "img",
       "h1",
@@ -80,6 +114,7 @@ function sanitizeArticle(html: string): string {
       ...sanitizeHtml.defaults.allowedAttributes,
       img: ["src", "alt", "width", "height"],
       figure: ["class"],
+      div: ["class"],
     },
   });
 }
