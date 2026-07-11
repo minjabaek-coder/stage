@@ -200,26 +200,27 @@ export default async function ArticlePage({
       <SiteHeader />
 
       {article.thumbnailUrl && (
-        <div
-          className="relative w-full overflow-hidden"
-          style={{
-            aspectRatio: heroAspectRatio(article.heroAspect),
-            maxHeight: "70vh",
-          }}
-        >
-          <img
-            src={article.thumbnailUrl}
-            alt={article.title}
-            className="absolute inset-0 h-full w-full object-cover"
+        // 기사 폭에 맞춰 가운데 정렬(PC에서 브라우저 전체 폭으로 커지지 않게). 모바일은 폭 100%.
+        <div className="mx-auto max-w-[680px] px-6 pt-8">
+          <div
+            className="relative w-full overflow-hidden rounded-lg"
             style={{
-              objectPosition: `${article.thumbnailFocusX ?? 50}% ${article.thumbnailFocusY ?? 50}%`,
-              ...(article.thumbnailZoom && article.thumbnailZoom !== 1
-                ? { transform: `scale(${article.thumbnailZoom})` }
-                : {}),
+              aspectRatio: heroAspectRatio(article.heroAspect),
+              maxHeight: "70vh",
             }}
-          />
-          {/* 하단을 종이색으로 페이드 — 에디토리얼 헤더와 자연스럽게 연결 */}
-          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-paper" />
+          >
+            <img
+              src={article.thumbnailUrl}
+              alt={article.title}
+              className="absolute inset-0 h-full w-full object-cover"
+              style={{
+                objectPosition: `${article.thumbnailFocusX ?? 50}% ${article.thumbnailFocusY ?? 50}%`,
+                ...(article.thumbnailZoom && article.thumbnailZoom !== 1
+                  ? { transform: `scale(${article.thumbnailZoom})` }
+                  : {}),
+              }}
+            />
+          </div>
         </div>
       )}
 
