@@ -201,9 +201,10 @@ export default async function ArticlePage({
 
       {article.thumbnailUrl && (
         // 기사 폭에 맞춰 가운데 정렬(PC에서 브라우저 전체 폭으로 커지지 않게). 모바일은 폭 100%.
+        // 하단은 종이색 페이드로 본문에 부드럽게 연결(이전 스타일 유지).
         <div className="mx-auto max-w-[680px] px-6 pt-8">
           <div
-            className="relative w-full overflow-hidden rounded-lg"
+            className="relative w-full overflow-hidden"
             style={{
               aspectRatio: heroAspectRatio(article.heroAspect),
               maxHeight: "70vh",
@@ -220,6 +221,8 @@ export default async function ArticlePage({
                   : {}),
               }}
             />
+            {/* 하단을 종이색으로 페이드 — 본문과 자연스럽게 연결 */}
+            <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-transparent to-paper" />
           </div>
         </div>
       )}
