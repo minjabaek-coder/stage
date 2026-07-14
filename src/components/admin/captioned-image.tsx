@@ -22,7 +22,6 @@ function ImageNodeView({ node, updateAttributes, selected }: NodeViewProps) {
       className={`article-figure my-4${selected ? " outline outline-2 outline-gold-deep/60" : ""}`}
       contentEditable={false}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={src} alt={alt || ""} className="mx-auto block w-full" />
       <input
         type="text"

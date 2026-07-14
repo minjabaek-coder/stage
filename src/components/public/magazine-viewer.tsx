@@ -441,7 +441,6 @@ export function TocFilmstrip({
                   (page.kind === "composed" ? (
                     <ComposedPage layout={parsePageLayout(page.layout)} fit="cover" />
                   ) : page.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={page.imageUrl}
                       alt=""
@@ -1205,7 +1204,6 @@ export function MagazineViewer({
               <ComposedPage layout={parsePageLayout(currentPageObj.layout)} />
             </div>
           ) : (
-            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={currentPageObj.imageUrl ?? ""}
               alt={`Page ${currentPage + 1}`}

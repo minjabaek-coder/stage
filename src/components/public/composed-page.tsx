@@ -106,7 +106,6 @@ export function ComposedBlockBody({ block }: { block: Block }) {
     if (!block.src) return null;
     return (
       <>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={block.src}
           alt=""

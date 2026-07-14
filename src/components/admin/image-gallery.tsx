@@ -80,7 +80,6 @@ function GalleryView({ node, updateAttributes, deleteNode, selected }: NodeViewP
             >
               ×
             </button>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={im.src} alt={im.caption || ""} className="block w-full" />
             <input
               type="text"

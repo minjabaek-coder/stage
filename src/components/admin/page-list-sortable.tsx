@@ -22,7 +22,7 @@ import { CSS } from "@dnd-kit/utilities";
 // Using native img to avoid Vercel Image Optimization limits
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { reorderPages, deletePage, renamePageFiles, renamePageFile } from "@/actions/page-actions";
+import { reorderPages, deletePage, renamePageFile } from "@/actions/page-actions";
 import { toast } from "sonner";
 import type { MagazinePage } from "@/types/magazine";
 

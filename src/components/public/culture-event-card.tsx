@@ -25,7 +25,6 @@ export function CultureEventCard({ event }: { event: CardData }) {
     <Link href={`/culture-events/${event.slug}`} className="group block">
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-ink-deep">
         {event.thumbnailUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={event.thumbnailUrl}
             alt={event.title}

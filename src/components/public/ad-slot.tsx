@@ -36,7 +36,6 @@ export async function AdSlot({
         rel="noopener noreferrer sponsored"
         className="group relative block overflow-hidden rounded-2xl border border-ink/10 transition-colors hover:border-gold-deep/40"
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={ad.imageUrl}
           alt={ad.title || ad.sponsor}

@@ -74,7 +74,6 @@ export async function RightSidebar({
                   >
                     {t.thumbnailUrl && (
                       <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={t.thumbnailUrl}
                           alt=""

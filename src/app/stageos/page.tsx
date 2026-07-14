@@ -123,7 +123,6 @@ export default function StageOSPage() {
                 key={s.src}
                 className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.04]"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={s.src} alt={s.alt} className="w-full object-cover" />
                 <p className="px-4 py-3 font-label text-[11px] uppercase tracking-wider text-white/55">
                   {s.alt}
