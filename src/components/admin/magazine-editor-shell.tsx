@@ -28,6 +28,7 @@ import {
   duplicatePage,
   deletePage,
   reorderPages,
+  generateDraftFromArticle,
 } from "@/actions/page-actions";
 
 type PageItem = {
@@ -60,6 +61,7 @@ export function MagazineEditorShell({
     pages[0]?.id ?? null,
   );
   const [pending, start] = useTransition();
+  const [draftArticleId, setDraftArticleId] = useState("");
   const dndId = useId();
 
   // 서버 refresh로 pages가 갱신되면 items 동기화(낙관적 업데이트 후 정합).
@@ -114,6 +116,32 @@ export function MagazineEditorShell({
         setSelectedId(r.pageId);
         router.refresh();
         toast.success("새 페이지를 추가했습니다");
+      }
+    });
+  }
+  // P3-⑤ 기사 → 초안 페이지 자동 생성(현재 페이지 다음에 삽입, 전 페이지 연동).
+  function generateDraft() {
+    if (!draftArticleId) return;
+    const already = items.some((p) => p.articleId === draftArticleId);
+    if (
+      already &&
+      !confirm(
+        "이미 이 기사로 만든 페이지가 있습니다. 재생성하면 기존 페이지(수동 편집 포함)가 사라집니다. 계속할까요?",
+      )
+    )
+      return;
+    start(async () => {
+      const r = await generateDraftFromArticle(magazineId, draftArticleId, {
+        afterPageId: selectedId ?? undefined,
+        replaceExisting: already,
+      });
+      if (r && "success" in r && r.success) {
+        if (r.pageId) setSelectedId(r.pageId);
+        setDraftArticleId("");
+        router.refresh();
+        toast.success(`기사로 ${r.count}개 페이지 초안을 만들었습니다`);
+      } else {
+        toast.error(("error" in r && r.error) || "초안 생성 실패");
       }
     });
   }
@@ -210,6 +238,34 @@ export function MagazineEditorShell({
           >
             ＋
           </button>
+
+          {/* 기사 → 초안 자동 생성(현재 페이지 다음에 삽입) */}
+          <div className="ml-auto flex flex-none items-center gap-1.5 self-stretch border-l pl-2">
+            <select
+              value={draftArticleId}
+              onChange={(e) => setDraftArticleId(e.target.value)}
+              disabled={pending}
+              title="초안으로 만들 기사"
+              className="h-8 max-w-[180px] rounded-md border bg-transparent px-2 text-xs"
+            >
+              <option value="">기사 선택…</option>
+              {articles.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.title}
+                  {a.genre ? ` (${a.genre})` : ""}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={generateDraft}
+              disabled={pending || !draftArticleId}
+              title="선택한 기사 내용을 프리셋 초안 페이지로 생성"
+              className="h-8 flex-none rounded-md border border-primary px-2.5 text-xs font-medium text-primary hover:bg-primary/5 disabled:opacity-40"
+            >
+              기사로 초안
+            </button>
+          </div>
         </div>
       </div>
     </div>
