@@ -19,7 +19,7 @@ npx prisma generate                    # Regenerate Prisma client (output: src/g
 ## Environment Variables
 
 Required in `.env.local` (never committed — in .gitignore):
-- `DATABASE_URL` — PostgreSQL connection string (Supabase Session Pooler, ap-northeast-2). **This points at PRODUCTION** — there is no separate dev DB.
+- `DATABASE_URL` — PostgreSQL connection string (Supabase Transaction Pooler, port 6543, ap-northeast-2). **This points at PRODUCTION** — there is no separate dev DB.
 - `NEXT_PUBLIC_SUPABASE_URL` — Supabase project URL
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — Supabase anon/public key
 - `SUPABASE_SERVICE_ROLE_KEY` — Supabase service role key (server-side only)
