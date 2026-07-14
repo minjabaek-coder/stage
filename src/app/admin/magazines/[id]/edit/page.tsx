@@ -31,7 +31,16 @@ export default async function EditMagazinePage({
     // 구성형 페이지의 "싣는 기사" 연동 후보 — 단일 Article 모델(전체), 최신순
     prisma.article.findMany({
       orderBy: { createdAt: "desc" },
-      select: { id: true, title: true, genre: true, subCategory: true },
+      select: {
+        id: true,
+        title: true,
+        author: true,
+        genre: true,
+        subCategory: true,
+        thumbnailUrl: true,
+        publishedAt: true,
+        status: true,
+      },
     }),
   ]);
 
@@ -107,7 +116,10 @@ export default async function EditMagazinePage({
               layout: p.layout,
               articleId: p.articleId,
             }))}
-            articles={articles}
+            articles={articles.map((a) => ({
+              ...a,
+              publishedAt: a.publishedAt ? a.publishedAt.toISOString() : null,
+            }))}
           />
         </div>
       </div>

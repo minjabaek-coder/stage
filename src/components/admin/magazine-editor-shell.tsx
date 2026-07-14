@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState, useTransition } from "react";
+import { useEffect, useId, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -31,17 +31,13 @@ import {
   generateDraftFromArticle,
 } from "@/actions/page-actions";
 
+import { ArticlePicker, type ArticleOpt, type Placement } from "@/components/admin/article-picker";
+
 type PageItem = {
   id: string;
   pageNumber: number;
   layout: unknown;
   articleId: string | null;
-};
-type ArticleOpt = {
-  id: string;
-  title: string;
-  genre?: string | null;
-  subCategory?: string | null;
 };
 
 // 단일 에디터 셸(E1): 좌측 페이지 썸네일 패널 + 우측 활성 페이지 편집기.
@@ -174,6 +170,19 @@ export function MagazineEditorShell({
     ? items.findIndex((p) => p.id === selected.id)
     : -1;
 
+  // 이 매거진에서 각 기사가 차지한 연속 페이지 범위(선택기 배치 뱃지·미배치 필터용).
+  const placements = useMemo(() => {
+    const m: Record<string, Placement> = {};
+    for (const p of items) {
+      if (!p.articleId) continue;
+      const cur = m[p.articleId];
+      m[p.articleId] = cur
+        ? { start: Math.min(cur.start, p.pageNumber), end: Math.max(cur.end, p.pageNumber) }
+        : { start: p.pageNumber, end: p.pageNumber };
+    }
+    return m;
+  }, [items]);
+
   return (
     <div className="flex h-full flex-col gap-3">
       {/* 위: 활성 페이지 편집기 (좌 레일·캔버스·속성 — 라우트 전환 없이 key로 스위칭) */}
@@ -188,6 +197,7 @@ export function MagazineEditorShell({
             initialLayout={parsePageLayout(selected.layout) ?? { blocks: [] }}
             initialArticleId={selected.articleId}
             articles={articles}
+            placements={placements}
           />
         ) : (
           <div className="flex h-full items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
@@ -241,21 +251,15 @@ export function MagazineEditorShell({
 
           {/* 기사 → 초안 자동 생성(현재 페이지 다음에 삽입) */}
           <div className="ml-auto flex flex-none items-center gap-1.5 self-stretch border-l pl-2">
-            <select
-              value={draftArticleId}
-              onChange={(e) => setDraftArticleId(e.target.value)}
+            <ArticlePicker
+              articles={articles}
+              placements={placements}
+              value={draftArticleId || null}
+              onChange={(id) => setDraftArticleId(id ?? "")}
               disabled={pending}
-              title="초안으로 만들 기사"
-              className="h-8 max-w-[180px] rounded-md border bg-transparent px-2 text-xs"
-            >
-              <option value="">기사 선택…</option>
-              {articles.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.title}
-                  {a.genre ? ` (${a.genre})` : ""}
-                </option>
-              ))}
-            </select>
+              placeholder="초안 만들 기사…"
+              className="w-[200px]"
+            />
             <button
               type="button"
               onClick={generateDraft}
