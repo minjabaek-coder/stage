@@ -162,16 +162,31 @@ export default async function ArticlePage({
   const article = await getArticleMeta(slug);
   if (!article) notFound();
 
-  // 실린 곳: 이 기사를 싣는 매거진 페이지(있으면). 첫 페이지로 딥링크.
-  const placement = await prisma.magazinePage.findFirst({
+  // 실린 곳: 이 기사가 실린 매거진의 연속 페이지 범위(첫 매거진). 시작 페이지로 딥링크.
+  const placementPages = await prisma.magazinePage.findMany({
     where: { articleId: article.id },
-    orderBy: { pageNumber: "asc" },
+    orderBy: [{ magazine: { issueNumber: "asc" } }, { pageNumber: "asc" }],
     select: {
       pageNumber: true,
       magazineId: true,
       magazine: { select: { issueNumber: true } },
     },
   });
+  const placement =
+    placementPages.length > 0
+      ? (() => {
+          const first = placementPages[0];
+          const nums = placementPages
+            .filter((p) => p.magazineId === first.magazineId)
+            .map((p) => p.pageNumber);
+          return {
+            magazineId: first.magazineId,
+            issueNumber: first.magazine.issueNumber,
+            start: Math.min(...nums),
+            end: Math.max(...nums),
+          };
+        })()
+      : null;
 
   const user = await getCurrentUser();
   // 프리미엄 기사는 로그인 회원만 본문 열람. 비회원(미로그인)은 미리보기.
@@ -273,10 +288,14 @@ export default async function ArticlePage({
 
         {placement && (
           <Link
-            href={`/magazines/${placement.magazineId}?page=${placement.pageNumber}`}
+            href={`/magazines/${placement.magazineId}?page=${placement.start}`}
             className="mt-5 inline-flex items-center gap-1.5 border border-gold-deep/30 bg-gold-deep/5 px-3.5 py-1.5 font-label text-xs font-semibold tracking-wide text-gold-deep transition-colors hover:bg-gold-deep/10"
           >
-            실린 곳 · STAGE {placement.magazine.issueNumber}호 {placement.pageNumber}페이지에서 보기 →
+            실린 곳 · STAGE {placement.issueNumber}호{" "}
+            {placement.start === placement.end
+              ? `${placement.start}페이지`
+              : `${placement.start}–${placement.end}페이지`}
+            에서 보기 →
           </Link>
         )}
 

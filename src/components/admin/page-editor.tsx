@@ -25,6 +25,11 @@ import {
 } from "@/types/magazine-layout";
 import { updatePageLayout } from "@/actions/page-actions";
 import { uploadBlogImage } from "@/lib/upload-client";
+import {
+  ArticlePicker,
+  type ArticleOpt,
+  type Placement,
+} from "@/components/admin/article-picker";
 import { FocusPicker } from "@/components/admin/focus-picker";
 import { InlineTextEditor } from "@/components/admin/inline-text-editor";
 
@@ -44,13 +49,6 @@ const clampPct = (v: number, size: number) => Math.max(0, Math.min(100 - size, v
 let clipboardStore: Block[] | null = null;
 
 
-type ArticleOpt = {
-  id: string;
-  title: string;
-  genre?: string | null;
-  subCategory?: string | null;
-};
-
 export function PageEditor({
   magazineId,
   pageId,
@@ -59,6 +57,7 @@ export function PageEditor({
   initialLayout,
   initialArticleId,
   articles,
+  placements = {},
 }: {
   magazineId: string;
   pageId: string;
@@ -67,6 +66,7 @@ export function PageEditor({
   initialLayout: PageLayout;
   initialArticleId: string | null;
   articles: ArticleOpt[];
+  placements?: Record<string, Placement>;
 }) {
   const router = useRouter();
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -831,23 +831,15 @@ export function PageEditor({
             <button type="button" onClick={() => zoomBy(1.2)} title="확대" className="px-2 py-1 text-sm text-muted-foreground hover:bg-accent">＋</button>
           </span>
           <span className="tbsep" />
-          <select
-            value={articleId ?? ""}
-            onChange={(e) => setArticleId(e.target.value || null)}
-            className="max-w-[160px] rounded-md border px-2 py-1.5 text-xs"
-            title="싣는 기사 연동"
-          >
-            <option value="">기사 연동 없음</option>
-            {articles.map((a) => {
-              const tag = a.genre || a.subCategory;
-              return (
-                <option key={a.id} value={a.id}>
-                  {tag ? `[${tag}] ` : ""}
-                  {a.title}
-                </option>
-              );
-            })}
-          </select>
+          <ArticlePicker
+            articles={articles}
+            placements={placements}
+            value={articleId}
+            onChange={setArticleId}
+            allowNone
+            placeholder="싣는 기사 연동…"
+            className="w-[170px]"
+          />
           {/* 저장 상태 표시(E2.6) */}
           <span className="flex items-center gap-1.5 font-mono text-[11px]">
             {saveState === "saving" ? (

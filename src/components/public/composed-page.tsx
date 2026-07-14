@@ -171,6 +171,10 @@ export function ComposedBlockBody({ block }: { block: Block }) {
     overflow: "hidden",
     // Enter 줄바꿈(\n)을 그대로 표시 + 단어 줄바꿈. (HTML 태그도 함께 동작)
     whiteSpace: "pre-wrap",
+    // 한글 줄바꿈: keep-all이면 어절(공백) 경계에서만 끊고, 한 어절이 폭보다 길면 강제 분해.
+    ...(block.wordBreak === "keep-all"
+      ? { wordBreak: "keep-all" as const, overflowWrap: "anywhere" as const }
+      : {}),
   };
   return (
     <div
