@@ -54,7 +54,6 @@ export function FocusPicker({
         className="relative mx-auto w-full max-w-[220px] overflow-hidden rounded border bg-gray-100"
         style={{ aspectRatio: String(ratio), cursor: "crosshair", touchAction: "none" }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={src}
           alt=""

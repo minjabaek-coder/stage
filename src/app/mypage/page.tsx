@@ -110,7 +110,6 @@ export default async function MyPage() {
         <section className="flex flex-col gap-5 sm:flex-row sm:items-center">
           <div className="flex items-center gap-4">
             {user.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={user.avatarUrl}
                 alt={user.name || "프로필"}

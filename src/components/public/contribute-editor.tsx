@@ -163,7 +163,6 @@ export function ContributeEditor({
           ) : thumbnailUrl ? (
             <div className="space-y-3">
               <div className="relative mx-auto aspect-video w-full max-w-xs overflow-hidden">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={thumbnailUrl} alt="썸네일" className="absolute inset-0 h-full w-full object-cover" />
               </div>
               <div className="flex justify-center gap-2">

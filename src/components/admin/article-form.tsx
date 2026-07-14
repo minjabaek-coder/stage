@@ -363,7 +363,6 @@ export function ArticleForm({
                           목록 카드 (16:9)
                         </span>
                         <div className="aspect-video w-full overflow-hidden rounded border bg-gray-100">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={thumbnailUrl}
                             alt="카드 미리보기"
@@ -397,7 +396,6 @@ export function ArticleForm({
                           className="w-full overflow-hidden rounded border bg-gray-100"
                           style={{ aspectRatio: heroAspectRatio(heroAspect) }}
                         >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={thumbnailUrl}
                             alt="히어로 미리보기"

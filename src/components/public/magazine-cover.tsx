@@ -21,7 +21,6 @@ export function MagazineCover({
 }) {
   if (coverImageUrl) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
       <img
         src={coverImageUrl}
         alt={title}

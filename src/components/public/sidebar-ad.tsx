@@ -44,7 +44,6 @@ export function SidebarAd({ ads }: { ads: SidebarAdItem[] }) {
       rel="noopener noreferrer sponsored"
       className="group relative block aspect-[4/3] w-full overflow-hidden rounded-[9px] border border-ink/[0.08]"
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={ad.imageUrl}
         alt={ad.title || ad.sponsor}

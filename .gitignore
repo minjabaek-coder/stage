@@ -50,3 +50,13 @@ next-env.d.ts
 
 # screenshots
 *.png
+
+# DB backups (may contain schema/data)
+backups/
+
+# docs (local-only — internal planning; kept on disk, not pushed to GitHub)
+# NOTE: docs/HANDOFF.md is also covered here (intentionally untracked)
+/docs
+
+# ref
+/ref

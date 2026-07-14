@@ -36,7 +36,6 @@ export function ArticleCard({ article }: { article: ArticleCardData }) {
     <Link href={article.href ?? `/articles/${article.slug}`} className="group block">
       <div className="relative aspect-video w-full overflow-hidden bg-ink-deep">
         {article.thumbnailUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={article.thumbnailUrl}
             alt={article.title}
