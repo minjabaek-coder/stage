@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>뷰어 rev.4 — 하단 가로 TOC(페이지 리플로우) + 모바일 단순화 + 표지 폴백</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@700;900&family=Noto+Sans+KR:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#1c1b1b; --ink-deep:#111010; --gold:#c4a35a; --gold-deep:#6f5c24;
+  --sans:'Noto Sans KR',sans-serif; --serif:'Noto Serif KR',serif; --mono:'DM Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:#f4f4f5;color:var(--ink);padding:24px;font-size:13px}
+h1{font-family:var(--serif);font-size:20px;margin-bottom:4px}
+.sub{color:#71717a;margin-bottom:20px;font-size:12px}
+.grid{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}
+.col-title{font-family:var(--mono);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#71717a;margin-bottom:8px}
+.pair{display:flex;gap:16px}
+
+/* 뷰어 = 세로 플렉스(헤더 / 페이지영역 / 필름스트립 / 컨트롤) — 스트립은 페이지를 가리지 않는 밴드 */
+.viewer{display:flex;flex-direction:column;background:var(--ink-deep);overflow:hidden;border-radius:8px;box-shadow:0 12px 40px rgba(0,0,0,.25)}
+.reader-head{position:relative;height:40px;flex:0 0 40px;display:flex;align-items:center;gap:10px;padding:0 14px;color:#fff;background:#161312}
+.reader-head .brand{font-family:var(--serif);font-weight:900;font-size:13px}
+.reader-head .iss{font-family:var(--mono);font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,.5)}
+.reader-head .ttl{font-size:11px;color:rgba(255,255,255,.85)}
+.reader-head .x{margin-left:auto;color:rgba(255,255,255,.6);font-size:16px}
+.reader-head .topbar{position:absolute;left:0;right:0;bottom:0;height:2px;background:rgba(255,255,255,.12)}
+.reader-head .topbar i{display:block;height:100%;width:9%;background:var(--gold)}
+
+/* 페이지 영역: 남은 공간을 모두 차지(스트립이 열리면 자동으로 줄어듦) */
+.pagearea{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:14px;gap:0}
+.page{background:#fbf8f3;max-height:100%;aspect-ratio:2/3;position:relative;box-shadow:0 6px 22px rgba(0,0,0,.4)}
+.page.cover{background:linear-gradient(135deg,#2a2320,#0f0c0a)}
+.page .pk{position:absolute;left:9%;top:42%;font-family:var(--mono);font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--gold-deep)}
+.page .ph{position:absolute;left:9%;top:46%;width:80%;font-family:var(--serif);font-weight:900;font-size:18px;line-height:1.2;color:#1c1b1b}
+.page.cover .cv{position:absolute;left:0;right:0;top:32%;text-align:center;color:#fff}
+.page.cover .cv b{font-family:var(--serif);font-size:24px;letter-spacing:4px}
+.page.cover .cv span{font-family:var(--mono);font-size:8px;letter-spacing:3px;color:var(--gold);display:block;margin-top:6px}
+.page.cover .cvimg{position:absolute;left:12%;right:12%;top:54%;height:28%;background:linear-gradient(135deg,#3a4a5a,#1d2733);border-radius:2px}
+/* 모바일 단면: 가로 꽉 채움 */
+.phone .page{width:100%;max-height:100%;aspect-ratio:2/3}
+
+/* ★ 하단 가로 TOC 필름스트립 — 별도 밴드(페이지를 가리지 않음) */
+.filmstrip{position:relative;flex:0 0 auto;background:rgba(18,16,15,.96);border-top:1px solid rgba(255,255,255,.08);
+  display:flex;gap:8px;align-items:center;padding:10px 12px;overflow-x:auto}
+.filmstrip .ft{flex:0 0 auto;width:44px;cursor:pointer;text-align:center}
+.filmstrip .ft .fr{aspect-ratio:2/3;border-radius:3px;overflow:hidden;background:#2a2320;border:1.5px solid transparent;position:relative}
+.filmstrip .ft.on .fr{border-color:var(--gold);box-shadow:0 0 0 2px rgba(196,163,90,.3)}
+.filmstrip .ft .fimg{position:absolute;inset:0;background:linear-gradient(135deg,#3a4a5a,#1d2733)}
+.filmstrip .ft.cover .fimg{background:linear-gradient(135deg,#2a2320,#0f0c0a)}
+.filmstrip .ft .pn{font-family:var(--mono);font-size:8px;color:rgba(255,255,255,.55);margin-top:3px;display:block}
+.filmstrip .ft.on .pn{color:var(--gold)}
+.filmstrip .hint{position:absolute;right:10px;top:-9px;font-family:var(--mono);font-size:8px;color:var(--gold);background:var(--ink-deep);padding:1px 5px;border-radius:3px;white-space:nowrap}
+
+/* 데스크톱 컨트롤 바 */
+.ctrlbar{flex:0 0 52px;border-top:1px solid rgba(255,255,255,.1);display:flex;align-items:center;padding:0 16px;gap:10px;background:var(--ink-deep)}
+.cbtn{border:1px solid rgba(255,255,255,.15);background:transparent;color:rgba(255,255,255,.6);border-radius:8px;padding:6px 11px;font-size:11px;font-family:var(--mono);letter-spacing:1px;text-transform:uppercase;cursor:pointer;white-space:nowrap}
+.cbtn.on{border-color:rgba(196,163,90,.4);background:rgba(196,163,90,.15);color:var(--gold)}
+.seg{display:inline-flex;border:1px solid rgba(255,255,255,.15);border-radius:999px;padding:2px}
+.seg button{border:0;background:transparent;color:rgba(255,255,255,.55);border-radius:999px;padding:4px 12px;font-size:11px;font-family:var(--mono);text-transform:uppercase;cursor:pointer}
+.seg button.on{background:var(--gold);color:var(--ink)}
+.nav{flex:1;display:flex;align-items:center;justify-content:center;gap:12px;color:rgba(255,255,255,.5)}
+.nav .rb{width:32px;height:32px;border:1px solid rgba(255,255,255,.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;color:rgba(255,255,255,.7)}
+.nav .pg{font-family:var(--mono);font-size:12px}
+
+/* 모바일 컨트롤 */
+.mctrl{flex:0 0 auto;padding:12px 16px 14px;background:#161312;border-top:1px solid rgba(255,255,255,.08)}
+.mctrl .row{display:flex;justify-content:space-around;color:rgba(255,255,255,.85);margin-bottom:10px}
+.mctrl .mb{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px}
+.mctrl .mb .ic{font-size:17px}
+/* 하단 진행률 = 드래그 스크러버 */
+.mctrl .bar{position:relative;height:6px;border-radius:3px;background:rgba(255,255,255,.2);margin:0 4px}
+.mctrl .bar i{display:block;height:100%;width:42%;background:var(--gold);border-radius:3px}
+.mctrl .bar .knob{position:absolute;top:50%;left:42%;transform:translate(-50%,-50%);width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.5);border:2px solid var(--gold)}
+.mctrl .pg{text-align:center;font-family:var(--mono);font-size:10px;color:rgba(255,255,255,.55);margin-top:6px}
+
+.notes{max-width:600px;margin-top:8px;background:#fff;border:1px solid #e4e4e7;border-radius:10px;padding:16px 18px}
+.notes h3{font-size:13px;margin-bottom:8px}
+.notes li{margin:5px 0 5px 16px;font-size:12px;color:#3f3f46;line-height:1.55}
+.notes .old{color:#b91c1c}.notes .new{color:#15803d;font-weight:700}
+.tag{display:inline-block;background:rgba(196,163,90,.16);color:var(--gold-deep);border-radius:4px;padding:0 6px;font-size:10px;font-family:var(--mono)}
+.lead{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 13px;font-size:12px;color:#92400e;max-width:600px;margin-bottom:18px}
+</style>
+</head>
+<body>
+<h1>매거진 뷰어 rev.4 — 하단 가로 TOC(페이지 리플로우)</h1>
+<p class="sub">목차 스트립은 별도 밴드로, 열리면 페이지 영역이 줄어 페이지가 온전히 보임(가림 없음). 데스크톱·모바일 공통.</p>
+<div class="lead">핵심: 목차는 <b>오버레이가 아니라 레이아웃 밴드</b>. 열리면 페이지가 그만큼 작아지되 <b>전체가 항상 보임</b>. 닫으면 페이지가 다시 커짐.</div>
+
+<div class="grid">
+  <!-- 데스크톱: 목차 OFF vs ON -->
+  <div>
+    <div class="col-title">데스크톱</div>
+    <div class="pair">
+      <div>
+        <div class="col-title" style="color:#a1a1aa">목차 OFF — 페이지 최대</div>
+        <div class="viewer" style="width:380px;height:300px">
+          <div class="reader-head"><span class="brand">STAGE</span><span class="iss">39</span><span class="ttl">무대와 AI의 만남</span><span class="x">✕</span><div class="topbar"><i></i></div></div>
+          <div class="pagearea">
+            <div class="page" style="border-right:1px solid rgba(0,0,0,.1)"><div class="pk">Cover Story</div><div class="ph">무대와<br>AI의 만남</div></div>
+            <div class="page"><div class="pk" style="top:14%">Review</div><div class="ph" style="top:18%;font-size:13px">시간이 빚어낸 기도</div></div>
+          </div>
+          <div class="ctrlbar">
+            <button class="cbtn">☰ 목차</button>
+            <span class="seg"><button>한</button><button class="on">두</button></span>
+            <div class="nav"><span class="rb">‹</span><span class="pg">2/12</span><span class="rb">›</span></div>
+            <button class="cbtn on">📖</button><button class="cbtn">⛶</button><button class="cbtn">◐</button>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="col-title" style="color:var(--gold-deep)">목차 ON — 페이지 줄고 스트립 노출</div>
+        <div class="viewer" style="width:380px;height:300px">
+          <div class="reader-head"><span class="brand">STAGE</span><span class="iss">39</span><span class="ttl">무대와 AI의 만남</span><span class="x">✕</span><div class="topbar"><i></i></div></div>
+          <div class="pagearea">
+            <div class="page" style="border-right:1px solid rgba(0,0,0,.1)"><div class="pk">Cover Story</div><div class="ph" style="font-size:14px">무대와<br>AI의 만남</div></div>
+            <div class="page"><div class="pk" style="top:14%">Review</div><div class="ph" style="top:18%;font-size:11px">시간이 빚어낸 기도</div></div>
+          </div>
+          <div class="filmstrip">
+            <span class="hint">썸네일 + 쪽번호 (제목 생략)</span>
+            <div class="ft cover"><div class="fr"><div class="fimg"></div></div><span class="pn">1</span></div>
+            <div class="ft on"><div class="fr"><div class="fimg"></div></div><span class="pn">2</span></div>
+            <div class="ft"><div class="fr"><div class="fimg"></div></div><span class="pn">3</span></div>
+            <div class="ft"><div class="fr"><div class="fimg"></div></div><span class="pn">4</span></div>
+            <div class="ft"><div class="fr"><div class="fimg"></div></div><span class="pn">5</span></div>
+            <div class="ft"><div class="fr"><div class="fimg"></div></div><span class="pn">6</span></div>
+            <div class="ft"><div class="fr"><div class="fimg"></div></div><span class="pn">7</span></div>
+          </div>
+          <div class="ctrlbar">
+            <button class="cbtn on">☰ 목차</button>
+            <span class="seg"><button>한</button><button class="on">두</button></span>
+            <div class="nav"><span class="rb">‹</span><span class="pg">2/12</span><span class="rb">›</span></div>
+            <button class="cbtn on">📖</button><button class="cbtn">⛶</button><button class="cbtn">◐</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 모바일: 목차 OFF vs ON -->
+  <div>
+    <div class="col-title">모바일</div>
+    <div class="pair">
+      <div>
+        <div class="col-title" style="color:#a1a1aa">목차 OFF</div>
+        <div class="viewer phone" style="width:190px;height:400px">
+          <div class="reader-head"><span class="brand">STAGE</span><span class="iss">39</span><span class="x">✕</span><div class="topbar"><i></i></div></div>
+          <div class="pagearea" style="padding:0">
+            <div class="page cover"><div class="cv"><b>STAGE</b><span>VOL.39</span></div><div class="cvimg"></div></div>
+          </div>
+          <div class="mctrl">
+            <div class="row"><span class="mb"><span class="ic">☰</span>목차</span><span class="mb"><span class="ic">◐</span>다크</span><span class="mb"><span class="ic">⛶</span>전체</span></div>
+            <div class="bar"><i></i><span class="knob"></span></div>
+            <div class="pg">↔ 드래그 이동 · 1/12</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="col-title" style="color:var(--gold-deep)">목차 ON — 페이지 줄고 스트립 노출</div>
+        <div class="viewer phone" style="width:190px;height:400px">
+          <div class="reader-head"><span class="brand">STAGE</span><span class="iss">39</span><span class="x">✕</span><div class="topbar"><i></i></div></div>
+          <div class="pagearea" style="padding:0">
+            <div class="page cover"><div class="cv" style="top:26%"><b style="font-size:20px">STAGE</b><span>VOL.39</span></div><div class="cvimg" style="top:50%"></div></div>
+          </div>
+          <div class="filmstrip">
+            <div class="ft on cover"><div class="fr"><div class="fimg"></div></div><span class="pn">1</span></div>
+            <div class="ft"><div class="fr"><div class="fimg"></div></div><span class="pn">2</span></div>
+            <div class="ft"><div class="fr"><div class="fimg"></div></div><span class="pn">3</span></div>
+            <div class="ft"><div class="fr"><div class="fimg"></div></div><span class="pn">4</span></div>
+          </div>
+          <div class="mctrl">
+            <div class="row"><span class="mb"><span class="ic">☰</span>목차</span><span class="mb"><span class="ic">◐</span>다크</span><span class="mb"><span class="ic">⛶</span>전체</span></div>
+            <div class="bar"><i></i><span class="knob"></span></div>
+            <div class="pg">↔ 드래그 이동 · 1/12</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="notes">
+  <h3>변경 요약</h3>
+  <ul>
+    <li><b>목차 = 하단 가로 필름스트립 (데스크톱·모바일 공통)</b> — <span class="old">기존: 데스크톱 우측 세로 패널 / 모바일 하단 시트(세로, 화면 가림)</span> → <span class="new">하단 가로 밴드</span>. <b>오버레이 아님</b> — 열리면 페이지 영역이 줄어 <b>페이지 전체가 항상 보임</b>, 닫으면 복귀. <span class="tag">썸네일 + 쪽번호</span>만(제목 생략), 현재 페이지 골드, 좌→우 스크롤·현재 항목 자동 센터.</li>
+    <li><b>모바일 확대 버튼</b> — <span class="old">제거</span> (핀치 줌 제스처 유지)</li>
+    <li><b>모바일 넘김 효과</b> — <span class="new">항상 즉시 전환</span> → <span class="old">넘김 버튼 제거</span></li>
+    <li><b>모바일 진입</b> — <span class="new">자동 전체화면</span> 시도(사용자 제스처 제약 시 폴백)</li>
+    <li><b>모바일 하단 컨트롤</b> — 목차 · 다크 · 전체 (3개)</li>
+    <li><b>모바일 하단 진행률 = 드래그 스크러버</b> — <span class="new">바를 드래그/탭하면 해당 페이지로 이동</span>(시크, 손잡이 표시). 상단 진행률(골드 언더라인)은 표시 전용.</li>
+    <li class="tag" style="margin-left:0">홈 표지 폴백 — 구성형(39호+)은 coverImageUrl이 없어 검은 'STAGE' 플레이스홀더 → page 1 layout을 ComposedPage로 렌더해 실제 표지 표시</li>
+  </ul>
+</div>
+</body>
+</html>

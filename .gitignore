@@ -50,3 +50,9 @@ next-env.d.ts
 
 # screenshots
 *.png
+
+# DB backups (may contain schema/data)
+backups/
+
+# ref
+/ref

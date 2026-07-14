@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>매거진 에디터 목업 — STAGE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;700;900&family=Noto+Sans+KR:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f4f5; --panel:#ffffff; --line:#e4e4e7; --line2:#d4d4d8;
+  --ink:#18181b; --muted:#71717a; --muted2:#a1a1aa;
+  --primary:#18181b; --sel:#2563eb; --sel-bg:rgba(37,99,235,.08);
+  --gold-deep:#6f5c24; --canvas-bg:#fbf8f3;
+  --sans:'Noto Sans KR',sans-serif; --serif:'Noto Serif KR',serif; --mono:'DM Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--ink);font-size:13px;-webkit-font-smoothing:antialiased}
+
+/* 목업 툴바 */
+.mock-bar{height:42px;background:#1c1b1b;color:#fff;display:flex;align-items:center;gap:14px;padding:0 16px;font-size:12px}
+.mock-bar b{font-family:var(--serif);font-weight:900;font-size:14px}
+.mock-bar .lbl{font-family:var(--mono);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#a1a1aa}
+.mock-bar .seg{display:inline-flex;border:1px solid rgba(255,255,255,.2);border-radius:6px;overflow:hidden}
+.mock-bar .seg button{background:transparent;color:rgba(255,255,255,.6);border:0;padding:5px 11px;font-size:11px;cursor:pointer;font-family:var(--sans)}
+.mock-bar .seg button.on{background:#fff;color:#1c1b1b;font-weight:700}
+.mock-bar .note{margin-left:auto;color:rgba(255,255,255,.4);font-family:var(--mono);font-size:10px}
+
+/* 앱 상단바 */
+.topbar{height:52px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;padding:0 16px}
+.topbar .crumb{font-weight:700}.topbar .crumb .iss{color:var(--muted);font-weight:400;margin-left:6px}
+.topbar .save{display:flex;align-items:center;gap:6px;font-size:11px;color:#16a34a;font-family:var(--mono)}
+.topbar .save .dot{width:6px;height:6px;border-radius:50%;background:#16a34a}
+.topbar .sp{flex:1}
+.btn{border:1px solid var(--line2);background:#fff;border-radius:7px;padding:7px 13px;font-size:12px;cursor:pointer;font-family:var(--sans);color:var(--ink)}
+.btn.primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+.btn:hover{border-color:#a1a1aa}
+
+/* 3컬럼 */
+.app{display:grid;grid-template-columns:208px 1fr 256px;height:calc(100vh - 42px - 52px);min-height:660px}
+.col{background:var(--panel);overflow:auto}
+.col.center{background:#e9e7e4;display:flex;flex-direction:column}
+
+/* ── 좌: 페이지 패널 ── */
+.pp-head{display:flex;align-items:center;justify-content:space-between;padding:12px 12px 8px;border-bottom:1px solid var(--line)}
+.pp-head .ti{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
+.pp-modes{display:inline-flex;border:1px solid var(--line2);border-radius:5px;overflow:hidden}
+.pp-modes button{background:#fff;border:0;padding:3px 7px;font-size:11px;cursor:pointer;color:var(--muted)}
+.pp-modes button.on{background:#f4f4f5;color:var(--ink)}
+.pp-add{margin:10px 12px;display:block;width:calc(100% - 24px);border:1px dashed var(--line2);background:#fafafa;border-radius:7px;padding:8px;font-size:12px;color:var(--muted);cursor:pointer}
+.pp-add:hover{border-color:var(--sel);color:var(--sel)}
+/* 레일 */
+.rail{padding:4px 12px 16px;display:flex;flex-direction:column;gap:8px}
+.rail.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pthumb{position:relative;cursor:pointer}
+.pthumb .frame{aspect-ratio:2/3;background:var(--canvas-bg);border:1px solid var(--line2);border-radius:5px;overflow:hidden;position:relative;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.pthumb.sel .frame{border-color:var(--sel);box-shadow:0 0 0 2px var(--sel-bg)}
+.pthumb .pn{position:absolute;left:5px;bottom:4px;font-family:var(--mono);font-size:9px;color:var(--muted);background:rgba(255,255,255,.85);padding:0 4px;border-radius:3px;z-index:2}
+.pthumb .more{position:absolute;top:3px;right:3px;width:18px;height:18px;border-radius:4px;background:rgba(255,255,255,.9);border:1px solid var(--line);display:none;align-items:center;justify-content:center;font-size:11px;color:var(--muted);z-index:3}
+.pthumb:hover .more{display:flex}
+/* 미니 콘텐츠(썸네일 내부) */
+.mini-img{position:absolute;left:0;top:0;right:0;height:46%;background:linear-gradient(135deg,#3a4a5a,#1d2733)}
+.mini-h{position:absolute;left:8%;top:52%;width:70%;height:7%;background:#3f3a33;border-radius:1px}
+.mini-l{position:absolute;left:8%;width:60%;height:3%;background:#cfc7ba;border-radius:1px}
+.mini-cover{position:absolute;inset:0;background:linear-gradient(135deg,#2a2320,#171210)}
+
+/* 페이지 컨텍스트 메뉴 */
+.ctxmenu{position:absolute;z-index:40;background:#fff;border:1px solid var(--line2);border-radius:8px;box-shadow:0 12px 30px rgba(0,0,0,.14);padding:5px;width:168px;font-size:12px}
+.ctxmenu div{padding:7px 9px;border-radius:5px;cursor:pointer;display:flex;justify-content:space-between;color:var(--ink)}
+.ctxmenu div:hover{background:#f4f4f5}
+.ctxmenu div.danger{color:#dc2626}
+.ctxmenu .sep{height:1px;background:var(--line);margin:4px 0;padding:0}
+.ctxmenu kbd{font-family:var(--mono);font-size:9px;color:var(--muted2)}
+
+/* ── 중앙: 캔버스 ── */
+.canvas-toolbar{height:46px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:6px;padding:0 12px}
+.tbtn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line2);background:#fff;border-radius:7px;padding:6px 11px;font-size:12px;cursor:pointer;color:var(--ink)}
+.tbtn:hover{border-color:#a1a1aa}
+.tbtn.ghost{border-color:transparent;background:transparent;color:var(--muted)}
+.tbtn[disabled]{opacity:.4;cursor:default}
+.tbsep{width:1px;height:22px;background:var(--line);margin:0 4px}
+.canvas-wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:30px;overflow:auto}
+.canvas{width:380px;height:570px;background:var(--canvas-bg);box-shadow:0 10px 40px rgba(0,0,0,.18);position:relative}
+.blk{position:absolute;cursor:move}
+.blk .bimg{width:100%;height:100%;background:linear-gradient(135deg,#3a4a5a,#1d2733);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.45);font-family:var(--mono);font-size:9px}
+.blk .bk{font-family:var(--mono);font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--gold-deep)}
+.blk .bh{font-family:var(--serif);font-weight:900;color:#1c1b1b;line-height:1.22}
+.blk .bp{font-family:var(--serif);color:#444748;font-size:11px;line-height:1.7}
+.blk.hoverable:hover{outline:1.5px solid rgba(37,99,235,.4)}
+/* 선택 블록 + 핸들 */
+.blk.selected{outline:1.5px solid var(--sel)}
+.h{position:absolute;width:10px;height:10px;background:#fff;border:1.5px solid var(--sel);border-radius:2px}
+.h.nw{left:-5px;top:-5px;cursor:nwse-resize}.h.n{left:calc(50% - 5px);top:-5px;cursor:ns-resize}.h.ne{right:-5px;top:-5px;cursor:nesw-resize}
+.h.w{left:-5px;top:calc(50% - 5px);cursor:ew-resize}.h.e{right:-5px;top:calc(50% - 5px);cursor:ew-resize}
+.h.sw{left:-5px;bottom:-5px;cursor:nesw-resize}.h.s{left:calc(50% - 5px);bottom:-5px;cursor:ns-resize}.h.se{right:-5px;bottom:-5px;cursor:nwse-resize}
+/* 스냅 가이드 */
+.snap{position:absolute;background:#ec4899;z-index:5;pointer-events:none}
+.snap.v{width:1px;top:0;bottom:0;left:50%}.snap.h{height:1px;left:0;right:0;top:46%}
+.snap-tip{position:absolute;background:#ec4899;color:#fff;font-family:var(--mono);font-size:8px;padding:1px 4px;border-radius:2px;z-index:6}
+
+/* ── 우: 속성 패널 ── */
+.props{padding:14px}
+.props h4{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:2px 0 10px;display:flex;align-items:center;gap:6px}
+.props .typetag{background:var(--sel-bg);color:var(--sel);border-radius:4px;padding:1px 6px;font-size:10px;font-family:var(--sans);letter-spacing:0;text-transform:none}
+.pgroup{border-top:1px solid var(--line);padding:12px 0}
+.pgroup:first-of-type{border-top:0}
+.pglabel{font-size:11px;color:var(--muted);margin-bottom:8px}
+.xy{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.field{display:flex;align-items:center;border:1px solid var(--line2);border-radius:6px;padding:5px 8px;background:#fff}
+.field .k{font-family:var(--mono);font-size:10px;color:var(--muted2);margin-right:6px}
+.field input{border:0;outline:0;width:100%;font-size:12px;font-family:var(--mono);color:var(--ink);background:transparent}
+.field .u{font-size:10px;color:var(--muted2)}
+.row{display:flex;align-items:center;gap:7px;margin-top:7px}
+.lockbtn{border:1px solid var(--line2);background:#fff;border-radius:6px;padding:5px 7px;cursor:pointer;font-size:12px}
+.lockbtn.on{border-color:var(--sel);color:var(--sel);background:var(--sel-bg)}
+.iconrow{display:flex;gap:5px}
+.iconrow button{flex:1;border:1px solid var(--line2);background:#fff;border-radius:6px;padding:6px 0;cursor:pointer;font-size:12px;color:var(--muted)}
+.iconrow button.on{border-color:var(--sel);color:var(--sel);background:var(--sel-bg)}
+.iconrow button:hover{border-color:#a1a1aa}
+.slider{display:flex;align-items:center;gap:8px}
+.slider input{flex:1;accent-color:var(--sel)}
+.slider .v{font-family:var(--mono);font-size:10px;color:var(--muted);width:34px;text-align:right}
+
+/* 이미지형 관리 화면 */
+.imgmode{flex:1;display:flex;flex-direction:column;align-items:center;padding:30px;overflow:auto}
+.dropzone{width:100%;max-width:560px;border:2px dashed var(--line2);border-radius:10px;background:#fafafa;padding:26px;text-align:center;color:var(--muted)}
+.dropzone .big{font-size:22px;margin-bottom:6px}
+.uplist{width:100%;max-width:560px;margin-top:18px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.upcard{position:relative;cursor:grab}
+.upcard .fr{aspect-ratio:2/3;border:1px solid var(--line2);border-radius:6px;overflow:hidden;background:#222;position:relative}
+.upcard .pn{position:absolute;left:5px;bottom:5px;font-family:var(--mono);font-size:9px;color:#fff;background:rgba(0,0,0,.5);padding:0 5px;border-radius:3px}
+.upcard .fn{font-size:10px;color:var(--muted);margin-top:4px;font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.note-card{max-width:560px;width:100%;margin:14px auto 0;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 13px;font-size:12px;color:#92400e}
+</style>
+</head>
+<body>
+
+<div class="mock-bar">
+  <b>STAGE</b> <span class="lbl">매거진 에디터 목업 · Stage 3</span>
+  <span class="seg" id="segKind">
+    <button data-k="composed" class="on">구성형 편집 (캔버스)</button>
+    <button data-k="image">이미지형 관리 (업로드)</button>
+  </span>
+  <span class="note">단일 셸 · 콘텐츠 단위 멀티페이지 · 라우트 전환 없이 페이지 스위칭</span>
+</div>
+
+<div class="topbar">
+  <div class="crumb">매거진 편집 <span class="iss">· STAGE Issue 40 (구성형)</span></div>
+  <div class="save"><span class="dot"></span>저장됨 · 방금</div>
+  <div class="sp"></div>
+  <button class="btn">미리보기</button>
+  <button class="btn primary">발행하기</button>
+</div>
+
+<div class="app" id="app"></div>
+
+<script>
+const state={kind:'composed',panel:'rail',ctx:true};
+
+const PAGES=[
+  {n:1,type:'cover'},{n:2,type:'content'},{n:3,type:'cover'},
+  {n:4,type:'content'},{n:5,type:'content'},{n:6,type:'cover'}
+];
+const SEL=3;
+
+function thumbInner(t){
+  return t==='cover'
+   ? `<div class="mini-cover"></div>`
+   : `<div class="mini-img"></div><div class="mini-h" style="top:52%"></div><div class="mini-l" style="top:64%"></div><div class="mini-l" style="top:71%;width:52%"></div><div class="mini-l" style="top:78%;width:56%"></div>`;
+}
+function pagePanel(){
+  return `<div class="pp-head"><span class="ti">페이지 · ${PAGES.length}</span>
+    <span class="pp-modes"><button class="${state.panel==='rail'?'on':''}" onclick="setPanel('rail')">▤</button><button class="${state.panel==='grid'?'on':''}" onclick="setPanel('grid')">▦</button></span></div>
+  <button class="pp-add">+ 새 페이지</button>
+  <div class="rail ${state.panel==='grid'?'grid':''}">
+    ${PAGES.map(p=>`<div class="pthumb ${p.n===SEL?'sel':''}" onclick="closeCtx()"><div class="frame">${thumbInner(p.type)}</div><span class="pn">${p.n}</span><span class="more" onclick="event.stopPropagation();toggleCtx()">⋯</span>${p.n===SEL&&state.ctx&&state.panel==='rail'?ctxMenu():''}</div>`).join('')}
+  </div>`;
+}
+function ctxMenu(){return `<div class="ctxmenu" style="left:calc(100% - 8px);top:18px">
+  <div>빈 페이지 추가</div>
+  <div>현재 페이지 복제 <kbd>⌘D</kbd></div>
+  <div class="sep"></div>
+  <div>위로 이동</div><div>아래로 이동</div>
+  <div>제목 설정…</div>
+  <div class="sep"></div>
+  <div class="danger">삭제 <kbd>⌫</kbd></div>
+</div>`;}
+
+/* 중앙: 구성형 캔버스 */
+function composedCenter(){return `
+<div class="canvas-toolbar">
+  <button class="tbtn">＋ 텍스트</button>
+  <button class="tbtn">＋ 이미지</button>
+  <button class="tbtn">＋ 이미지 프레임</button>
+  <span class="tbsep"></span>
+  <button class="tbtn ghost" disabled>↶ 실행취소</button>
+  <button class="tbtn ghost" disabled>↷ 다시실행</button>
+  <span class="tbsep"></span>
+  <button class="tbtn ghost">정렬 ▾</button>
+  <button class="tbtn ghost">레이어 ▾</button>
+  <span style="flex:1"></span>
+  <span style="font-family:var(--mono);font-size:11px;color:var(--muted)">페이지 3 / 6 · 100%</span>
+</div>
+<div class="canvas-wrap">
+  <div class="canvas">
+    <!-- 선택된 이미지 블록 + 핸들 + 스냅 -->
+    <div class="blk selected" style="left:0;top:0;width:100%;height:46%">
+      <div class="bimg">이미지 블록 (focus crop)</div>
+      <div class="h nw"></div><div class="h n"></div><div class="h ne"></div><div class="h w"></div><div class="h e"></div><div class="h sw"></div><div class="h s"></div><div class="h se"></div>
+    </div>
+    <div class="snap v"></div><div class="snap-tip" style="left:calc(50% + 4px);top:6px">중앙</div>
+    <div class="blk hoverable" style="left:8%;top:52%;width:84%"><div class="bk">Cover Story</div></div>
+    <div class="blk hoverable" style="left:8%;top:56%;width:84%"><div class="bh" style="font-size:30px">무대와<br>AI의 만남</div></div>
+    <div class="blk hoverable" style="left:8%;top:80%;width:84%"><div class="bp">STAGE가 인공지능과 만났습니다. 리뉴얼을 지휘한 박경준 대표를 만나 탄생 배경과 앞으로의 무대를 물었습니다.</div></div>
+  </div>
+</div>`;}
+
+/* 우: 속성(선택=이미지 블록) */
+function composedProps(){return `<div class="props">
+  <h4>속성 <span class="typetag">이미지 블록</span></h4>
+  <div class="pgroup">
+    <div class="pglabel">위치 · 크기 <span style="color:var(--muted2)">(% · 상대단위)</span></div>
+    <div class="xy">
+      <div class="field"><span class="k">X</span><input value="0"><span class="u">%</span></div>
+      <div class="field"><span class="k">Y</span><input value="0"><span class="u">%</span></div>
+      <div class="field"><span class="k">W</span><input value="100"><span class="u">%</span></div>
+      <div class="field"><span class="k">H</span><input value="46"><span class="u">%</span></div>
+    </div>
+    <div class="row"><button class="lockbtn on" title="비율 잠금">🔒 비율</button>
+      <div class="field" style="flex:1"><span class="k">∠</span><input value="0"><span class="u">°</span></div></div>
+  </div>
+  <div class="pgroup">
+    <div class="pglabel">정렬</div>
+    <div class="iconrow"><button>⤒</button><button class="on">⤬</button><button>⤓</button><button>⇤</button><button>⇥</button></div>
+  </div>
+  <div class="pgroup">
+    <div class="pglabel">레이어 (z-order)</div>
+    <div class="iconrow"><button title="맨 앞">⤴ 맨앞</button><button>앞으로</button><button>뒤로</button><button title="맨 뒤">⤵ 맨뒤</button></div>
+  </div>
+  <div class="pgroup">
+    <div class="pglabel">이미지 프레임</div>
+    <div class="iconrow" style="margin-bottom:8px"><button class="on">채움(cover)</button><button>맞춤(contain)</button></div>
+    <div class="slider"><span style="font-size:11px;color:var(--muted);width:42px">초점</span><button class="lockbtn" style="flex:1;text-align:left">⊹ 초점 지정 (54%, 7%)</button></div>
+    <div class="slider" style="margin-top:8px"><span style="font-size:11px;color:var(--muted);width:42px">줌</span><input type="range" min="100" max="250" value="120"><span class="v">1.2×</span></div>
+    <div class="slider" style="margin-top:8px"><span style="font-size:11px;color:var(--muted);width:42px">어둡게</span><input type="range" min="0" max="60" value="20"><span class="v">20%</span></div>
+    <div class="slider" style="margin-top:8px"><span style="font-size:11px;color:var(--muted);width:42px">모서리</span><input type="range" min="0" max="40" value="0"><span class="v">0</span></div>
+  </div>
+</div>`;}
+
+/* 이미지형 관리(업로드) */
+function imageCenter(){return `
+<div class="imgmode">
+  <div class="dropzone"><div class="big">⤓</div>이미지를 드래그하거나 클릭해 업로드<br><span style="font-size:11px">JPG · PNG · WebP — 페이지당 이미지 1장</span></div>
+  <div class="note-card">이 호는 <b>이미지형(1~38호)</b>이라 페이지 내부 캔버스 편집기가 없습니다 — 업로드·순서변경·파일명·삭제만. 같은 페이지 패널 셸을 공유해 "한 콘텐츠 = 여러 페이지" 멘탈모델은 동일합니다.</div>
+  <div class="uplist">
+    ${[1,2,3,4,5,6,7,8].map(n=>`<div class="upcard"><div class="fr" style="background:linear-gradient(135deg,#2a2320,#10141c)"><span class="pn">${n}</span></div><div class="fn">vol38_${String(n).padStart(3,'0')}.webp</div></div>`).join('')}
+  </div>
+</div>`;}
+function imageProps(){return `<div class="props">
+  <h4>페이지 속성 <span class="typetag" style="background:#f4f4f5;color:var(--muted)">이미지 페이지</span></h4>
+  <div class="pgroup">
+    <div class="pglabel">파일명</div>
+    <div class="field"><input value="vol38_003.webp" style="font-family:var(--mono);font-size:11px"></div>
+  </div>
+  <div class="pgroup">
+    <div class="pglabel">목차 제목 (선택)</div>
+    <div class="field"><input value="피아니스트 인터뷰"></div>
+  </div>
+  <div class="pgroup">
+    <div class="pglabel">목차 표시 쪽</div>
+    <div class="field" style="width:90px"><input value="13"><span class="u">쪽</span></div>
+  </div>
+  <div class="pgroup">
+    <div class="pglabel">대체 텍스트 (접근성·검색)</div>
+    <div class="field"><input placeholder="이미지 설명…"></div>
+  </div>
+</div>`;}
+
+function render(){
+  const app=document.getElementById('app');
+  const center=state.kind==='composed'?composedCenter():imageCenter();
+  const right=state.kind==='composed'?composedProps():imageProps();
+  app.innerHTML=`<div class="col left">${pagePanel()}</div><div class="col center">${center}</div><div class="col right">${right}</div>`;
+}
+function setPanel(m){state.panel=m;render();}
+function toggleCtx(){state.ctx=!state.ctx;render();}
+function closeCtx(){if(state.ctx){state.ctx=false;render();}}
+document.getElementById('segKind').onclick=e=>{if(e.target.dataset.k){[...e.currentTarget.children].forEach(b=>b.classList.toggle('on',b===e.target));state.kind=e.target.dataset.k;render();}};
+render();
+</script>
+</body>
+</html>
