@@ -7,6 +7,7 @@ import {
   coverPage,
   bodyPage,
   imageTextPage,
+  fullImagePage,
   galleryPage,
   bodyCapacity,
   textCapacity,
@@ -133,12 +134,12 @@ export function planPages(
           bLen += p.text.length;
           k++;
         }
+        // 붙일 본문이 있으면 사진+본문(하이브리드), 없으면 풀블리드(반쪽 백지 방지).
+        const body = bHtml.join("");
         pages.push(
-          imageTextPage({
-            src: node.src,
-            caption: node.caption,
-            bodyHtml: bHtml.join("") || undefined,
-          }),
+          body
+            ? imageTextPage({ src: node.src, caption: node.caption, bodyHtml: body })
+            : fullImagePage({ src: node.src, caption: node.caption }),
         );
         i = k;
       }

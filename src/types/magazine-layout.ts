@@ -37,6 +37,7 @@ export type TextBlock = BlockBase & {
   lineHeight?: number;
   bgColor?: string;
   padding?: number; // px
+  wordBreak?: "keep-all" | "normal"; // 한글 줄바꿈(keep-all=어절 경계 유지). 자동초안 기본 keep-all
 };
 
 export type ShapeBlock = BlockBase & {

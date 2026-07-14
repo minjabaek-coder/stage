@@ -34,7 +34,8 @@ function t(
   partial: Omit<TextBlock, "id" | "type" | "z">,
   z: number,
 ): TextBlock {
-  return { id: uid(), type: "text", z, ...partial };
+  // 자동초안 한글 텍스트는 어절 경계 줄바꿈(keep-all) 기본 — 제목·본문 단어깨짐 방지.
+  return { id: uid(), type: "text", z, wordBreak: "keep-all", ...partial };
 }
 function img(
   partial: Omit<ImageBlock, "id" | "type" | "z">,
@@ -121,9 +122,10 @@ export function galleryPage(images: { src: string; caption?: string }[]): PageLa
   const blocks: Block[] = [];
   images.forEach((im, i) => {
     const x = gap + i * (w + gap);
-    blocks.push(img({ x, y: 30, w, h: 34, src: im.src, fit: "cover" }, i * 2 + 1));
+    // 상단으로 올리고 세로를 키워 "가운데 뜬" 느낌 완화(편집형 지면 톤).
+    blocks.push(img({ x, y: 14, w, h: 58, src: im.src, fit: "cover" }, i * 2 + 1));
     if (im.caption)
-      blocks.push(t({ x, y: 65, w, h: 6, html: esc(im.caption), color: GOLD, fontSizePx: 9, align: "center" }, i * 2 + 2));
+      blocks.push(t({ x, y: 73, w, h: 6, html: esc(im.caption), color: GOLD, fontSizePx: 9, align: "center" }, i * 2 + 2));
   });
   return { pageBg: "#ffffff", blocks };
 }
