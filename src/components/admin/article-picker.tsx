@@ -51,6 +51,8 @@ export function ArticlePicker({
   const [q, setQ] = useState("");
   const [genre, setGenre] = useState("");
   const [unplacedOnly, setUnplacedOnly] = useState(false);
+  const [dateFrom, setDateFrom] = useState(""); // YYYY-MM-DD
+  const [dateTo, setDateTo] = useState("");
   const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number }>(
     { left: 0, top: 0 },
   );
@@ -92,6 +94,13 @@ export function ArticlePicker({
       .filter((a) => {
         if (genre && a.genre !== genre) return false;
         if (unplacedOnly && placements[a.id]) return false;
+        // 발행일 구간 — 설정 시 발행일 없는 기사(초안 등)는 제외
+        if (dateFrom || dateTo) {
+          const d = a.publishedAt?.slice(0, 10);
+          if (!d) return false;
+          if (dateFrom && d < dateFrom) return false;
+          if (dateTo && d > dateTo) return false;
+        }
         if (needle) {
           const hay = `${a.title} ${a.author ?? ""}`.toLowerCase();
           if (!hay.includes(needle)) return false;
@@ -104,7 +113,7 @@ export function ArticlePicker({
         if (pa !== pb) return pa - pb;
         return (b.publishedAt ?? "").localeCompare(a.publishedAt ?? "");
       });
-  }, [articles, placements, q, genre, unplacedOnly]);
+  }, [articles, placements, q, genre, unplacedOnly, dateFrom, dateTo]);
 
   function pick(id: string | null) {
     onChange(id);
@@ -174,6 +183,37 @@ export function ArticlePicker({
                 />
                 미배치만
               </label>
+            </div>
+            <div className="mb-2 flex flex-none items-center gap-1 text-[11px] text-muted-foreground">
+              <span className="flex-none">발행</span>
+              <input
+                type="date"
+                value={dateFrom}
+                max={dateTo || undefined}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="h-7 min-w-0 flex-1 rounded-md border bg-transparent px-1 text-[11px]"
+              />
+              <span className="flex-none">~</span>
+              <input
+                type="date"
+                value={dateTo}
+                min={dateFrom || undefined}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="h-7 min-w-0 flex-1 rounded-md border bg-transparent px-1 text-[11px]"
+              />
+              {(dateFrom || dateTo) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDateFrom("");
+                    setDateTo("");
+                  }}
+                  className="flex-none rounded px-1 hover:bg-accent"
+                  title="발행일 구간 초기화"
+                >
+                  ×
+                </button>
+              )}
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto">
