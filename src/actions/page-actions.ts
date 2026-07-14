@@ -6,6 +6,8 @@ import sanitizeHtml from "sanitize-html";
 import { deleteUploadedFile } from "@/lib/upload";
 import { getSupabase, STORAGE_BUCKET, getPublicUrl } from "@/lib/supabase";
 import { revalidatePath } from "next/cache";
+import { parseContentStream } from "@/lib/magazine-autolayout/content-stream";
+import { planPages } from "@/lib/magazine-autolayout/plan";
 
 // 구성형 레이아웃 저장 전 텍스트 블록 HTML 정제(스타일은 블록 속성으로 관리).
 function sanitizeLayout(layout: unknown): { blocks: unknown[]; pageBg?: string } {
@@ -86,6 +88,82 @@ export async function createComposedPage(
   revalidatePath(`/admin/magazines/${magazineId}/edit`);
   revalidatePath(`/magazines/${magazineId}`);
   return { success: true as const, pageId: page.id };
+}
+
+// P3-④ 기사 → 매거진 초안 자동 생성.
+// 콘텐츠 파서 → 플래너로 PageLayout[]를 만들어 구성형 페이지들을 일괄 생성하고,
+// 전 페이지에 동일 articleId를 부여(연속 범위 연동). afterPageId 뒤/replaceExisting 지원.
+export async function generateDraftFromArticle(
+  magazineId: string,
+  articleId: string,
+  opts?: { afterPageId?: string; replaceExisting?: boolean },
+) {
+  const article = await prisma.article.findUnique({
+    where: { id: articleId },
+    select: { title: true, subtitle: true, author: true, content: true },
+  });
+  if (!article) return { error: "기사를 찾을 수 없습니다" as const };
+  if (!article.content || article.content.trim().length < 20)
+    return { error: "본문이 없어 초안을 만들 수 없습니다" as const };
+
+  const layouts = planPages(parseContentStream(article.content), {
+    title: article.title,
+    subtitle: article.subtitle,
+    author: article.author,
+  });
+  if (layouts.length === 0) return { error: "생성할 페이지가 없습니다" as const };
+
+  // 재생성: 이 매거진에서 해당 기사에 연동된 기존 페이지 제거(경고는 UI에서).
+  if (opts?.replaceExisting) {
+    await prisma.magazinePage.deleteMany({ where: { magazineId, articleId } });
+  }
+
+  const agg = await prisma.magazinePage.aggregate({
+    where: { magazineId },
+    _max: { sortOrder: true, pageNumber: true },
+  });
+  const baseSort = (agg._max.sortOrder ?? -1) + 1;
+  const basePage = (agg._max.pageNumber ?? 0) + 1;
+
+  await prisma.magazinePage.createMany({
+    data: layouts.map((pl, i) => ({
+      magazineId,
+      kind: "composed" as const,
+      layout: sanitizeLayout(pl) as Prisma.InputJsonValue,
+      sortOrder: baseSort + i,
+      pageNumber: basePage + i,
+      articleId,
+    })),
+  });
+
+  // 방금 만든 페이지 id(끝에 순서대로 붙음)
+  const created = await prisma.magazinePage.findMany({
+    where: { magazineId, sortOrder: { gte: baseSort } },
+    orderBy: { sortOrder: "asc" },
+    select: { id: true },
+  });
+  const newIds = created.map((p) => p.id);
+
+  // afterPageId 지정 시 그 페이지 바로 뒤로 이동
+  if (opts?.afterPageId) {
+    const all = await prisma.magazinePage.findMany({
+      where: { magazineId },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true },
+    });
+    const newSet = new Set(newIds);
+    const others = all.map((p) => p.id).filter((id) => !newSet.has(id));
+    const idx = others.indexOf(opts.afterPageId);
+    const ordered =
+      idx >= 0
+        ? [...others.slice(0, idx + 1), ...newIds, ...others.slice(idx + 1)]
+        : [...others, ...newIds];
+    await applyPageOrder(ordered);
+  }
+
+  revalidatePath(`/admin/magazines/${magazineId}/edit`);
+  revalidatePath(`/magazines/${magazineId}`);
+  return { success: true as const, count: newIds.length, pageId: newIds[0] };
 }
 
 // 페이지 복제 — layout 깊은 복사 + 블록 id 재생성, 원본 다음에 삽입. articleId는 비움(딥링크 중복 방지).
