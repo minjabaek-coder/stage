@@ -63,3 +63,6 @@ backups/
 
 # scratch (local-only working artifacts — screenshots, temp files, logs)
 /.scratch
+
+# Claude Code local settings (permissions·personal overrides — not shared)
+.claude/settings.local.json
