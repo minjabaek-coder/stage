@@ -24,11 +24,11 @@ export function ArticleMaestroWidget({ title }: { title: string }) {
   ];
 
   return (
-    <div className="mt-12 rounded-2xl border border-[#6f5c24]/20 bg-[#faf7f2] p-6">
-      <p className="font-label text-[11px] font-bold uppercase tracking-[0.2em] text-[#6f5c24]">
+    <div className="mt-12 rounded-2xl border border-gold-deep/20 bg-[#faf7f2] p-6">
+      <p className="font-label text-[11px] font-bold uppercase tracking-[0.2em] text-gold-deep">
         AI 마에스트로
       </p>
-      <p className="mt-2 text-sm text-[#444748]">
+      <p className="mt-2 text-sm text-ink-muted">
         이 기사가 더 궁금하다면 마에스트로에게 물어보세요.
       </p>
       <div className="mt-4 flex flex-wrap gap-2">
@@ -37,7 +37,7 @@ export function ArticleMaestroWidget({ title }: { title: string }) {
             key={p.label}
             type="button"
             onClick={() => ask(p.q)}
-            className="rounded-full border border-[#6f5c24]/30 bg-white px-4 py-2 text-sm text-[#6f5c24] transition-colors hover:border-[#6f5c24] hover:bg-[#6f5c24]/5"
+            className="rounded-full border border-gold-deep/30 bg-white px-4 py-2 text-sm text-gold-deep transition-colors hover:border-gold-deep hover:bg-gold-deep/5"
           >
             {p.label}
           </button>
