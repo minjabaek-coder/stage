@@ -60,3 +60,6 @@ backups/
 
 # ref
 /ref
+
+# scratch (local-only working artifacts — screenshots, temp files, logs)
+/.scratch
