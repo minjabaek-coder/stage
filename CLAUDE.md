@@ -48,15 +48,21 @@ npx prisma generate                    # Regenerate Prisma client (output: src/g
 
 ## Environment Variables
 
-Required in `.env.local` (never committed — in .gitignore):
+Copy `.env.local.sample` → `.env.local` (never committed — in .gitignore) and fill values.
+
+**Required:**
 - `DATABASE_URL` — PostgreSQL connection string (Supabase Transaction Pooler, port 6543, ap-northeast-2). **This points at PRODUCTION** — there is no separate dev DB.
 - `NEXT_PUBLIC_SUPABASE_URL` — Supabase project URL
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — Supabase anon/public key
 - `SUPABASE_SERVICE_ROLE_KEY` — Supabase service role key (server-side only)
 - `GEMINI_API_KEY` — Google Gemini API key. Used for BOTH AI 마에스트로(도슨트) chat AND RAG embeddings (server-side only)
+
+**Optional (code has a default):**
 - `GEMINI_MODEL` — Gemini chat model id (default `gemini-3.1-flash-lite`)
 - `EMBEDDING_MODEL` — Gemini embedding model id (default `gemini-embedding-001`, outputDimensionality 1024 → `ContentChunk.vector(1024)`)
-- `ANTHROPIC_API_KEY` / `VOYAGE_API_KEY` — may exist in env but are **unused** by the app code (chat + embeddings are both Gemini now)
+- `NEXT_PUBLIC_SITE_URL` — site URL for canonical/OG (default `https://www.bon-stage.com`)
+
+> `ANTHROPIC_API_KEY` / `VOYAGE_API_KEY` are **unused** (chat + embeddings are both Gemini) and were removed from `.env.local`. `VERCEL_ENV` / `NODE_ENV` are injected by the platform — not in `.env.local`.
 
 > ⚠️ **DB safety**: `DATABASE_URL` is the live production DB. **Never run `prisma migrate dev`, `migrate reset`, or `db push`** against it — use `prisma migrate deploy` only. `BlogPostChunk` (pgvector RAG table) is created by raw SQL in a migration and is **NOT** modeled in `schema.prisma`, so `db push` will DROP it. See `docs/db/` / memory for known schema drift.
 
