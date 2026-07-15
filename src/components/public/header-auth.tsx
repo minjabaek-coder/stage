@@ -12,8 +12,8 @@ const TIER_LABEL: Record<CurrentUser["tier"], string> = {
 
 const TIER_CLASS: Record<CurrentUser["tier"], string> = {
   guest: "bg-gray-100 text-gray-500",
-  member: "bg-[#1c1b1b] text-white",
-  pro: "bg-[#6f5c24] text-white",
+  member: "bg-ink text-white",
+  pro: "bg-gold-deep text-white",
 };
 
 function TierBadge({ tier }: { tier: CurrentUser["tier"] }) {
@@ -97,7 +97,7 @@ export function HeaderAuth({
           <span
             className={`max-w-[140px] truncate ${
               editorial
-                ? "font-label text-xs font-semibold uppercase tracking-[0.05em] opacity-70 transition-colors hover:text-[#6f5c24]"
+                ? "font-label text-xs font-semibold uppercase tracking-[0.05em] opacity-70 transition-colors hover:text-gold-deep"
                 : "text-sm text-gray-700 hover:text-gray-900"
             }`}
           >
@@ -109,7 +109,7 @@ export function HeaderAuth({
             type="submit"
             className={
               editorial
-                ? "font-label text-xs font-semibold uppercase tracking-[0.05em] opacity-50 transition-colors duration-300 hover:text-[#6f5c24] hover:opacity-100"
+                ? "font-label text-xs font-semibold uppercase tracking-[0.05em] opacity-50 transition-colors duration-300 hover:text-gold-deep hover:opacity-100"
                 : "text-sm text-gray-400 transition-colors hover:text-gray-900"
             }
           >
@@ -125,13 +125,13 @@ export function HeaderAuth({
       <div className="flex items-center gap-5">
         <Link
           href="/auth/login"
-          className="font-label text-xs font-semibold uppercase tracking-[0.05em] opacity-70 transition-colors duration-300 hover:text-[#6f5c24]"
+          className="font-label text-xs font-semibold uppercase tracking-[0.05em] opacity-70 transition-colors duration-300 hover:text-gold-deep"
         >
           로그인
         </Link>
         <Link
           href="/auth/signup"
-          className="bg-[#1c1b1b] px-4 py-2 font-label text-xs font-semibold uppercase tracking-[0.05em] text-[#fcf9f8] transition-colors duration-300 hover:bg-[#6f5c24]"
+          className="bg-ink px-4 py-2 font-label text-xs font-semibold uppercase tracking-[0.05em] text-paper transition-colors duration-300 hover:bg-gold-deep"
         >
           회원가입
         </Link>
@@ -149,7 +149,7 @@ export function HeaderAuth({
       </Link>
       <Link
         href="/auth/signup"
-        className="rounded-full bg-[#1c1b1b] px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[#6f5c24]"
+        className="rounded-full bg-ink px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-gold-deep"
       >
         회원가입
       </Link>
