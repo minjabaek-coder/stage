@@ -912,6 +912,15 @@ export function PageEditor({
           className="overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.18)]"
           style={{ width: BASE_W, height: BASE_H, transform: `scale(${scale})`, transformOrigin: "0 0", background: pageBg, touchAction: "none" }}
         >
+          {blocks.length === 0 && (
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 text-neutral-400">
+              <LayoutTemplate size={30} strokeWidth={1.5} />
+              <p className="text-center text-[13px] leading-relaxed">
+                왼쪽 도구로 <b className="text-neutral-500">텍스트·이미지·도형</b>을 추가하거나<br />
+                레이아웃 프리셋을 적용해 시작하세요
+              </p>
+            </div>
+          )}
           {[...blocks].sort((a, b) => a.z - b.z).map((b) => {
             if (b.hidden) return null; // 편집기에서 숨김(뷰어는 항상 렌더)
             const isSel = selectedIds.includes(b.id);
@@ -1079,6 +1088,17 @@ export function PageEditor({
                   ))}
                   <ColorPickerButton value={pageBg} fallback="#ffffff" onChange={(v) => { commitDebounced(); setPageBg(v); }} />
                 </div>
+              </div>
+              <div className="mt-3 border-t pt-3">
+                <div className="ed-grouplabel">단축키</div>
+                <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+                  <dt className="font-mono text-foreground/70">Space</dt><dd>드래그로 화면 이동</dd>
+                  <dt className="font-mono text-foreground/70">⌘/Ctrl + 휠</dt><dd>확대 / 축소</dd>
+                  <dt className="font-mono text-foreground/70">방향키</dt><dd>이동 (Shift 크게)</dd>
+                  <dt className="font-mono text-foreground/70">⌘/Ctrl + Z</dt><dd>실행취소 (⇧ 다시실행)</dd>
+                  <dt className="font-mono text-foreground/70">⌘/Ctrl + D · C/V</dt><dd>복제 · 복사/붙여넣기</dd>
+                  <dt className="font-mono text-foreground/70">⌘/Ctrl + G · Del</dt><dd>그룹 · 삭제</dd>
+                </dl>
               </div>
             </div>
           ) : (
