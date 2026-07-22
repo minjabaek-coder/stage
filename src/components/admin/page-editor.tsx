@@ -11,6 +11,17 @@ import {
   type ChangeEvent as ReactChangeEvent,
 } from "react";
 import { useRouter } from "next/navigation";
+import {
+  MousePointer2, Type, Image as ImageIcon, Shapes, LayoutTemplate,
+  Undo2, Redo2,
+  AlignStartVertical, AlignCenterVertical, AlignEndVertical,
+  AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal,
+  AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter,
+  BringToFront, ArrowUp, ArrowDown, SendToBack,
+  Group as GroupIcon, Ungroup, Copy, Trash2,
+  Eye, EyeOff, Lock, Unlock,
+  RotateCw, Blend, Upload, Pencil, Minus, Plus,
+} from "lucide-react";
 import { toast } from "sonner";
 import type { Editor } from "@tiptap/react";
 import { ComposedBlockBody, ComposedPage } from "@/components/public/composed-page";
@@ -775,11 +786,11 @@ export function PageEditor({
     <div className="flex h-full gap-3">
       {/* 좌: 도구 레일 (캔바식) — 요소 추가 */}
       <nav ref={railRef} className="flex w-16 flex-none flex-col items-center gap-1 rounded-lg bg-ink-deep py-2.5">
-        <RailTool icon="↖" label="선택" active={selectedIds.length === 0} onClick={() => { setSelectedIds([]); setEditingId(null); }} />
-        <RailTool icon="T" label="텍스트" onClick={addText} />
-        <RailTool icon="🖼" label="이미지" onClick={addImage} />
+        <RailTool icon={<MousePointer2 size={18} />} label="선택" active={selectedIds.length === 0} onClick={() => { setSelectedIds([]); setEditingId(null); }} />
+        <RailTool icon={<Type size={18} />} label="텍스트" onClick={addText} />
+        <RailTool icon={<ImageIcon size={18} />} label="이미지" onClick={addImage} />
         <div className="relative">
-          <RailTool icon="▭" label="도형" active={shapePop} onClick={() => { setShapePop((v) => !v); setLayoutPop(false); }} />
+          <RailTool icon={<Shapes size={18} />} label="도형" active={shapePop} onClick={() => { setShapePop((v) => !v); setLayoutPop(false); }} />
           {shapePop && (
             <div className="absolute left-full top-0 z-50 ml-2 w-44 rounded-lg border bg-popover p-2 shadow-md">
               <div className="ed-grouplabel mb-1.5">도형</div>
@@ -807,7 +818,7 @@ export function PageEditor({
           )}
         </div>
         <div className="relative">
-          <RailTool icon="▤" label="레이아웃" active={layoutPop} onClick={() => { setLayoutPop((v) => !v); setShapePop(false); }} />
+          <RailTool icon={<LayoutTemplate size={18} />} label="레이아웃" active={layoutPop} onClick={() => { setLayoutPop((v) => !v); setShapePop(false); }} />
           {layoutPop && (
             <div className="absolute left-full top-0 z-50 ml-2 w-56 rounded-lg border bg-popover p-2 shadow-md">
               <div className="ed-grouplabel mb-1.5">레이아웃 프리셋 · 현재 페이지에 적용</div>
@@ -827,35 +838,10 @@ export function PageEditor({
       </nav>
       {/* 가운데 컬럼: 툴바 + 캔버스 (목업 .col.center) */}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border">
-      {/* 캔버스 툴바: 실행취소/다시실행 · 정렬/레이어 · 페이지/줌 · 저장 */}
+      {/* 캔버스 툴바: 실행취소/다시실행 · 페이지/줌 · 기사연동 · 저장 (정렬·레이어는 우측 속성 패널로 일원화) */}
       <div className="flex flex-wrap items-center gap-1.5 border-b bg-card px-3 py-2">
-        <button type="button" onClick={undo} disabled={past.current.length === 0} title="실행취소 (⌘Z)" className="tbtn ghost">↶ 실행취소</button>
-        <button type="button" onClick={redo} disabled={future.current.length === 0} title="다시실행 (⌘⇧Z)" className="tbtn ghost">↷ 다시실행</button>
-        <span className="tbsep" />
-        {/* 정렬 ▾ */}
-        <details className="relative">
-          <summary className={`tbtn ghost list-none ${!selected ? "pointer-events-none opacity-40" : ""}`}>정렬 ▾</summary>
-          <div className="absolute left-0 z-30 mt-1 w-40 rounded-md border bg-popover p-1 shadow-md">
-            <div className="grid grid-cols-3 gap-1">
-              <MenuBtn onClick={() => alignH("left")}>⇤ 좌</MenuBtn>
-              <MenuBtn onClick={() => alignH("center")}>⤬ 가운데</MenuBtn>
-              <MenuBtn onClick={() => alignH("right")}>⇥ 우</MenuBtn>
-              <MenuBtn onClick={() => alignV("top")}>⤒ 상</MenuBtn>
-              <MenuBtn onClick={() => alignV("middle")}>↕ 중앙</MenuBtn>
-              <MenuBtn onClick={() => alignV("bottom")}>⤓ 하</MenuBtn>
-            </div>
-          </div>
-        </details>
-        {/* 레이어 ▾ */}
-        <details className="relative">
-          <summary className={`tbtn ghost list-none ${!selected ? "pointer-events-none opacity-40" : ""}`}>레이어 ▾</summary>
-          <div className="absolute left-0 z-30 mt-1 w-32 rounded-md border bg-popover p-1 shadow-md">
-            <MenuBtn onClick={() => zOrder("front")} block>맨 앞으로</MenuBtn>
-            <MenuBtn onClick={() => zOrder("forward")} block>앞으로</MenuBtn>
-            <MenuBtn onClick={() => zOrder("backward")} block>뒤로</MenuBtn>
-            <MenuBtn onClick={() => zOrder("back")} block>맨 뒤로</MenuBtn>
-          </div>
-        </details>
+        <button type="button" onClick={undo} disabled={past.current.length === 0} title="실행취소 (⌘/Ctrl+Z)" aria-label="실행취소" className="tbtn ghost"><Undo2 size={16} /></button>
+        <button type="button" onClick={redo} disabled={future.current.length === 0} title="다시실행 (⌘/Ctrl+⇧Z)" aria-label="다시실행" className="tbtn ghost"><Redo2 size={16} /></button>
 
         <div className="ml-auto flex items-center gap-2.5">
           <span className="font-mono text-[11px] text-muted-foreground">
@@ -863,9 +849,9 @@ export function PageEditor({
           </span>
           {/* 줌 컨트롤(P5a) */}
           <span className="inline-flex items-center overflow-hidden rounded-md border">
-            <button type="button" onClick={() => zoomBy(1 / 1.2)} title="축소" className="px-2 py-1 text-sm text-muted-foreground hover:bg-accent">−</button>
+            <button type="button" onClick={() => zoomBy(1 / 1.2)} title="축소" className="flex items-center justify-center px-2 py-1.5 text-muted-foreground hover:bg-accent"><Minus size={14} /></button>
             <button type="button" onClick={zoomFit} title="화면 맞춤" className="w-12 border-x py-1 text-center font-mono text-[11px] hover:bg-accent">{Math.round(scale * 100)}%</button>
-            <button type="button" onClick={() => zoomBy(1.2)} title="확대" className="px-2 py-1 text-sm text-muted-foreground hover:bg-accent">＋</button>
+            <button type="button" onClick={() => zoomBy(1.2)} title="확대" className="flex items-center justify-center px-2 py-1.5 text-muted-foreground hover:bg-accent"><Plus size={14} /></button>
           </span>
           <span className="tbsep" />
           <ArticlePicker
@@ -926,6 +912,15 @@ export function PageEditor({
           className="overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.18)]"
           style={{ width: BASE_W, height: BASE_H, transform: `scale(${scale})`, transformOrigin: "0 0", background: pageBg, touchAction: "none" }}
         >
+          {blocks.length === 0 && (
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 text-neutral-400">
+              <LayoutTemplate size={30} strokeWidth={1.5} />
+              <p className="text-center text-[13px] leading-relaxed">
+                왼쪽 도구로 <b className="text-neutral-500">텍스트·이미지·도형</b>을 추가하거나<br />
+                레이아웃 프리셋을 적용해 시작하세요
+              </p>
+            </div>
+          )}
           {[...blocks].sort((a, b) => a.z - b.z).map((b) => {
             if (b.hidden) return null; // 편집기에서 숨김(뷰어는 항상 렌더)
             const isSel = selectedIds.includes(b.id);
@@ -1054,26 +1049,26 @@ export function PageEditor({
               </h4>
               <Group title="정렬 (선택 영역 기준)" first>
                 <div className="ed-iconrow flex gap-1.5">
-                  <button type="button" onClick={() => alignMulti("left")} title="왼쪽">⇤</button>
-                  <button type="button" onClick={() => alignMulti("cx")} title="가로 가운데">⤬</button>
-                  <button type="button" onClick={() => alignMulti("right")} title="오른쪽">⇥</button>
-                  <button type="button" onClick={() => alignMulti("top")} title="위">⤒</button>
-                  <button type="button" onClick={() => alignMulti("cy")} title="세로 가운데">↕</button>
-                  <button type="button" onClick={() => alignMulti("bottom")} title="아래">⤓</button>
+                  <button type="button" onClick={() => alignMulti("left")} title="왼쪽"><AlignStartVertical size={14} /></button>
+                  <button type="button" onClick={() => alignMulti("cx")} title="가로 가운데"><AlignCenterVertical size={14} /></button>
+                  <button type="button" onClick={() => alignMulti("right")} title="오른쪽"><AlignEndVertical size={14} /></button>
+                  <button type="button" onClick={() => alignMulti("top")} title="위"><AlignStartHorizontal size={14} /></button>
+                  <button type="button" onClick={() => alignMulti("cy")} title="세로 가운데"><AlignCenterHorizontal size={14} /></button>
+                  <button type="button" onClick={() => alignMulti("bottom")} title="아래"><AlignEndHorizontal size={14} /></button>
                 </div>
               </Group>
               <Group title="분배 (3개 이상)">
                 <div className="ed-iconrow flex gap-1.5">
-                  <button type="button" onClick={() => distributeMulti("x")}>↔ 가로</button>
-                  <button type="button" onClick={() => distributeMulti("y")}>↕ 세로</button>
+                  <button type="button" onClick={() => distributeMulti("x")}><span className="inline-flex items-center gap-1"><AlignHorizontalDistributeCenter size={14} /> 가로</span></button>
+                  <button type="button" onClick={() => distributeMulti("y")}><span className="inline-flex items-center gap-1"><AlignVerticalDistributeCenter size={14} /> 세로</span></button>
                 </div>
               </Group>
               <Group title="그룹 · 동작">
                 <div className="ed-iconrow flex flex-wrap gap-1.5">
-                  <button type="button" onClick={groupSelected}>⧉ 그룹</button>
-                  <button type="button" onClick={ungroupSelected}>그룹 해제</button>
-                  <button type="button" onClick={duplicateSelected}>복제</button>
-                  <button type="button" onClick={removeSelected} className="!text-red-600">삭제</button>
+                  <button type="button" onClick={groupSelected}><span className="inline-flex items-center gap-1"><GroupIcon size={14} /> 그룹</span></button>
+                  <button type="button" onClick={ungroupSelected}><span className="inline-flex items-center gap-1"><Ungroup size={14} /> 그룹 해제</span></button>
+                  <button type="button" onClick={duplicateSelected}><span className="inline-flex items-center gap-1"><Copy size={14} /> 복제</span></button>
+                  <button type="button" onClick={removeSelected} className="!text-red-600"><span className="inline-flex items-center gap-1"><Trash2 size={14} /> 삭제</span></button>
                 </div>
               </Group>
             </div>
@@ -1087,15 +1082,23 @@ export function PageEditor({
               </p>
               <div className="mt-3 border-t pt-3">
                 <div className="ed-grouplabel">페이지 배경색</div>
-                <div className="ed-field">
-                  <span className="k">#</span>
-                  <input value={pageBg.replace(/^#/, "")} onChange={(e) => { commitDebounced(); setPageBg("#" + e.target.value.replace(/^#/, "")); }} />
-                </div>
-                <div className="mt-2 flex gap-1.5">
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   {["#ffffff", "#faf7f2", "#111111", "#000000"].map((c) => (
-                    <button key={c} type="button" onClick={() => { commitDebounced(); setPageBg(c); }} className="h-6 w-6 rounded border" style={{ background: c }} />
+                    <button key={c} type="button" onClick={() => { commitDebounced(); setPageBg(c); }} className={`h-6 w-6 rounded-full border ${pageBg === c ? "ring-2 ring-[#2563eb] ring-offset-1" : ""}`} style={{ background: c }} />
                   ))}
+                  <ColorPickerButton value={pageBg} fallback="#ffffff" onChange={(v) => { commitDebounced(); setPageBg(v); }} />
                 </div>
+              </div>
+              <div className="mt-3 border-t pt-3">
+                <div className="ed-grouplabel">단축키</div>
+                <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+                  <dt className="font-mono text-foreground/70">Space</dt><dd>드래그로 화면 이동</dd>
+                  <dt className="font-mono text-foreground/70">⌘/Ctrl + 휠</dt><dd>확대 / 축소</dd>
+                  <dt className="font-mono text-foreground/70">방향키</dt><dd>이동 (Shift 크게)</dd>
+                  <dt className="font-mono text-foreground/70">⌘/Ctrl + Z</dt><dd>실행취소 (⇧ 다시실행)</dd>
+                  <dt className="font-mono text-foreground/70">⌘/Ctrl + D · C/V</dt><dd>복제 · 복사/붙여넣기</dd>
+                  <dt className="font-mono text-foreground/70">⌘/Ctrl + G · Del</dt><dd>그룹 · 삭제</dd>
+                </dl>
               </div>
             </div>
           ) : (
@@ -1123,32 +1126,32 @@ export function PageEditor({
                     className={`ed-lockbtn ${ratioLock ? "on" : ""}`}
                     title="비율 잠금"
                   >
-                    {ratioLock ? "🔒" : "🔓"} 비율
+                    <span className="inline-flex items-center gap-1">{ratioLock ? <Lock size={12} /> : <Unlock size={12} />} 비율</span>
                   </button>
-                  <Field className="flex-1" k="∠" unit="°" value={selected.rotation ?? 0} onChange={(v) => patch(selected.id, { rotation: v })} />
-                  <Field className="flex-1" k="◐" unit="%" value={Math.round((selected.opacity ?? 1) * 100)} onChange={(v) => patch(selected.id, { opacity: v / 100 })} />
+                  <Field className="flex-1" k={<RotateCw size={11} />} unit="°" value={selected.rotation ?? 0} onChange={(v) => patch(selected.id, { rotation: v })} />
+                  <Field className="flex-1" k={<Blend size={11} />} unit="%" value={Math.round((selected.opacity ?? 1) * 100)} onChange={(v) => patch(selected.id, { opacity: v / 100 })} />
                 </div>
               </Group>
 
               {/* 정렬(캔버스 기준) */}
               <Group title="정렬">
                 <div className="ed-iconrow flex gap-1.5">
-                  <button type="button" onClick={() => alignH("left")} title="왼쪽">⇤</button>
-                  <button type="button" onClick={() => alignH("center")} title="가로 가운데">⤬</button>
-                  <button type="button" onClick={() => alignH("right")} title="오른쪽">⇥</button>
-                  <button type="button" onClick={() => alignV("top")} title="위">⤒</button>
-                  <button type="button" onClick={() => alignV("middle")} title="세로 가운데">↕</button>
-                  <button type="button" onClick={() => alignV("bottom")} title="아래">⤓</button>
+                  <button type="button" onClick={() => alignH("left")} title="왼쪽"><AlignStartVertical size={14} /></button>
+                  <button type="button" onClick={() => alignH("center")} title="가로 가운데"><AlignCenterVertical size={14} /></button>
+                  <button type="button" onClick={() => alignH("right")} title="오른쪽"><AlignEndVertical size={14} /></button>
+                  <button type="button" onClick={() => alignV("top")} title="위"><AlignStartHorizontal size={14} /></button>
+                  <button type="button" onClick={() => alignV("middle")} title="세로 가운데"><AlignCenterHorizontal size={14} /></button>
+                  <button type="button" onClick={() => alignV("bottom")} title="아래"><AlignEndHorizontal size={14} /></button>
                 </div>
               </Group>
 
               {/* 레이어 (z-order) */}
               <Group title="레이어 (z-order)">
                 <div className="ed-iconrow flex gap-1.5">
-                  <button type="button" onClick={() => zOrder("front")} title="맨 앞으로">⤴ 맨앞</button>
-                  <button type="button" onClick={() => zOrder("forward")} title="앞으로">앞으로</button>
-                  <button type="button" onClick={() => zOrder("backward")} title="뒤로">뒤로</button>
-                  <button type="button" onClick={() => zOrder("back")} title="맨 뒤로">⤵ 맨뒤</button>
+                  <button type="button" onClick={() => zOrder("front")} title="맨 앞으로"><span className="inline-flex items-center gap-1"><BringToFront size={14} /> 맨앞</span></button>
+                  <button type="button" onClick={() => zOrder("forward")} title="앞으로"><span className="inline-flex items-center gap-1"><ArrowUp size={14} /> 앞으로</span></button>
+                  <button type="button" onClick={() => zOrder("backward")} title="뒤로"><span className="inline-flex items-center gap-1"><ArrowDown size={14} /> 뒤로</span></button>
+                  <button type="button" onClick={() => zOrder("back")} title="맨 뒤로"><span className="inline-flex items-center gap-1"><SendToBack size={14} /> 맨뒤</span></button>
                 </div>
               </Group>
 
@@ -1156,7 +1159,7 @@ export function PageEditor({
                 <Group title="이미지">
                   <div className="mb-2">
                     <label className="flex cursor-pointer items-center justify-center gap-1.5 rounded-md border bg-white py-2 text-xs hover:bg-accent">
-                      📤 {selected.src ? "이미지 교체" : "이미지 업로드"}
+                      <Upload size={14} /> {selected.src ? "이미지 교체" : "이미지 업로드"}
                       <input type="file" accept="image/*" onChange={(e) => handleFileFor(selected.id, e)} className="hidden" />
                     </label>
                     {uploading && <p className="mt-1 text-center text-xs text-muted-foreground">업로드 중…</p>}
@@ -1198,7 +1201,7 @@ export function PageEditor({
                         {["#1f6f72", "#c4a35a", "#1c1b1b", "#b91c1c", "#2563eb", "#ffffff"].map((c) => (
                           <button key={c} type="button" onClick={() => patch(selected.id, { fill: c } as Partial<ShapeBlock>)} className={`h-6 w-6 rounded-full border ${(selected as ShapeBlock).fill === c ? "ring-2 ring-[#2563eb] ring-offset-1" : ""}`} style={{ background: c }} />
                         ))}
-                        <input type="color" title="커스텀 색" value={(selected as ShapeBlock).fill ?? "#1f6f72"} onChange={(e) => patch(selected.id, { fill: e.target.value } as Partial<ShapeBlock>)} className="h-6 w-6 cursor-pointer rounded-full border p-0" />
+                        <ColorPickerButton value={(selected as ShapeBlock).fill} fallback="#1f6f72" onChange={(v) => patch(selected.id, { fill: v } as Partial<ShapeBlock>)} />
                       </div>
                     </>
                   )}
@@ -1210,7 +1213,7 @@ export function PageEditor({
                     {["#1c1b1b", "#c4a35a", "#1f6f72", "#b91c1c", "#ffffff"].map((c) => (
                       <button key={c} type="button" onClick={() => patch(selected.id, { stroke: c } as Partial<ShapeBlock>)} className={`h-6 w-6 rounded-full border ${(selected as ShapeBlock).stroke === c ? "ring-2 ring-[#2563eb] ring-offset-1" : ""}`} style={{ background: c }} />
                     ))}
-                    <input type="color" title="커스텀 색" value={(selected as ShapeBlock).stroke ?? "#1c1b1b"} onChange={(e) => patch(selected.id, { stroke: e.target.value } as Partial<ShapeBlock>)} className="h-6 w-6 cursor-pointer rounded-full border p-0" />
+                    <ColorPickerButton value={(selected as ShapeBlock).stroke} fallback="#1c1b1b" onChange={(v) => patch(selected.id, { stroke: v } as Partial<ShapeBlock>)} />
                   </div>
                   <div className="mt-2">
                     <LabeledField label="두께" unit="px" value={(selected as ShapeBlock).strokeWidth ?? 0} onChange={(v) => patch(selected.id, { strokeWidth: v } as Partial<ShapeBlock>)} />
@@ -1226,7 +1229,7 @@ export function PageEditor({
                     {editingId === selected.id ? (
                       <button type="button" onClick={() => setEditingId(null)} className="mt-1.5 text-xs text-muted-foreground hover:underline">편집 종료 (Esc)</button>
                     ) : (
-                      <button type="button" onClick={() => setEditingId(selected.id)} className="mt-1.5 text-xs text-primary hover:underline">✎ 캔버스에서 편집</button>
+                      <button type="button" onClick={() => setEditingId(selected.id)} className="mt-1.5 inline-flex items-center gap-1 text-xs text-primary hover:underline"><Pencil size={12} /> 캔버스에서 편집</button>
                     )}
                   </div>
                   <div className="grid grid-cols-2 gap-1.5">
@@ -1242,10 +1245,11 @@ export function PageEditor({
                   </div>
                   <div className="mt-2">
                     <div className="ed-grouplabel">글자색</div>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       {COLORS.map((c) => (
                         <button key={c} type="button" onClick={() => patch(selected.id, { color: c } as Partial<TextBlock>)} className={`h-6 w-6 rounded-full border ${selected.color === c ? "ring-2 ring-[#2563eb] ring-offset-1" : ""}`} style={{ background: c }} />
                       ))}
+                      <ColorPickerButton value={selected.color} fallback="#1c1b1b" onChange={(v) => patch(selected.id, { color: v } as Partial<TextBlock>)} />
                     </div>
                   </div>
                   <div className="mt-2 grid grid-cols-[1fr_auto] gap-1.5">
@@ -1284,8 +1288,8 @@ export function PageEditor({
                       <span className="w-4 text-center text-muted-foreground">{icon}</span>
                       <span className="flex-1 truncate">{name}</span>
                     </button>
-                    <button type="button" title={b.hidden ? "표시" : "숨김"} onClick={() => patch(b.id, { hidden: !b.hidden } as Partial<Block>)} className="px-0.5 text-muted-foreground hover:text-foreground">{b.hidden ? "🚫" : "👁"}</button>
-                    <button type="button" title={b.locked ? "잠금 해제" : "잠금"} onClick={() => patch(b.id, { locked: !b.locked } as Partial<Block>)} className="px-0.5 text-muted-foreground hover:text-foreground">{b.locked ? "🔒" : "🔓"}</button>
+                    <button type="button" title={b.hidden ? "표시" : "숨김"} onClick={() => patch(b.id, { hidden: !b.hidden } as Partial<Block>)} className="px-0.5 text-muted-foreground hover:text-foreground">{b.hidden ? <EyeOff size={13} /> : <Eye size={13} />}</button>
+                    <button type="button" title={b.locked ? "잠금 해제" : "잠금"} onClick={() => patch(b.id, { locked: !b.locked } as Partial<Block>)} className="px-0.5 text-muted-foreground hover:text-foreground">{b.locked ? <Lock size={13} /> : <Unlock size={13} />}</button>
                   </div>
                 );
               })
@@ -1325,7 +1329,7 @@ export function PageEditor({
 }
 
 // 좌측 도구 레일 버튼(캔바식)
-function RailTool({ icon, label, active, onClick }: { icon: string; label: string; active?: boolean; onClick: () => void }) {
+function RailTool({ icon, label, active, onClick }: { icon: ReactNode; label: string; active?: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
@@ -1367,7 +1371,7 @@ function Group({ title, children, first }: { title: ReactNode; children: ReactNo
 function Field({
   k, value, onChange, unit, step, className = "",
 }: {
-  k?: string; value: number; onChange: (v: number) => void; unit?: string; step?: number; className?: string;
+  k?: ReactNode; value: number; onChange: (v: number) => void; unit?: string; step?: number; className?: string;
 }) {
   return (
     <div className={`ed-field ${className}`}>
@@ -1440,14 +1444,23 @@ function FmtToolbar({ editor }: { editor: Editor | null }) {
 }
 
 // 툴바 드롭다운(정렬/레이어) 메뉴 항목
-function MenuBtn({ onClick, children, block }: { onClick: () => void; children: ReactNode; block?: boolean }) {
+// 커스텀 색 선택 버튼 — 무지개 색상환으로 "여기서 임의 색을 고른다"를 직관화(팔레트 색과 구분)
+function ColorPickerButton({
+  value, onChange, fallback = "#1c1b1b",
+}: { value?: string; onChange: (v: string) => void; fallback?: string }) {
+  const hex = value && /^#[0-9a-fA-F]{6}$/.test(value) ? value : fallback;
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded px-2 py-1 text-left text-xs hover:bg-accent ${block ? "block w-full" : ""}`}
+    <label
+      title="커스텀 색 선택"
+      className="relative inline-flex h-6 w-6 cursor-pointer overflow-hidden rounded-full border"
+      style={{ background: "conic-gradient(from 0deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000)" }}
     >
-      {children}
-    </button>
+      <input
+        type="color"
+        value={hex}
+        onChange={(e) => onChange(e.target.value)}
+        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+      />
+    </label>
   );
 }
