@@ -381,9 +381,12 @@ export function PageEditor({
     dy?: -1 | 0 | 1; // 리사이즈 방향(세로)
     starts?: { id: string; x: number; y: number; w: number; h: number }[]; // 멀티 이동/리사이즈 시작 위치
     gb0?: { x: number; y: number; w: number; h: number }; // 그룹 리사이즈 시작 바운딩박스
+    moved?: boolean; // 드래그 임계 초과 여부(클릭 vs 드래그 구분)
+    wasSelected?: boolean; // pointerDown 시점 이미 선택돼 있었나(선택된 텍스트 재클릭=편집 판정)
   } | null>(null);
 
   const SNAP = 1.5; // % 스냅 임계
+  const DRAG_THRESHOLD = 4; // px — 이 이하 이동은 클릭으로 간주(블록을 움직이지 않음)
   const SNAP_TARGETS = [0, 50, 100];
   // 이동 시 스냅 — 캔버스 0/50/100 + 비선택 블록의 가장자리·중심(P2d 객체간 가이드)
   function snapMove(nx: number, ny: number, bw: number, bh: number) {
@@ -440,7 +443,7 @@ export function PageEditor({
     const starts = blocks
       .filter((x) => nextSel.includes(x.id))
       .map((x) => ({ id: x.id, x: x.x, y: x.y, w: x.w, h: x.h }));
-    drag.current = { mode: "move", id: b.id, sx: e.clientX, sy: e.clientY, bx: b.x, by: b.y, bw: b.w, bh: b.h, starts };
+    drag.current = { mode: "move", id: b.id, sx: e.clientX, sy: e.clientY, bx: b.x, by: b.y, bw: b.w, bh: b.h, starts, moved: false, wasSelected: selectedIds.includes(b.id) };
   }
   function onHandlePointerDown(
     e: ReactPointerEvent,
@@ -492,6 +495,11 @@ export function PageEditor({
     }
 
     if (d.mode === "move") {
+      // 임계(4px) 넘기 전엔 이동하지 않음 → 제자리 클릭은 선택만(블록 안 움직임)
+      if (!d.moved) {
+        if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < DRAG_THRESHOLD) return;
+        d.moved = true;
+      }
       const starts = d.starts ?? [{ id: d.id, x: d.bx, y: d.by, w: d.bw, h: d.bh }];
       // 선택셋 전체가 캔버스 안에 남도록 dx/dy 공통 클램프
       let dx = dxPct, dy = dyPct;
@@ -552,8 +560,14 @@ export function PageEditor({
     patchLive(d.id, { x: nx, y: ny, w: Math.max(4, nw), h: Math.max(3, nh) });
   }
   function onDragEnd() {
+    const d = drag.current;
     drag.current = null;
     setSnap({ v: null, h: null });
+    // 클릭(이동 없음) + 텍스트 + 이미 선택돼 있던 블록 → 인라인 편집 진입(선택된 텍스트 재클릭 편집)
+    if (d && d.mode === "move" && !d.moved && d.wasSelected) {
+      const b = blocks.find((x) => x.id === d.id);
+      if (b?.type === "text") setEditingId(d.id);
+    }
     // 드래그/리사이즈 1회 = 히스토리 1엔트리(실제 변경 시에만)
     if (dragSnap.current) {
       if (JSON.stringify(dragSnap.current.blocks) !== JSON.stringify(blocks)) {
