@@ -83,7 +83,6 @@ export function PageEditor({
   const canvasRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const railRef = useRef<HTMLElement>(null); // 좌측 도구 레일(도형/레이아웃 팝오버 외부클릭 닫기)
-  const toolbarRef = useRef<HTMLDivElement>(null); // 상단 툴바(정렬/레이어 details 외부클릭 닫기)
   const [fitScale, setFitScale] = useState(1); // 가용 영역 기준 fit 배율(baseline)
   const [userZoom, setUserZoom] = useState(1); // 사용자 줌(P5a) — fit 위에 곱)
   const spaceRef = useRef(false); // 스페이스 누름(패닝 모드)
@@ -687,17 +686,6 @@ export function PageEditor({
     return () => window.removeEventListener("mousedown", onDown);
   }, [shapePop, layoutPop]);
 
-  // 상단 툴바 정렬/레이어 드롭다운(details): 바깥 클릭 시 열린 것 닫기
-  useEffect(() => {
-    const onDown = (e: MouseEvent) => {
-      toolbarRef.current?.querySelectorAll("details[open]").forEach((d) => {
-        if (!d.contains(e.target as Node)) (d as HTMLDetailsElement).open = false;
-      });
-    };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, []);
-
   // Esc → 인라인 편집 종료
   useEffect(() => {
     if (!editingId) return;
@@ -850,35 +838,10 @@ export function PageEditor({
       </nav>
       {/* 가운데 컬럼: 툴바 + 캔버스 (목업 .col.center) */}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border">
-      {/* 캔버스 툴바: 실행취소/다시실행 · 정렬/레이어 · 페이지/줌 · 저장 */}
-      <div ref={toolbarRef} className="flex flex-wrap items-center gap-1.5 border-b bg-card px-3 py-2">
+      {/* 캔버스 툴바: 실행취소/다시실행 · 페이지/줌 · 기사연동 · 저장 (정렬·레이어는 우측 속성 패널로 일원화) */}
+      <div className="flex flex-wrap items-center gap-1.5 border-b bg-card px-3 py-2">
         <button type="button" onClick={undo} disabled={past.current.length === 0} title="실행취소 (⌘Z)" className="tbtn ghost"><span className="inline-flex items-center gap-1"><Undo2 size={14} /> 실행취소</span></button>
         <button type="button" onClick={redo} disabled={future.current.length === 0} title="다시실행 (⌘⇧Z)" className="tbtn ghost"><span className="inline-flex items-center gap-1"><Redo2 size={14} /> 다시실행</span></button>
-        <span className="tbsep" />
-        {/* 정렬 ▾ */}
-        <details name="tb-menu" className="relative">
-          <summary className={`tbtn ghost list-none ${!selected ? "pointer-events-none opacity-40" : ""}`}>정렬 ▾</summary>
-          <div className="absolute left-0 z-30 mt-1 w-40 rounded-md border bg-popover p-1 shadow-md">
-            <div className="grid grid-cols-3 gap-1">
-              <button type="button" onClick={() => alignH("left")} title="왼쪽" className="flex items-center justify-center rounded py-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"><AlignStartVertical size={16} /></button>
-              <button type="button" onClick={() => alignH("center")} title="가로 가운데" className="flex items-center justify-center rounded py-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"><AlignCenterVertical size={16} /></button>
-              <button type="button" onClick={() => alignH("right")} title="오른쪽" className="flex items-center justify-center rounded py-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"><AlignEndVertical size={16} /></button>
-              <button type="button" onClick={() => alignV("top")} title="위" className="flex items-center justify-center rounded py-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"><AlignStartHorizontal size={16} /></button>
-              <button type="button" onClick={() => alignV("middle")} title="세로 가운데" className="flex items-center justify-center rounded py-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"><AlignCenterHorizontal size={16} /></button>
-              <button type="button" onClick={() => alignV("bottom")} title="아래" className="flex items-center justify-center rounded py-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"><AlignEndHorizontal size={16} /></button>
-            </div>
-          </div>
-        </details>
-        {/* 레이어 ▾ */}
-        <details name="tb-menu" className="relative">
-          <summary className={`tbtn ghost list-none ${!selected ? "pointer-events-none opacity-40" : ""}`}>레이어 ▾</summary>
-          <div className="absolute left-0 z-30 mt-1 w-32 rounded-md border bg-popover p-1 shadow-md">
-            <MenuBtn onClick={() => zOrder("front")} block><span className="inline-flex items-center gap-1"><BringToFront size={14} /> 맨 앞으로</span></MenuBtn>
-            <MenuBtn onClick={() => zOrder("forward")} block><span className="inline-flex items-center gap-1"><ArrowUp size={14} /> 앞으로</span></MenuBtn>
-            <MenuBtn onClick={() => zOrder("backward")} block><span className="inline-flex items-center gap-1"><ArrowDown size={14} /> 뒤로</span></MenuBtn>
-            <MenuBtn onClick={() => zOrder("back")} block><span className="inline-flex items-center gap-1"><SendToBack size={14} /> 맨 뒤로</span></MenuBtn>
-          </div>
-        </details>
 
         <div className="ml-auto flex items-center gap-2.5">
           <span className="font-mono text-[11px] text-muted-foreground">
@@ -1479,17 +1442,5 @@ function ColorPickerButton({
         className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
       />
     </label>
-  );
-}
-
-function MenuBtn({ onClick, children, block }: { onClick: () => void; children: ReactNode; block?: boolean }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded px-2 py-1 text-left text-xs hover:bg-accent ${block ? "block w-full" : ""}`}
-    >
-      {children}
-    </button>
   );
 }
