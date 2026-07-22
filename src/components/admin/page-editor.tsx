@@ -840,8 +840,8 @@ export function PageEditor({
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border">
       {/* 캔버스 툴바: 실행취소/다시실행 · 페이지/줌 · 기사연동 · 저장 (정렬·레이어는 우측 속성 패널로 일원화) */}
       <div className="flex flex-wrap items-center gap-1.5 border-b bg-card px-3 py-2">
-        <button type="button" onClick={undo} disabled={past.current.length === 0} title="실행취소 (⌘Z)" className="tbtn ghost"><span className="inline-flex items-center gap-1"><Undo2 size={14} /> 실행취소</span></button>
-        <button type="button" onClick={redo} disabled={future.current.length === 0} title="다시실행 (⌘⇧Z)" className="tbtn ghost"><span className="inline-flex items-center gap-1"><Redo2 size={14} /> 다시실행</span></button>
+        <button type="button" onClick={undo} disabled={past.current.length === 0} title="실행취소 (⌘/Ctrl+Z)" aria-label="실행취소" className="tbtn ghost"><Undo2 size={16} /></button>
+        <button type="button" onClick={redo} disabled={future.current.length === 0} title="다시실행 (⌘/Ctrl+⇧Z)" aria-label="다시실행" className="tbtn ghost"><Redo2 size={16} /></button>
 
         <div className="ml-auto flex items-center gap-2.5">
           <span className="font-mono text-[11px] text-muted-foreground">
