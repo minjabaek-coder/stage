@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { isAdmin } from "@/lib/auth";
 import { MagazineReader } from "@/components/public/magazine-reader";
 import { ViewTracker } from "@/components/public/view-tracker";
 import type { Metadata } from "next";
@@ -19,7 +20,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const magazine = await prisma.magazine.findUnique({ where: { id } });
 
-  if (!magazine || (magazine.status !== "published" && !ALLOW_DRAFT)) {
+  if (!magazine || (magazine.status !== "published" && !ALLOW_DRAFT && !(await isAdmin()))) {
     return { title: "Not Found" };
   }
 
@@ -61,7 +62,7 @@ export default async function MagazineViewerPage({ params, searchParams }: Props
     },
   });
 
-  if (!magazine || (magazine.status !== "published" && !ALLOW_DRAFT)) {
+  if (!magazine || (magazine.status !== "published" && !ALLOW_DRAFT && !(await isAdmin()))) {
     notFound();
   }
 
