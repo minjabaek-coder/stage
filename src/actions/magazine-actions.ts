@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod/v4";
 import { deleteUploadedFile } from "@/lib/upload";
 import { generateMagazineEmbeddings, deleteContentChunks } from "@/lib/rag";
+import { isAdmin } from "@/lib/auth";
 
 function revalidateMagazinePaths(id?: string) {
   if (id) revalidatePath(`/admin/magazines/${id}/edit`);
@@ -22,6 +23,7 @@ const magazineSchema = z.object({
 });
 
 export async function createMagazine(formData: FormData) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" };
   const parsed = magazineSchema.safeParse({
     issueNumber: formData.get("issueNumber"),
     title: formData.get("title"),
@@ -58,6 +60,7 @@ export async function createMagazine(formData: FormData) {
 }
 
 export async function updateMagazine(id: string, formData: FormData) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" };
   const parsed = magazineSchema.safeParse({
     issueNumber: formData.get("issueNumber"),
     title: formData.get("title"),
@@ -97,6 +100,7 @@ export async function updateMagazine(id: string, formData: FormData) {
 }
 
 export async function publishMagazine(id: string) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" };
   const magazine = await prisma.magazine.findUnique({
     where: { id },
     include: {
@@ -133,6 +137,7 @@ export async function publishMagazine(id: string) {
 }
 
 export async function unpublishMagazine(id: string) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" };
   await prisma.magazine.update({
     where: { id },
     data: { status: "unpublished" },
@@ -148,6 +153,7 @@ export async function unpublishMagazine(id: string) {
 }
 
 export async function deleteMagazine(id: string) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" };
   // Collect Storage-backed URLs before deletion. Cascade removes pages (NOT the
   // Storage objects), so gather them up front. 기사(Article)는 매거진 소유가 아니라
   // 독립 콘텐츠이므로 매거진 삭제 시 함께 지우지 않는다(페이지 연동만 해제됨).

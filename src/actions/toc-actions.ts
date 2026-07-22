@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { z } from "zod/v4";
+import { isAdmin } from "@/lib/auth";
 
 const tocEntrySchema = z.object({
   title: z.string().min(1, "제목을 입력해주세요"),
@@ -18,6 +19,7 @@ export async function saveTocEntries(
   magazineId: string,
   entries: { title: string; pageNumber: number }[]
 ) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" };
   const parsed = saveTocSchema.safeParse({ magazineId, entries });
 
   if (!parsed.success) {

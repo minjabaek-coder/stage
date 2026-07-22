@@ -3,6 +3,7 @@
 import { z } from "zod/v4";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { isAdmin } from "@/lib/auth";
 
 const tipSchema = z.object({
   name: z.string().min(1, "이름을 입력해주세요").max(80),
@@ -44,6 +45,7 @@ export async function submitTip(
 
 // 어드민: 처리 상태 변경
 export async function setTipStatus(id: string, status: "new" | "done") {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" };
   await prisma.tip.update({ where: { id }, data: { status } });
   revalidatePath("/admin/tips");
   return { success: true };
@@ -51,6 +53,7 @@ export async function setTipStatus(id: string, status: "new" | "done") {
 
 // 어드민: 삭제
 export async function deleteTip(id: string) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" };
   await prisma.tip.delete({ where: { id } });
   revalidatePath("/admin/tips");
   return { success: true };

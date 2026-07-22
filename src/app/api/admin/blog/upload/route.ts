@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { saveBlogThumbnail } from "@/lib/upload";
 import { ACCEPTED_IMAGE_TYPES, MAX_FILE_SIZE } from "@/lib/constants";
+import { isAdmin } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
+  if (!(await isAdmin())) {
+    return NextResponse.json({ error: "권한이 없습니다" }, { status: 403 });
+  }
   try {
     const formData = await request.formData();
     const file = formData.get("file") as File | null;

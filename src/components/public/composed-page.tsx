@@ -144,6 +144,21 @@ export function ComposedBlockBody({ block }: { block: Block }) {
         </svg>
       );
     }
+    if (block.shape === "triangle" || block.shape === "diamond") {
+      const points =
+        block.shape === "triangle" ? "50,2 98,98 2,98" : "50,2 98,50 50,98 2,50";
+      return (
+        <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ display: "block" }}>
+          <polygon
+            points={points}
+            fill={block.fill ?? "#1f6f72"}
+            stroke={block.stroke}
+            strokeWidth={block.stroke ? block.strokeWidth ?? 1 : undefined}
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+      );
+    }
     return (
       <div
         style={{

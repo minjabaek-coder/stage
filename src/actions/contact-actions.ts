@@ -3,6 +3,7 @@
 import { z } from "zod/v4";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { isAdmin } from "@/lib/auth";
 
 const contactSchema = z.object({
   name: z.string().min(1, "이름을 입력해주세요").max(80),
@@ -110,6 +111,7 @@ export async function submitInquiry(
 
 // 어드민: 처리 상태 변경
 export async function setContactStatus(id: string, status: "new" | "done") {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" };
   await prisma.contact.update({ where: { id }, data: { status } });
   revalidatePath("/admin/contacts");
   return { success: true };
@@ -117,6 +119,7 @@ export async function setContactStatus(id: string, status: "new" | "done") {
 
 // 어드민: 삭제
 export async function deleteContact(id: string) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" };
   await prisma.contact.delete({ where: { id } });
   revalidatePath("/admin/contacts");
   return { success: true };

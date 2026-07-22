@@ -247,3 +247,11 @@
 }
 .prose .article-gallery figure { margin: 0; }
 .prose .article-gallery img { width: 100%; height: auto; margin: 0; }
+
+/* 구성형 캔버스 인라인 텍스트 편집: ProseMirror 기본 줄바꿈 CSS를 눌러
+   뷰어(ComposedBlockBody)와 동일한 규칙을 부모 style에서 상속 → 편집 중/후 줄바꿈 일치 */
+.inline-canvas-editor .ProseMirror {
+  white-space: pre-wrap;
+  word-break: inherit;
+  overflow-wrap: inherit;
+}

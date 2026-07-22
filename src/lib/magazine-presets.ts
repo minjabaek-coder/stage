@@ -12,6 +12,11 @@ export type PagePreset = {
 
 export const PAGE_PRESETS: PagePreset[] = [
   {
+    id: "blank",
+    name: "빈 페이지",
+    build: () => ({ pageBg: "#ffffff", blocks: [] }),
+  },
+  {
     id: "cover",
     name: "표지형",
     build: () => ({

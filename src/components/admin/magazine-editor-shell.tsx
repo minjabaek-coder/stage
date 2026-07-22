@@ -96,8 +96,8 @@ export function MagazineEditorShell({
   }
   function addPage() {
     start(async () => {
-      // D5: 현재 선택된 페이지 '다음'에 삽입(없으면 맨 끝)
-      const r = await createComposedPage(magazineId, { afterPageId: selectedId ?? undefined });
+      // + 버튼: 맨 끝에 새 페이지 추가. (선택 페이지 '다음'에 삽입은 페이지 ⋯ 메뉴의 "다음에 새 페이지")
+      const r = await createComposedPage(magazineId);
       if (r?.pageId) {
         setSelectedId(r.pageId);
         router.refresh();
