@@ -1110,14 +1110,11 @@ export function PageEditor({
               </p>
               <div className="mt-3 border-t pt-3">
                 <div className="ed-grouplabel">페이지 배경색</div>
-                <div className="ed-field">
-                  <span className="k">#</span>
-                  <input value={pageBg.replace(/^#/, "")} onChange={(e) => { commitDebounced(); setPageBg("#" + e.target.value.replace(/^#/, "")); }} />
-                </div>
-                <div className="mt-2 flex gap-1.5">
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   {["#ffffff", "#faf7f2", "#111111", "#000000"].map((c) => (
-                    <button key={c} type="button" onClick={() => { commitDebounced(); setPageBg(c); }} className="h-6 w-6 rounded border" style={{ background: c }} />
+                    <button key={c} type="button" onClick={() => { commitDebounced(); setPageBg(c); }} className={`h-6 w-6 rounded-full border ${pageBg === c ? "ring-2 ring-[#2563eb] ring-offset-1" : ""}`} style={{ background: c }} />
                   ))}
+                  <ColorPickerButton value={pageBg} fallback="#ffffff" onChange={(v) => { commitDebounced(); setPageBg(v); }} />
                 </div>
               </div>
             </div>
@@ -1221,7 +1218,7 @@ export function PageEditor({
                         {["#1f6f72", "#c4a35a", "#1c1b1b", "#b91c1c", "#2563eb", "#ffffff"].map((c) => (
                           <button key={c} type="button" onClick={() => patch(selected.id, { fill: c } as Partial<ShapeBlock>)} className={`h-6 w-6 rounded-full border ${(selected as ShapeBlock).fill === c ? "ring-2 ring-[#2563eb] ring-offset-1" : ""}`} style={{ background: c }} />
                         ))}
-                        <input type="color" title="커스텀 색" value={(selected as ShapeBlock).fill ?? "#1f6f72"} onChange={(e) => patch(selected.id, { fill: e.target.value } as Partial<ShapeBlock>)} className="h-6 w-6 cursor-pointer rounded-full border p-0" />
+                        <ColorPickerButton value={(selected as ShapeBlock).fill} fallback="#1f6f72" onChange={(v) => patch(selected.id, { fill: v } as Partial<ShapeBlock>)} />
                       </div>
                     </>
                   )}
@@ -1233,7 +1230,7 @@ export function PageEditor({
                     {["#1c1b1b", "#c4a35a", "#1f6f72", "#b91c1c", "#ffffff"].map((c) => (
                       <button key={c} type="button" onClick={() => patch(selected.id, { stroke: c } as Partial<ShapeBlock>)} className={`h-6 w-6 rounded-full border ${(selected as ShapeBlock).stroke === c ? "ring-2 ring-[#2563eb] ring-offset-1" : ""}`} style={{ background: c }} />
                     ))}
-                    <input type="color" title="커스텀 색" value={(selected as ShapeBlock).stroke ?? "#1c1b1b"} onChange={(e) => patch(selected.id, { stroke: e.target.value } as Partial<ShapeBlock>)} className="h-6 w-6 cursor-pointer rounded-full border p-0" />
+                    <ColorPickerButton value={(selected as ShapeBlock).stroke} fallback="#1c1b1b" onChange={(v) => patch(selected.id, { stroke: v } as Partial<ShapeBlock>)} />
                   </div>
                   <div className="mt-2">
                     <LabeledField label="두께" unit="px" value={(selected as ShapeBlock).strokeWidth ?? 0} onChange={(v) => patch(selected.id, { strokeWidth: v } as Partial<ShapeBlock>)} />
@@ -1265,10 +1262,11 @@ export function PageEditor({
                   </div>
                   <div className="mt-2">
                     <div className="ed-grouplabel">글자색</div>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       {COLORS.map((c) => (
                         <button key={c} type="button" onClick={() => patch(selected.id, { color: c } as Partial<TextBlock>)} className={`h-6 w-6 rounded-full border ${selected.color === c ? "ring-2 ring-[#2563eb] ring-offset-1" : ""}`} style={{ background: c }} />
                       ))}
+                      <ColorPickerButton value={selected.color} fallback="#1c1b1b" onChange={(v) => patch(selected.id, { color: v } as Partial<TextBlock>)} />
                     </div>
                   </div>
                   <div className="mt-2 grid grid-cols-[1fr_auto] gap-1.5">
@@ -1463,6 +1461,27 @@ function FmtToolbar({ editor }: { editor: Editor | null }) {
 }
 
 // 툴바 드롭다운(정렬/레이어) 메뉴 항목
+// 커스텀 색 선택 버튼 — 무지개 색상환으로 "여기서 임의 색을 고른다"를 직관화(팔레트 색과 구분)
+function ColorPickerButton({
+  value, onChange, fallback = "#1c1b1b",
+}: { value?: string; onChange: (v: string) => void; fallback?: string }) {
+  const hex = value && /^#[0-9a-fA-F]{6}$/.test(value) ? value : fallback;
+  return (
+    <label
+      title="커스텀 색 선택"
+      className="relative inline-flex h-6 w-6 cursor-pointer overflow-hidden rounded-full border"
+      style={{ background: "conic-gradient(from 0deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000)" }}
+    >
+      <input
+        type="color"
+        value={hex}
+        onChange={(e) => onChange(e.target.value)}
+        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+      />
+    </label>
+  );
+}
+
 function MenuBtn({ onClick, children, block }: { onClick: () => void; children: ReactNode; block?: boolean }) {
   return (
     <button
