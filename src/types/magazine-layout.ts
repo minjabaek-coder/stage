@@ -42,7 +42,7 @@ export type TextBlock = BlockBase & {
 
 export type ShapeBlock = BlockBase & {
   type: "shape";
-  shape: "rect" | "ellipse" | "line";
+  shape: "rect" | "ellipse" | "line" | "triangle" | "diamond";
   fill?: string; // 색 또는 그라데이션 문자열
   stroke?: string; // 테두리/선 색
   strokeWidth?: number; // px
