@@ -12,15 +12,14 @@ type Props = {
   searchParams?: Promise<{ page?: string }>;
 };
 
-// 비프로덕션(preview·로컬)에서는 미발행(draft) 매거진/아티클도 열람 허용 — 39호 등
-// 작업본을 preview에서 미리보기 위함. 프로덕션(bon-stage.com)에서는 발행본만 노출.
-const ALLOW_DRAFT = process.env.VERCEL_ENV !== "production";
+// 발행 전(draft/unpublished) 매거진은 관리자만 열람(미리보기). 환경 무관 — 비admin은 404.
+// (구 ALLOW_DRAFT 환경 분기는 preview URL 유출 시 발행 전 노출 → 권한 기반으로 전환)
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const magazine = await prisma.magazine.findUnique({ where: { id } });
 
-  if (!magazine || (magazine.status !== "published" && !ALLOW_DRAFT && !(await isAdmin()))) {
+  if (!magazine || (magazine.status !== "published" && !(await isAdmin()))) {
     return { title: "Not Found" };
   }
 
@@ -62,7 +61,7 @@ export default async function MagazineViewerPage({ params, searchParams }: Props
     },
   });
 
-  if (!magazine || (magazine.status !== "published" && !ALLOW_DRAFT && !(await isAdmin()))) {
+  if (!magazine || (magazine.status !== "published" && !(await isAdmin()))) {
     notFound();
   }
 

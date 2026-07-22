@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod/v4";
 import { deleteUploadedFile } from "@/lib/upload";
 import { generateCultureEventEmbeddings, deleteContentChunks } from "@/lib/rag";
+import { isAdmin } from "@/lib/auth";
 
 function parseList(v: string): string[] {
   return v
@@ -104,6 +105,7 @@ function toData(d: z.infer<typeof schema>) {
 }
 
 export async function createCultureEvent(formData: FormData) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" };
   const parsed = readForm(formData);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
@@ -119,6 +121,7 @@ export async function createCultureEvent(formData: FormData) {
 }
 
 export async function updateCultureEvent(id: string, formData: FormData) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" };
   const parsed = readForm(formData);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
@@ -151,6 +154,7 @@ export async function updateCultureEvent(id: string, formData: FormData) {
 }
 
 export async function publishCultureEvent(id: string) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" };
   const event = await prisma.cultureEvent.findUnique({ where: { id } });
   if (!event) return { error: "이벤트를 찾을 수 없습니다" };
   if (!event.title) return { error: "제목이 필요합니다" };
@@ -170,6 +174,7 @@ export async function publishCultureEvent(id: string) {
 }
 
 export async function unpublishCultureEvent(id: string) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" };
   const event = await prisma.cultureEvent.findUnique({ where: { id } });
   if (!event) return { error: "이벤트를 찾을 수 없습니다" };
 
@@ -188,6 +193,7 @@ export async function unpublishCultureEvent(id: string) {
 }
 
 export async function deleteCultureEvent(id: string) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" };
   const event = await prisma.cultureEvent.findUnique({ where: { id } });
   if (!event) return { error: "이벤트를 찾을 수 없습니다" };
 

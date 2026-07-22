@@ -8,7 +8,7 @@ import sanitizeHtml from "sanitize-html";
 import { prisma } from "@/lib/prisma";
 import { SiteHeader } from "@/components/public/site-header";
 import { Footer } from "@/components/public/footer";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { BookmarkButton } from "@/components/public/bookmark-button";
 import { ViewTracker } from "@/components/public/view-tracker";
 import { ArticleMaestroWidget } from "@/components/public/article-maestro-widget";
@@ -16,14 +16,13 @@ import { DocentChatFAB } from "@/components/public/docent-chat";
 import { formatKSTDate } from "@/lib/format";
 import { heroAspectRatio } from "@/lib/article-taxonomy";
 
-// 비프로덕션(preview·로컬)에서는 미발행(draft) 기사도 열람 허용 — 목록 정책과 동일.
-const ALLOW_DRAFT = process.env.VERCEL_ENV !== "production";
-
+// 발행 전(draft/submitted) 기사는 관리자만 열람. 비admin은 발행본만(환경 무관).
 // 본문(content)은 절대 포함하지 않는다 — 프리미엄 잠김 시 content가 서버 컴포넌트
 // 스코프/ RSC 페이로드에 존재하지 못하게(누수 방지) 메타 필드만 조회.
 const getArticleMeta = cache(async (slug: string) => {
+  const admin = await isAdmin();
   return prisma.article.findFirst({
-    where: { slug, ...(ALLOW_DRAFT ? {} : { status: "published" }) },
+    where: { slug, ...(admin ? {} : { status: "published" }) },
     select: {
       id: true,
       title: true,

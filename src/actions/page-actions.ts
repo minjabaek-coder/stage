@@ -8,6 +8,7 @@ import { getSupabase, STORAGE_BUCKET, getPublicUrl } from "@/lib/supabase";
 import { revalidatePath } from "next/cache";
 import { parseContentStream } from "@/lib/magazine-autolayout/content-stream";
 import { planPages } from "@/lib/magazine-autolayout/plan";
+import { isAdmin } from "@/lib/auth";
 
 // 구성형 레이아웃 저장 전 텍스트 블록 HTML 정제(스타일은 블록 속성으로 관리).
 function sanitizeLayout(layout: unknown): { blocks: unknown[]; pageBg?: string } {
@@ -69,6 +70,7 @@ export async function createComposedPage(
   magazineId: string,
   opts?: { afterPageId?: string }
 ) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" as const };
   const agg = await prisma.magazinePage.aggregate({
     where: { magazineId },
     _max: { sortOrder: true, pageNumber: true },
@@ -98,6 +100,7 @@ export async function generateDraftFromArticle(
   articleId: string,
   opts?: { afterPageId?: string; replaceExisting?: boolean },
 ) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" as const };
   const article = await prisma.article.findUnique({
     where: { id: articleId },
     select: { title: true, subtitle: true, author: true, content: true },
@@ -168,6 +171,7 @@ export async function generateDraftFromArticle(
 
 // 페이지 복제 — layout 깊은 복사 + 블록 id 재생성, 원본 다음에 삽입. articleId는 비움(딥링크 중복 방지).
 export async function duplicatePage(pageId: string) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" as const };
   const src = await prisma.magazinePage.findUnique({
     where: { id: pageId },
     select: { magazineId: true, kind: true, layout: true },
@@ -200,6 +204,7 @@ export async function updatePageLayout(
   layout: unknown,
   articleId?: string | null
 ) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" as const };
   await prisma.magazinePage.update({
     where: { id: pageId },
     data: {
@@ -245,6 +250,7 @@ export async function reorderPages(
   magazineId: string,
   orderedIds: string[]
 ) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" as const };
   await applyPageOrder(orderedIds);
 
   // Update cover image to first page
@@ -267,6 +273,7 @@ export async function reorderPages(
 }
 
 export async function deletePage(pageId: string, magazineId: string) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" as const };
   const page = await prisma.magazinePage.findUnique({
     where: { id: pageId },
   });
@@ -310,6 +317,7 @@ function extractStoragePath(imageUrl: string): string | null {
 }
 
 export async function renamePageFiles(magazineId: string) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" as const };
   const [pages, magazine] = await Promise.all([
     prisma.magazinePage.findMany({
       where: { magazineId },
@@ -375,6 +383,7 @@ export async function renamePageFile(
   magazineId: string,
   newName: string
 ) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" };
   const page = await prisma.magazinePage.findUnique({ where: { id: pageId } });
   if (!page) return { error: "페이지를 찾을 수 없습니다" };
 

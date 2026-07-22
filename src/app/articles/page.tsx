@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
+import { isAdmin } from "@/lib/auth";
 import { MainLayout } from "@/components/layouts/main-layout";
 import { ArticleCard } from "@/components/public/article-card";
 import { ArticleSubFilter } from "@/components/public/article-sub-filter";
@@ -12,21 +13,20 @@ export const metadata: Metadata = {
   description: "STAGE의 기사 — 리뷰·인터뷰·칼럼과 매거진 수록 기사.",
 };
 
-// 비프로덕션(preview·로컬)에서는 미발행(draft) 기사도 노출 — 상세 페이지 정책과 동일.
-const ALLOW_DRAFT = process.env.VERCEL_ENV !== "production";
-
 export default async function ArticlesPage({
   searchParams,
 }: {
   searchParams: Promise<{ genre?: string; sub?: string }>;
 }) {
   const { genre, sub } = await searchParams;
+  // 발행 전 기사는 관리자만 목록에 노출(환경 무관). 비admin은 발행본만.
+  const admin = await isAdmin();
 
   // 단일 Article 모델(단독기사 + 매거진에서 이전된 기사 모두). 매거진 소속은
   // MagazinePage.articleId 역조회로 "실린 곳" 배지를 부여한다.
   const articles = await prisma.article.findMany({
     where: {
-      ...(ALLOW_DRAFT ? {} : { status: "published" }),
+      ...(admin ? {} : { status: "published" }),
       ...(genre ? { genre } : {}),
       ...(sub ? { subCategory: sub } : {}),
     },

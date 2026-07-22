@@ -7,6 +7,7 @@ import { z } from "zod/v4";
 import { deleteUploadedFile } from "@/lib/upload";
 import { generateArticleEmbeddings, deleteContentChunks } from "@/lib/rag";
 import { slugify, randomSlug, parseTags } from "@/lib/article-utils";
+import { isAdmin } from "@/lib/auth";
 
 // 폼 파싱 결과 → Article 공통 필드(제목·슬러그 제외 — 액션별로 다르게 처리).
 // createArticle/updateArticle가 공유.
@@ -91,6 +92,7 @@ function readForm(formData: FormData) {
 }
 
 export async function createArticle(formData: FormData) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" };
   const parsed = readForm(formData);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
@@ -111,6 +113,7 @@ export async function createArticle(formData: FormData) {
 }
 
 export async function updateArticle(id: string, formData: FormData) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" };
   const parsed = readForm(formData);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
@@ -157,6 +160,7 @@ export async function updateArticle(id: string, formData: FormData) {
 }
 
 export async function publishArticle(id: string) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" };
   const article = await prisma.article.findUnique({ where: { id } });
   if (!article) return { error: "기사를 찾을 수 없습니다" };
   if (!article.title || !article.content) {
@@ -187,6 +191,7 @@ export async function publishArticle(id: string) {
 }
 
 export async function unpublishArticle(id: string) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" };
   const article = await prisma.article.findUnique({ where: { id } });
   if (!article) return { error: "기사를 찾을 수 없습니다" };
 
@@ -205,6 +210,7 @@ export async function unpublishArticle(id: string) {
 }
 
 export async function deleteArticle(id: string) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" };
   const article = await prisma.article.findUnique({ where: { id } });
   if (!article) return { error: "기사를 찾을 수 없습니다" };
 

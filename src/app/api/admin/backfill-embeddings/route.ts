@@ -5,12 +5,16 @@ import {
   generateCultureEventEmbeddings,
 } from "@/lib/rag";
 import { NextResponse } from "next/server";
+import { isAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 // 전체 재색인(backfill): 발행 기사 + 발행 매거진(구성형 페이지 텍스트) + 발행 문화예술.
 // Voyage 레이트 한도(3 RPM 가정)를 위해 각 항목 사이 지연.
 export async function POST() {
+  if (!(await isAdmin())) {
+    return NextResponse.json({ error: "권한이 없습니다" }, { status: 403 });
+  }
   const results: { source: string; title: string; status: string }[] = [];
   const GAP_MS = 21000;
   let first = true;

@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod/v4";
 import { deleteUploadedFile } from "@/lib/upload";
 import { AD_PLACEMENT_VALUES } from "@/lib/ad-placements";
+import { isAdmin } from "@/lib/auth";
 
 const adSchema = z.object({
   sponsor: z.string().min(1, "스폰서를 입력해주세요").max(120),
@@ -55,6 +56,7 @@ function toData(d: z.infer<typeof adSchema>) {
 }
 
 export async function createAd(formData: FormData) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" };
   const parsed = readForm(formData);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
@@ -63,6 +65,7 @@ export async function createAd(formData: FormData) {
 }
 
 export async function updateAd(id: string, formData: FormData) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" };
   const parsed = readForm(formData);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
@@ -84,12 +87,14 @@ export async function updateAd(id: string, formData: FormData) {
 }
 
 export async function toggleAdActive(id: string, isActive: boolean) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" };
   await prisma.advertisement.update({ where: { id }, data: { isActive } });
   revalidatePath("/admin/ads");
   return { success: true };
 }
 
 export async function deleteAd(id: string) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" };
   const ad = await prisma.advertisement.findUnique({ where: { id } });
   if (!ad) return { error: "광고를 찾을 수 없습니다" };
 
