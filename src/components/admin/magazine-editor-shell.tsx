@@ -1,6 +1,12 @@
 "use client";
 
 import { useEffect, useId, useMemo, useState, useTransition } from "react";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -20,6 +26,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { Plus, MoreHorizontal, Copy, Trash2 } from "lucide-react";
 import { ComposedPage } from "@/components/public/composed-page";
 import { PageEditor } from "@/components/admin/page-editor";
 import { parsePageLayout } from "@/types/magazine-layout";
@@ -88,11 +95,6 @@ export function MagazineEditorShell({
     const newIndex = items.findIndex((p) => p.id === over.id);
     if (oldIndex < 0 || newIndex < 0) return;
     persist(arrayMove(items, oldIndex, newIndex));
-  }
-  function move(index: number, dir: -1 | 1) {
-    const t = index + dir;
-    if (t < 0 || t >= items.length) return;
-    persist(arrayMove(items, index, t));
   }
   function addPage() {
     start(async () => {
@@ -227,12 +229,9 @@ export function MagazineEditorShell({
                     index={i}
                     selected={p.id === selectedId}
                     onSelect={() => setSelectedId(p.id)}
-                    onMove={(dir) => move(i, dir)}
                     onDelete={() => del(p.id)}
                     onDuplicate={() => duplicate(p.id)}
                     onAddAfter={() => addAfter(p.id)}
-                    isFirst={i === 0}
-                    isLast={i === items.length - 1}
                     disabled={pending}
                   />
                 ))}
@@ -246,7 +245,7 @@ export function MagazineEditorShell({
             title="새 페이지"
             className="flex h-[81px] w-[54px] flex-none items-center justify-center rounded-md border border-dashed text-xl text-muted-foreground hover:border-primary hover:text-primary disabled:opacity-50"
           >
-            ＋
+            <Plus size={18} />
           </button>
 
           {/* 기사 → 초안 자동 생성(현재 페이지 다음에 삽입) */}
@@ -282,28 +281,23 @@ function PageStripItem({
   index,
   selected,
   onSelect,
-  onMove,
   onDelete,
   onDuplicate,
   onAddAfter,
-  isFirst,
-  isLast,
   disabled,
 }: {
   page: PageItem;
   index: number;
   selected: boolean;
   onSelect: () => void;
-  onMove: (dir: -1 | 1) => void;
   onDelete: () => void;
   onDuplicate: () => void;
   onAddAfter: () => void;
-  isFirst: boolean;
-  isLast: boolean;
   disabled: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: page.id });
+  const [menuOpen, setMenuOpen] = useState(false);
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -327,17 +321,22 @@ function PageStripItem({
       <div className={`mt-1 font-mono text-[10px] ${selected ? "text-primary" : "text-muted-foreground"}`}>
         {index + 1}
       </div>
-      {/* ⋯ 메뉴 */}
-      <details className="absolute right-0.5 top-0.5 hidden group-hover:block">
-        <summary className="flex h-4 w-4 cursor-pointer list-none items-center justify-center rounded border bg-white/90 text-[10px] text-muted-foreground">⋯</summary>
-        <div className="absolute right-0 z-30 mt-1 w-28 rounded-md border bg-popover p-1 text-[11px] shadow-md">
-          <button type="button" onClick={onAddAfter} disabled={disabled} className="block w-full rounded px-2 py-1 text-left hover:bg-accent disabled:opacity-30">＋ 다음에 새 페이지</button>
-          <button type="button" onClick={onDuplicate} disabled={disabled} className="block w-full rounded px-2 py-1 text-left hover:bg-accent disabled:opacity-30">⧉ 복제</button>
-          <button type="button" onClick={() => onMove(-1)} disabled={isFirst || disabled} className="block w-full rounded px-2 py-1 text-left hover:bg-accent disabled:opacity-30">← 앞으로</button>
-          <button type="button" onClick={() => onMove(1)} disabled={isLast || disabled} className="block w-full rounded px-2 py-1 text-left hover:bg-accent disabled:opacity-30">→ 뒤로</button>
-          <button type="button" onClick={onDelete} disabled={disabled} className="block w-full rounded px-2 py-1 text-left text-red-600 hover:bg-red-50 disabled:opacity-50">🗑 삭제</button>
-        </div>
-      </details>
+      {/* ⋯ 메뉴 (Radix DropdownMenu — Portal이라 스트립 overflow에 안 잘리고 위/아래 자동 배치·외부클릭 자동 닫힘) */}
+      <div className={`absolute right-0.5 top-0.5 ${menuOpen ? "block" : "hidden group-hover:block"}`}>
+        <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+          <DropdownMenuTrigger
+            aria-label="페이지 메뉴"
+            className="flex h-4 w-4 items-center justify-center rounded border bg-white/90 text-muted-foreground hover:bg-white"
+          >
+            <MoreHorizontal size={12} />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="top" align="end" className="min-w-[8rem] text-xs">
+            <DropdownMenuItem onClick={onAddAfter} disabled={disabled}><Plus size={14} className="mr-1.5" /> 새 페이지</DropdownMenuItem>
+            <DropdownMenuItem onClick={onDuplicate} disabled={disabled}><Copy size={14} className="mr-1.5" /> 복제</DropdownMenuItem>
+            <DropdownMenuItem onClick={onDelete} disabled={disabled} className="text-red-600 focus:text-red-600"><Trash2 size={14} className="mr-1.5" /> 삭제</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </div>
   );
 }
