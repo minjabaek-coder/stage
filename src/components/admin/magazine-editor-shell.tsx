@@ -28,10 +28,13 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { Plus, MoreHorizontal, Copy, Trash2 } from "lucide-react";
 import { ComposedPage } from "@/components/public/composed-page";
+import { HtmlPage } from "@/components/public/html-page";
 import { PageEditor } from "@/components/admin/page-editor";
-import { parsePageLayout } from "@/types/magazine-layout";
+import { HtmlPageEditor } from "@/components/admin/html-page-editor";
+import { parsePageLayout, parseHtmlLayout } from "@/types/magazine-layout";
 import {
   createComposedPage,
+  convertPageKind,
   duplicatePage,
   deletePage,
   reorderPages,
@@ -39,9 +42,11 @@ import {
 } from "@/actions/page-actions";
 
 import { ArticlePicker, type ArticleOpt, type Placement } from "@/components/admin/article-picker";
+import { type MagazineAssetDTO } from "@/lib/upload-client";
 
 type PageItem = {
   id: string;
+  kind: string; // "image" | "composed" | "html"
   pageNumber: number;
   layout: unknown;
   articleId: string | null;
@@ -53,10 +58,12 @@ export function MagazineEditorShell({
   magazineId,
   pages,
   articles,
+  assets,
 }: {
   magazineId: string;
   pages: PageItem[];
   articles: ArticleOpt[];
+  assets: MagazineAssetDTO[];
 }) {
   const router = useRouter();
   const [items, setItems] = useState<PageItem[]>(pages);
@@ -98,7 +105,7 @@ export function MagazineEditorShell({
   }
   function addPage() {
     start(async () => {
-      // + 버튼: 맨 끝에 새 페이지 추가. (선택 페이지 '다음'에 삽입은 페이지 ⋯ 메뉴의 "다음에 새 페이지")
+      // + 버튼: 맨 끝에 새 구성형 페이지 추가. (HTML은 좌측 레일 "레이아웃 → HTML 페이지로 전환")
       const r = await createComposedPage(magazineId);
       if (r?.pageId) {
         setSelectedId(r.pageId);
@@ -114,6 +121,18 @@ export function MagazineEditorShell({
         setSelectedId(r.pageId);
         router.refresh();
         toast.success("새 페이지를 추가했습니다");
+      }
+    });
+  }
+  // 페이지 종류 전환(구성형 ↔ HTML). 레이아웃 팝오버 / HTML편집기 툴바에서 호출.
+  function convertKind(pageId: string, kind: "composed" | "html") {
+    start(async () => {
+      const r = await convertPageKind(pageId, magazineId, kind);
+      if (r && "success" in r && r.success) {
+        router.refresh();
+        toast.success(kind === "html" ? "HTML 페이지로 전환했습니다" : "구성형 페이지로 전환했습니다");
+      } else {
+        toast.error(("error" in r && r.error) || "전환 실패");
       }
     });
   }
@@ -190,17 +209,34 @@ export function MagazineEditorShell({
       {/* 위: 활성 페이지 편집기 (좌 레일·캔버스·속성 — 라우트 전환 없이 key로 스위칭) */}
       <div className="min-h-0 flex-1">
         {selected ? (
-          <PageEditor
-            key={selected.id}
-            magazineId={magazineId}
-            pageId={selected.id}
-            pageNumber={selectedIndex + 1}
-            totalPages={items.length}
-            initialLayout={parsePageLayout(selected.layout) ?? { blocks: [] }}
-            initialArticleId={selected.articleId}
-            articles={articles}
-            placements={placements}
-          />
+          selected.kind === "html" ? (
+            <HtmlPageEditor
+              key={selected.id}
+              magazineId={magazineId}
+              pageId={selected.id}
+              pageNumber={selectedIndex + 1}
+              totalPages={items.length}
+              initialHtml={parseHtmlLayout(selected.layout)?.html ?? ""}
+              initialArticleId={selected.articleId}
+              articles={articles}
+              placements={placements}
+              initialAssets={assets}
+              onConvertToComposed={() => convertKind(selected.id, "composed")}
+            />
+          ) : (
+            <PageEditor
+              key={selected.id}
+              magazineId={magazineId}
+              pageId={selected.id}
+              pageNumber={selectedIndex + 1}
+              totalPages={items.length}
+              initialLayout={parsePageLayout(selected.layout) ?? { blocks: [] }}
+              initialArticleId={selected.articleId}
+              articles={articles}
+              placements={placements}
+              onConvertToHtml={() => convertKind(selected.id, "html")}
+            />
+          )
         ) : (
           <div className="flex h-full items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
             아래에서 페이지를 선택하거나 새로 추가하세요.
@@ -316,7 +352,11 @@ function PageStripItem({
           selected ? "border-primary ring-2 ring-primary/30" : "border-line2"
         }`}
       >
-        <ComposedPage layout={parsePageLayout(page.layout)} fit="cover" />
+        {page.kind === "html" ? (
+          <HtmlPage html={parseHtmlLayout(page.layout)?.html ?? ""} />
+        ) : (
+          <ComposedPage layout={parsePageLayout(page.layout)} fit="cover" />
+        )}
       </button>
       <div className={`mt-1 font-mono text-[10px] ${selected ? "text-primary" : "text-muted-foreground"}`}>
         {index + 1}

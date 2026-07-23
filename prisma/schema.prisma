@@ -23,6 +23,7 @@ enum MagazineContentType {
 enum MagazinePageKind {
   image
   composed
+  html
 }
 
 model Magazine {
@@ -39,8 +40,23 @@ model Magazine {
   publishedAt   DateTime?
   pages         MagazinePage[]
   tocEntries    MagazineTocEntry[]
+  assets        MagazineAsset[]
 
   @@index([status, publishedAt(sort: Desc)])
+}
+
+// kind=html 페이지 미디어 라이브러리 — 매거진 단위 업로드 이미지.
+// 페이지가 아니라 매거진에 소속시켜 재사용·사용처추적·삭제 관리를 가능케 한다.
+model MagazineAsset {
+  id         String   @id @default(cuid())
+  magazineId String
+  url        String
+  path       String // Supabase Storage 경로(삭제용)
+  filename   String
+  createdAt  DateTime @default(now())
+  magazine   Magazine @relation(fields: [magazineId], references: [id], onDelete: Cascade)
+
+  @@index([magazineId])
 }
 
 model MagazinePage {

@@ -11,6 +11,7 @@ import { StatusActions } from "@/components/admin/status-actions";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { TocEditor } from "@/components/admin/toc-editor";
 import { updateMagazine } from "@/actions/magazine-actions";
+import { parseHtmlLayout, parsePageLayout } from "@/types/magazine-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function EditMagazinePage({
@@ -26,6 +27,7 @@ export default async function EditMagazinePage({
       include: {
         pages: { orderBy: { sortOrder: "asc" } },
         tocEntries: { orderBy: { sortOrder: "asc" } },
+        assets: { orderBy: { createdAt: "desc" } },
       },
     }),
     // 구성형 페이지의 "싣는 기사" 연동 후보 — 단일 Article 모델(전체), 최신순
@@ -112,6 +114,7 @@ export default async function EditMagazinePage({
             magazineId={magazine.id}
             pages={magazine.pages.map((p) => ({
               id: p.id,
+              kind: p.kind,
               pageNumber: p.pageNumber,
               layout: p.layout,
               articleId: p.articleId,
@@ -120,6 +123,27 @@ export default async function EditMagazinePage({
               ...a,
               publishedAt: a.publishedAt ? a.publishedAt.toISOString() : null,
             }))}
+            assets={magazine.assets.map((a) => {
+              // 사용처(뱃지용): HTML 페이지 본문 + 구성형 이미지 블록에서 이 url 참조 여부
+              const usedIn: number[] = [];
+              for (const p of magazine.pages) {
+                if (p.kind === "html") {
+                  const h = parseHtmlLayout(p.layout)?.html ?? "";
+                  if (h.includes(a.url)) usedIn.push(p.pageNumber);
+                } else if (p.kind === "composed") {
+                  const l = parsePageLayout(p.layout);
+                  if (l?.blocks.some((b) => b.type === "image" && b.src === a.url)) usedIn.push(p.pageNumber);
+                }
+              }
+              return {
+                id: a.id,
+                url: a.url,
+                path: a.path,
+                filename: a.filename,
+                createdAt: a.createdAt.toISOString(),
+                usedIn,
+              };
+            })}
           />
         </div>
       </div>

@@ -12,8 +12,9 @@ import Link from "next/link";
 // Using native <img> to avoid Vercel Image Optimization limits
 import type { MagazinePage, MagazineTocEntry } from "@/types/magazine";
 import { ComposedPage } from "./composed-page";
+import { HtmlPage } from "./html-page";
 import { MagazineZoomLightbox } from "./magazine-zoom-lightbox";
-import { parsePageLayout } from "@/types/magazine-layout";
+import { parsePageLayout, parseHtmlLayout } from "@/types/magazine-layout";
 
 // 페이지 본문: 이미지형은 <img>, 구성형(39호+)은 ComposedPage로 렌더.
 function PageBody({
@@ -27,6 +28,14 @@ function PageBody({
     return (
       <div className="absolute inset-0 flex items-center justify-center">
         <ComposedPage layout={parsePageLayout(page.layout)} />
+      </div>
+    );
+  }
+  if (page.kind === "html") {
+    // kind=html: iframe sandbox로 페이지 전체 HTML 렌더(2:3 박스 채움, overflow hidden)
+    return (
+      <div className="absolute inset-0 overflow-hidden">
+        <HtmlPage html={parseHtmlLayout(page.layout)?.html ?? ""} />
       </div>
     );
   }
@@ -440,6 +449,8 @@ export function TocFilmstrip({
                 {page &&
                   (page.kind === "composed" ? (
                     <ComposedPage layout={parsePageLayout(page.layout)} fit="cover" />
+                  ) : page.kind === "html" ? (
+                    <HtmlPage html={parseHtmlLayout(page.layout)?.html ?? ""} />
                   ) : page.imageUrl ? (
                     <img
                       src={page.imageUrl}
@@ -552,11 +563,13 @@ export function MagazineViewer({
     setDeskTrans({ x: 0, y: 0 });
   }, []);
 
-  // 현재 페이지 확대 가능 여부 — 이미지형(URL 있음) 또는 구성형 모두 지원
+  // 현재 페이지 확대 가능 여부 — 이미지형(URL 있음)·구성형·HTML 모두 지원
   const currentPageObj = pages[currentPage];
   const canZoom =
     !!currentPageObj &&
-    (currentPageObj.kind === "composed" || !!currentPageObj.imageUrl);
+    (currentPageObj.kind === "composed" ||
+      currentPageObj.kind === "html" ||
+      !!currentPageObj.imageUrl);
 
   const flipPrevRef = useRef<() => void>(undefined);
   const flipNextRef = useRef<() => void>(undefined);
@@ -674,9 +687,10 @@ export function MagazineViewer({
       };
       img.src = first.imageUrl;
     } else {
-      // 구성형(이미지 없음): 2:3 고정 — 1~38호 이미지(1200×1800=2:3)와 동일 비율로
+      // 구성형·HTML(이미지 없음): 2:3 고정 — 1~38호 이미지(1200×1800=2:3)와 동일 비율로
       // 면 크기를 잡아 여백/레이아웃/넘김 효과를 동일하게 유지.
-      if (first && first.kind === "composed") pageRatioRef.current = 2 / 3;
+      if (first && (first.kind === "composed" || first.kind === "html"))
+        pageRatioRef.current = 2 / 3;
       computeDims();
     }
 
@@ -1202,6 +1216,10 @@ export function MagazineViewer({
           {currentPageObj.kind === "composed" ? (
             <div className="h-full w-full">
               <ComposedPage layout={parsePageLayout(currentPageObj.layout)} />
+            </div>
+          ) : currentPageObj.kind === "html" ? (
+            <div className="h-full w-full">
+              <HtmlPage html={parseHtmlLayout(currentPageObj.layout)?.html ?? ""} />
             </div>
           ) : (
             <img

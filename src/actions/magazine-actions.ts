@@ -162,6 +162,7 @@ export async function deleteMagazine(id: string) {
     select: {
       coverImageUrl: true,
       pages: { select: { imageUrl: true } },
+      assets: { select: { url: true } }, // 미디어 라이브러리 — cascade는 DB만, Storage는 수동 정리
     },
   });
 
@@ -179,6 +180,7 @@ export async function deleteMagazine(id: string) {
   const urls = new Set<string>();
   if (magazine.coverImageUrl) urls.add(magazine.coverImageUrl);
   for (const page of magazine.pages) if (page.imageUrl) urls.add(page.imageUrl);
+  for (const asset of magazine.assets) urls.add(asset.url); // 미디어 라이브러리 이미지도 Storage 정리
 
   // Best-effort cleanup; failures are logged inside deleteUploadedFile and must
   // not block the deletion that already succeeded in the DB.

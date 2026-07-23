@@ -56,6 +56,9 @@ export type PageLayout = {
   pageBg?: string; // 페이지 바탕색 (기본 흰색)
 };
 
+// kind=html 페이지: 페이지 전체 HTML(iframe sandbox 렌더). MagazinePage.layout에 { html } 저장.
+export type HtmlLayout = { html: string };
+
 // 레이아웃 설계 기준 페이지 폭(px). 글자 크기 cqw 환산에 사용.
 export const LAYOUT_BASE_WIDTH = 440;
 
@@ -73,4 +76,11 @@ export function parsePageLayout(raw: unknown): PageLayout | null {
         ((b as Block).type === "shape" && typeof (b as ShapeBlock).shape === "string"))
   );
   return { blocks, pageBg: typeof obj.pageBg === "string" ? obj.pageBg : undefined };
+}
+
+// kind=html 페이지의 layout({ html }) 안전 파싱.
+export function parseHtmlLayout(raw: unknown): HtmlLayout | null {
+  if (!raw || typeof raw !== "object") return null;
+  const html = (raw as { html?: unknown }).html;
+  return typeof html === "string" ? { html } : null;
 }

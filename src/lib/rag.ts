@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { chunkBlogContent } from "@/lib/chunker";
 import { embedDocuments, embedQuery } from "@/lib/embeddings";
-import { parsePageLayout } from "@/types/magazine-layout";
+import sanitizeHtml from "sanitize-html";
+import { parsePageLayout, parseHtmlLayout } from "@/types/magazine-layout";
 
 export interface ChunkResult {
   id: string;
@@ -74,8 +75,20 @@ export async function generateArticleEmbeddings(articleId: string): Promise<void
   await replaceChunks("article", a.id, `/articles/${a.slug}`, a.title, chunks);
 }
 
+// kind=html 페이지 본문 텍스트 추출(RAG 색인용) — script/style/head 등을 통째 제거하고
+// 태그를 strip해 순수 텍스트만 남긴다. 렌더 격리(iframe sandbox)와 별개의 색인 경로.
+function extractText(html: string): string {
+  return sanitizeHtml(html, {
+    allowedTags: [],
+    allowedAttributes: {},
+    nonTextTags: ["script", "style", "head", "noscript", "template"],
+  })
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 // ── 매거진 ─────────────────────────────────────────────────────────────────
-// 발행 매거진의 구성형 페이지 텍스트 블록을 색인. 단, articleId 연결 페이지는
+// 발행 매거진의 구성형 텍스트 블록 + HTML 페이지 본문을 색인. 단, articleId 연결 페이지는
 // 기사 청크로 커버되므로 제외(중복 방지). 비발행/텍스트없음이면 청크 제거.
 export async function generateMagazineEmbeddings(magazineId: string): Promise<void> {
   const m = await prisma.magazine.findUnique({
@@ -101,14 +114,19 @@ export async function generateMagazineEmbeddings(magazineId: string): Promise<vo
   let combined = "";
   if (m.status === "published") {
     for (const pg of m.pages) {
-      if (pg.kind !== "composed") continue;
       const coveredByArticle =
         pg.article?.status === "published" && pg.article?.aiIndexable;
       if (coveredByArticle) continue; // 기사 청크가 이미 담당
-      const layout = parsePageLayout(pg.layout);
-      if (!layout) continue;
-      for (const b of layout.blocks) {
-        if (b.type === "text" && b.html) combined += b.html + "\n\n";
+      if (pg.kind === "composed") {
+        const layout = parsePageLayout(pg.layout);
+        if (!layout) continue;
+        for (const b of layout.blocks) {
+          if (b.type === "text" && b.html) combined += b.html + "\n\n";
+        }
+      } else if (pg.kind === "html") {
+        const hl = parseHtmlLayout(pg.layout);
+        const text = hl?.html ? extractText(hl.html) : "";
+        if (text) combined += text + "\n\n";
       }
     }
   }
