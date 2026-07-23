@@ -64,6 +64,34 @@ export async function saveUploadedFile(
   return getPublicUrl(storagePath);
 }
 
+// kind=html 페이지 미디어 라이브러리용 업로드. 매거진 assets 경로에 저장하고
+// 삭제에 쓸 storage path까지 함께 반환한다.
+export async function saveMagazineAsset(
+  file: File,
+  magazineId: string
+): Promise<{ url: string; path: string; filename: string }> {
+  validateImageType(file);
+
+  const filename = generateFilename(file, ".webp");
+  const storagePath = `magazines/${magazineId}/assets/${filename}`;
+
+  const rawBuffer = Buffer.from(await file.arrayBuffer());
+  let optimizedBuffer: Buffer;
+  try {
+    optimizedBuffer = await optimizeImage(rawBuffer, MAGAZINE_IMAGE_MAX_WIDTH);
+  } catch {
+    throw new Error("이미지 최적화에 실패했습니다. 다른 파일을 시도해주세요.");
+  }
+
+  const { error } = await getSupabase().storage
+    .from(STORAGE_BUCKET)
+    .upload(storagePath, optimizedBuffer, { contentType: "image/webp" });
+
+  if (error) throw new Error(`업로드 실패: ${error.message}`);
+
+  return { url: getPublicUrl(storagePath), path: storagePath, filename };
+}
+
 export async function saveBlogThumbnail(file: File): Promise<string> {
   validateImageType(file);
 

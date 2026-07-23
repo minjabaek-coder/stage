@@ -9,6 +9,8 @@ import { revalidatePath } from "next/cache";
 import { parseContentStream } from "@/lib/magazine-autolayout/content-stream";
 import { planPages } from "@/lib/magazine-autolayout/plan";
 import { isAdmin } from "@/lib/auth";
+import { parseHtmlLayout, parsePageLayout } from "@/types/magazine-layout";
+import { sanitizeMagazineHtml } from "@/lib/magazine-html";
 
 // 구성형 레이아웃 저장 전 텍스트 블록 HTML 정제(스타일은 블록 속성으로 관리).
 function sanitizeLayout(layout: unknown): { blocks: unknown[]; pageBg?: string } {
@@ -213,6 +215,59 @@ export async function updatePageLayout(
         ? { articleId: articleId || null }
         : {}),
     },
+  });
+  revalidatePath(`/admin/magazines/${magazineId}/edit`);
+  revalidatePath(`/magazines/${magazineId}`);
+  return { success: true as const };
+}
+
+// kind=html 페이지 HTML 저장. iframe sandbox=""로 격리 렌더(XSS 구조 방어)하므로 원문을
+// 보존한다(정제 시 CSS/레이아웃 훼손). 상한만 둬 과대 입력을 막는다. articleId 연동도 함께.
+const MAX_HTML_LEN = 500_000; // 페이지당 HTML 상한(≈50만 자)
+export async function updateHtmlPage(
+  pageId: string,
+  magazineId: string,
+  html: string,
+  articleId?: string | null
+) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" as const };
+  if (typeof html !== "string") return { error: "HTML이 올바르지 않습니다" as const };
+  if (html.length > MAX_HTML_LEN)
+    return { error: "HTML이 너무 깁니다(최대 50만 자)" as const };
+  // Shadow DOM 렌더의 1차 방어선: 저장 시 정제(<script>·on* 이벤트·위험 스킴 제거, 디자인 보존)
+  const clean = sanitizeMagazineHtml(html);
+  await prisma.magazinePage.update({
+    where: { id: pageId },
+    data: {
+      layout: { html: clean } as Prisma.InputJsonValue,
+      ...(articleId !== undefined ? { articleId: articleId || null } : {}),
+    },
+  });
+  revalidatePath(`/admin/magazines/${magazineId}/edit`);
+  revalidatePath(`/magazines/${magazineId}`);
+  return { success: true as const };
+}
+
+// 페이지 종류 전환(구성형 ↔ HTML). 좌측 레일 "HTML" 도구 / HTML편집기 "구성형" 버튼에서 호출.
+// 같은 종류의 기존 내용은 보존, 다른 종류로 바뀌면 빈 layout으로 초기화(내용 자동변환 불가 — UI에서 경고).
+export async function convertPageKind(
+  pageId: string,
+  magazineId: string,
+  kind: "composed" | "html"
+) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" as const };
+  const cur = await prisma.magazinePage.findUnique({
+    where: { id: pageId },
+    select: { layout: true },
+  });
+  if (!cur) return { error: "페이지를 찾을 수 없습니다" as const };
+  const layout =
+    kind === "html"
+      ? { html: parseHtmlLayout(cur.layout)?.html ?? "" }
+      : parsePageLayout(cur.layout) ?? { blocks: [] };
+  await prisma.magazinePage.update({
+    where: { id: pageId },
+    data: { kind, layout: layout as Prisma.InputJsonValue },
   });
   revalidatePath(`/admin/magazines/${magazineId}/edit`);
   revalidatePath(`/magazines/${magazineId}`);

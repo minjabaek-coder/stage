@@ -20,7 +20,7 @@ import {
   BringToFront, ArrowUp, ArrowDown, SendToBack,
   Group as GroupIcon, Ungroup, Copy, Trash2,
   Eye, EyeOff, Lock, Unlock,
-  RotateCw, Blend, Upload, Pencil, Minus, Plus,
+  RotateCw, Blend, Upload, Pencil, Minus, Plus, FileCode,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Editor } from "@tiptap/react";
@@ -69,6 +69,7 @@ export function PageEditor({
   initialArticleId,
   articles,
   placements = {},
+  onConvertToHtml,
 }: {
   magazineId: string;
   pageId: string;
@@ -78,6 +79,7 @@ export function PageEditor({
   initialArticleId: string | null;
   articles: ArticleOpt[];
   placements?: Record<string, Placement>;
+  onConvertToHtml?: () => void; // 레이아웃 팝오버 "HTML 페이지로 전환"
 }) {
   const router = useRouter();
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -203,6 +205,16 @@ export function PageEditor({
     setPageBg(layout.pageBg ?? "#ffffff");
     setSelectedIds([]);
     setLayoutPop(false);
+  }
+  // 이 페이지를 HTML 페이지로 전환(레이아웃 팝오버). 구성 내용이 있으면 손실 경고.
+  function convertToHtml() {
+    if (
+      blocks.length > 0 &&
+      !window.confirm("이 페이지를 HTML 페이지로 전환하면 현재 구성 내용(블록)이 사라집니다. 계속할까요?")
+    )
+      return;
+    setLayoutPop(false);
+    onConvertToHtml?.();
   }
   function addShape(shape: ShapeBlock["shape"], opts?: { radius?: number }) {
     record();
@@ -832,6 +844,20 @@ export function PageEditor({
                   </button>
                 ))}
               </div>
+              {/* 페이지 종류: 이 페이지를 통째로 HTML로 (외부 AI 생성물 붙여넣기) */}
+              <div className="my-2 border-t" />
+              <div className="ed-grouplabel mb-1.5">페이지 종류</div>
+              <button
+                type="button"
+                onClick={convertToHtml}
+                className="flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left hover:border-primary hover:bg-primary/5"
+              >
+                <FileCode size={16} className="flex-none text-muted-foreground" />
+                <span className="min-w-0">
+                  <span className="block text-[11px] font-medium text-foreground">HTML 페이지로 전환</span>
+                  <span className="block text-[9px] leading-tight text-muted-foreground">외부 AI가 만든 페이지 HTML을 붙여넣어 렌더</span>
+                </span>
+              </button>
             </div>
           )}
         </div>
