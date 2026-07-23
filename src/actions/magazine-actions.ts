@@ -143,9 +143,11 @@ export async function unpublishMagazine(id: string) {
     data: { status: "unpublished" },
   });
 
-  // RAG: 발행취소 시 색인에서 제거(함수가 비발행을 감지해 청크 삭제). best-effort.
-  generateMagazineEmbeddings(id).catch((err) =>
-    console.error("[RAG] Magazine embedding cleanup failed:", err)
+  // RAG: 미발행 시 색인 청크를 즉시 제거. 발행 색인은 임베딩 시간 때문에 fire-and-forget이지만,
+  // 미발행은 '비공개 전환'이라 제거를 반드시 완료해야 한다(await) — 안 그러면 남은 청크가
+  // searchChunks(발행여부 미필터)에 계속 잡혀 챗봇이 비공개 매거진 내용을 답한다.
+  await deleteContentChunks("magazine", id).catch((err) =>
+    console.error("[RAG] Magazine chunk cleanup failed:", err)
   );
 
   revalidateMagazinePaths(id);
