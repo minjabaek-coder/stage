@@ -43,7 +43,10 @@ export function BottomTabBar() {
     pathname.startsWith("/mypage") || pathname.startsWith("/auth");
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-[100] flex border-t border-ink/10 bg-paper/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-[14px] md:hidden">
+    <nav
+      data-site-chrome="bottom"
+      className="fixed inset-x-0 bottom-0 z-[100] flex border-t border-ink/10 bg-paper/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-[14px] md:hidden"
+    >
       {TABS.map((t) => {
         const active = isActive(pathname, t.href);
         return (

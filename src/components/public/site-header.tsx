@@ -33,7 +33,12 @@ export function SiteHeader() {
       <StageOsBanner />
 
       {/* 에디토리얼 헤더 */}
-      <header className="sticky top-0 z-[100] border-b border-ink/10 bg-paper/95 shadow-[0_2px_20px_rgba(0,0,0,0.05)] backdrop-blur-[14px]">
+      {/* data-site-chrome: 항상 보여야 하는 전역 크롬. 도슨트 팝업이 이 높이를 실측해
+          자기 자리를 잡는다(겹치지 않게) — docent-chat.tsx useChromeInsets */}
+      <header
+        data-site-chrome="top"
+        className="sticky top-0 z-[100] border-b border-ink/10 bg-paper/95 shadow-[0_2px_20px_rgba(0,0,0,0.05)] backdrop-blur-[14px]"
+      >
         <div className="mx-auto flex h-[58px] max-w-[1380px] items-center justify-between gap-4 px-3 sm:px-8">
           <Link
             href="/"

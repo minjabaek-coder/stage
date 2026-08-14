@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type CSSProperties } from "react";
 import Link from "next/link";
 import { getCurrentArticleTitle } from "@/lib/article-context";
 
@@ -65,17 +65,31 @@ export function ChatBody({ seedQuestion }: { seedQuestion?: string }) {
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const mounted = useRef(false);
+  // 바닥에 붙어 따라갈지 여부. 사용자가 위로 올려 읽는 중이면 해제한다(일반적인 챗 동작).
+  const stickToBottom = useRef(true);
+
+  function handleScroll() {
+    const el = scrollRef.current;
+    if (!el) return;
+    stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+  }
 
   // 새 메시지 시 '내부 메시지 영역'만 맨 아래로(윈도우는 그대로 — 페이지가 통째로
   // 내려가 히어로가 가려지던 문제 방지). 첫 마운트(인사말만)에선 스크롤하지 않음.
+  //
+  // 스트리밍 중에는 텍스트 청크마다 setMessages가 돌아 이 이펙트도 매번 실행된다.
+  // 그때 behavior:"smooth"를 쓰면 끝나지 않은 애니메이션이 계속 재시작돼 끈적하게
+  // 미끄러지고, 사용자가 위로 올려 읽어도 계속 아래로 끌려간다. → 스트리밍 중엔 즉시
+  // 이동(auto), 그리고 바닥 근처일 때만 따라간다.
   useEffect(() => {
     if (!mounted.current) {
       mounted.current = true;
       return;
     }
     const el = scrollRef.current;
-    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  }, [messages]);
+    if (!el || !stickToBottom.current) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: isLoading ? "auto" : "smooth" });
+  }, [messages, isLoading]);
 
   // 이미 열린 채팅에서 다른 시드 질문(기사 위젯 칩)을 누르면 입력창을 갱신
   useEffect(() => {
@@ -88,6 +102,7 @@ export function ChatBody({ seedQuestion }: { seedQuestion?: string }) {
 
     const userMessage: Message = { role: "user", content: text };
     const updatedMessages = [...messages, userMessage];
+    stickToBottom.current = true; // 내가 보낸 메시지는 항상 따라간다
     setMessages(updatedMessages);
     setInput("");
     setIsLoading(true);
@@ -193,12 +208,15 @@ export function ChatBody({ seedQuestion }: { seedQuestion?: string }) {
 
   return (
     <div className="flex flex-col h-full">
+      {/* overscroll-contain: 목록 끝에 닿아도 휠이 뒤 페이지로 넘어가지 않게(스크롤 체이닝 차단).
+          데스크톱은 배경 스크롤을 잠그지 않으므로 이게 없으면 홈이 팝업 뒤에서 움직인다. */}
       <div
         ref={scrollRef}
+        onScroll={handleScroll}
         className={
           isEmpty
-            ? "flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center gap-5 px-4 text-center"
-            : "flex-1 min-h-0 overflow-y-auto space-y-3"
+            ? "flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col items-center justify-center gap-5 px-4 text-center"
+            : "flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-3"
         }
       >
         {isEmpty ? (
@@ -282,11 +300,55 @@ export function ChatBody({ seedQuestion }: { seedQuestion?: string }) {
   );
 }
 
+/**
+ * 항상 보여야 하는 전역 크롬(헤더·장르탭·모바일 하단탭바)의 높이를 잰다.
+ * 팝업은 이 값만큼 비켜 앉아 크롬을 절대 가리지 않는다(헤더 우선 원칙).
+ *
+ * 위치(rect)가 아니라 **높이의 합**을 쓰는 이유: 헤더 위의 StageOS 배너가 스티키가 아니라서
+ * 헤더의 화면상 위치가 스크롤에 따라 변한다(최상단 115px → 배너 지나면 59px). 팝업은 fixed라
+ * 같이 움직이지 않으므로, 스크롤 위치를 따라다니며 팝업을 옮기면(=흔들림) 오히려 부자연스럽다.
+ * → 배너까지 포함한 **최악의 경우**를 한 번 확보해 어느 스크롤 위치에서도 겹치지 않게 한다.
+ * 배너를 닫으면 DOM에서 사라지므로 합계가 자동으로 줄어든다.
+ */
+function useChromeInsets(active: boolean) {
+  const [insets, setInsets] = useState({ top: 0, bottom: 0 });
+
+  useEffect(() => {
+    if (!active) return;
+    const measure = () => {
+      const sum = (sel: string) =>
+        Array.from(document.querySelectorAll<HTMLElement>(sel)).reduce(
+          (n, el) => n + el.offsetHeight,
+          0,
+        );
+      setInsets((prev) => {
+        const next = {
+          top: sum('[data-site-chrome="top"]'),
+          bottom: sum('[data-site-chrome="bottom"]'),
+        };
+        return prev.top === next.top && prev.bottom === next.bottom ? prev : next;
+      });
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    // 배너는 설정을 비동기로 받아 뒤늦게 나타나거나 사용자가 닫아 사라진다 → body 크기 변화로 감지.
+    const ro = new ResizeObserver(measure);
+    ro.observe(document.body);
+    return () => {
+      window.removeEventListener("resize", measure);
+      ro.disconnect();
+    };
+  }, [active]);
+
+  return insets;
+}
+
 /** FAB + 팝업 채팅 (모든 뷰포트) */
 export function DocentChatFAB() {
   const [isOpen, setIsOpen] = useState(false);
   const [seed, setSeed] = useState<string | undefined>(undefined);
   const panelRef = useRef<HTMLDivElement>(null);
+  const chrome = useChromeInsets(isOpen);
 
   // 외부(홈 CTA·기사 위젯 등)에서 챗을 열 수 있도록 커스텀 이벤트 수신.
   // detail.question이 있으면 입력창을 미리 채운다(기사 내 AI 위젯 등).
@@ -322,9 +384,14 @@ export function DocentChatFAB() {
     function update() {
       if (!vv || !panelRef.current) return;
       // Only apply on mobile (lg breakpoint = 1024px)
-      if (window.innerWidth >= 1024) return;
-      panelRef.current.style.height = `${vv.height}px`;
-      panelRef.current.style.top = `${vv.offsetTop}px`;
+      if (window.innerWidth >= 1024) {
+        panelRef.current.style.height = "";
+        panelRef.current.style.top = "";
+        return;
+      }
+      // 전역 크롬(헤더 위 / 하단탭바 아래)을 비워두고 그 사이만 차지한다.
+      panelRef.current.style.height = `${Math.max(240, vv.height - chrome.top - chrome.bottom)}px`;
+      panelRef.current.style.top = `${vv.offsetTop + chrome.top}px`;
     }
 
     update();
@@ -334,7 +401,7 @@ export function DocentChatFAB() {
       vv.removeEventListener("resize", update);
       vv.removeEventListener("scroll", update);
     };
-  }, [isOpen]);
+  }, [isOpen, chrome.top, chrome.bottom]);
 
   return (
     <>
@@ -342,7 +409,18 @@ export function DocentChatFAB() {
       {isOpen && (
         <div
           ref={panelRef}
-          className="fixed inset-0 z-50 bg-white flex flex-col p-6 lg:inset-auto lg:bottom-24 lg:right-6 lg:w-[calc(100vw-3rem)] lg:max-w-md lg:h-[600px] lg:max-h-[calc(100vh-8rem)] lg:rounded-2xl lg:shadow-2xl lg:flex-none"
+          style={
+            {
+              "--chrome-top": `${chrome.top}px`,
+              "--chrome-bottom": `${chrome.bottom}px`,
+            } as CSSProperties
+          }
+          // 헤더 우선 원칙: 팝업은 전역 크롬을 덮지 않는다(z를 올리지 않고 자리를 비켜준다).
+          //  · 모바일·태블릿(전체화면): 헤더 아래 ~ 하단탭바 위 사이만 차지.
+          //  · 데스크톱(lg+): 우하단 팝업. 높이를 `100vh − 헤더 − 아래여백(96) − 간격(12)`으로
+          //    제한해, 짧은 화면(≈728px 이하)에서 상단이 헤더에 파고들던 문제를 없앤다.
+          // overscroll-contain: 패널 위에서 굴린 휠이 뒤 페이지로 새지 않게.
+          className="fixed inset-x-0 top-[var(--chrome-top)] bottom-[var(--chrome-bottom)] z-50 flex flex-col overflow-hidden overscroll-contain bg-white p-6 lg:inset-auto lg:bottom-24 lg:right-6 lg:top-auto lg:h-[600px] lg:max-h-[calc(100vh-var(--chrome-top)-108px)] lg:w-[calc(100vw-3rem)] lg:max-w-md lg:flex-none lg:rounded-2xl lg:shadow-2xl"
         >
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-label text-sm font-black tracking-[0.2em] uppercase">
