@@ -6,7 +6,8 @@ import { MagazineForm } from "@/components/admin/magazine-form";
 import { PageUploadZone } from "@/components/admin/page-upload-zone";
 import { PageListSortable } from "@/components/admin/page-list-sortable";
 import { MagazineEditorShell } from "@/components/admin/magazine-editor-shell";
-import { MagazineSourceText } from "@/components/admin/magazine-source-text";
+import { MagazineSourceSections } from "@/components/admin/magazine-source-sections";
+import { parseSourceSections } from "@/types/magazine-source";
 import { EditorSettingsDialogs } from "@/components/admin/editor-settings-dialogs";
 import { StatusActions } from "@/components/admin/status-actions";
 import { StatusBadge } from "@/components/admin/status-badge";
@@ -174,12 +175,18 @@ export default async function EditMagazinePage({
               formId="magazine-edit-form"
             />
 
-            {/* 매거진 원문 텍스트 — 이미지 페이지는 비트맵이라 RAG 코퍼스가 비므로
-                매거진 단위 텍스트(+ p.N 마커)로 챗봇 답변·출처 딥링크를 가능케 한다. */}
+            {/* 매거진 원문 구간 — 이미지 페이지는 비트맵이라 RAG 코퍼스가 비므로
+                꼭지별 텍스트 + 페이지 범위(구조)로 챗봇 답변·출처 딥링크를 가능케 한다.
+                페이지 귀속을 본문에서 파싱하지 않는 이유는 docs/decisions/0007. */}
             {!isWeb && (
-              <MagazineSourceText
+              <MagazineSourceSections
                 magazineId={magazine.id}
-                initialText={magazine.sourceText ?? ""}
+                initialSections={parseSourceSections(magazine.sourceSections)}
+                tocEntries={magazine.tocEntries.map((t) => ({
+                  title: t.title,
+                  pageNumber: t.pageNumber,
+                }))}
+                pageCount={magazine.pages.length}
                 updatedAt={
                   magazine.sourceTextUpdatedAt
                     ? magazine.sourceTextUpdatedAt.toISOString()

@@ -63,9 +63,13 @@ export async function executeMaestroTool(
   if (name === "search_content") {
     const chunks = await searchChunks(String(args.query ?? ""), 5);
     return {
+      // page·section을 모델에 함께 넘겨 "몇 쪽에 있나"·"어느 꼭지인가"에 답할 수 있게 한다.
+      // (기존엔 href 문자열에만 들어 있어 모델이 알 수 없었음)
       result: chunks.map((c) => ({
         title: c.title,
         content: c.content.slice(0, 600),
+        ...(c.sectionTitle ? { section: c.sectionTitle } : {}),
+        ...(c.pageNumber !== null ? { page: c.pageNumber } : {}),
       })),
       sources: dedupe(chunks.map((c) => ({ title: c.title, href: c.href }))),
     };

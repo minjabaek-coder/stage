@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@/generated/prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod/v4";
@@ -99,23 +100,59 @@ export async function updateMagazine(id: string, formData: FormData) {
   return { success: true };
 }
 
-// 매거진 원문 텍스트 저장 — 이미지형처럼 페이지에 텍스트가 없는 매거진의 RAG 코퍼스.
-// 본문의 `p.12` 마커로 구간을 나누면 청크가 그 페이지로 귀속된다(src/lib/magazine-source-text.ts).
-const MAX_SOURCE_TEXT = 300_000; // 매거진당 원문 상한(≈30만 자)
+// 매거진 원문 구간 저장 — 이미지형처럼 지면에 텍스트가 없는 매거진의 RAG 코퍼스.
+// 페이지 귀속은 본문 파싱이 아니라 구간 구조(pageFrom/pageTo)로 온다(docs/decisions/0007).
+const MAX_SOURCE_TEXT = 300_000; // 매거진당 원문 총량 상한(≈30만 자)
 
-export async function updateMagazineSourceText(id: string, sourceText: string) {
+const sectionSchema = z.object({
+  id: z.string().min(1).max(64),
+  pageFrom: z.number().int().positive().nullable(),
+  pageTo: z.number().int().positive().nullable(),
+  title: z.string().max(200).nullable(),
+  text: z.string(),
+});
+
+export async function updateMagazineSourceSections(
+  id: string,
+  sections: unknown,
+  /** 임포트에 쓴 원문 전체(아카이브용, 선택). 색인에는 쓰이지 않는다. */
+  rawText?: string | null,
+) {
   if (!(await isAdmin())) return { error: "권한이 없습니다" };
-  if (typeof sourceText !== "string")
-    return { error: "텍스트가 올바르지 않습니다" };
-  if (sourceText.length > MAX_SOURCE_TEXT)
-    return { error: "텍스트가 너무 깁니다(최대 30만 자)" };
 
-  const text = sourceText.trim();
+  const parsed = z.array(sectionSchema).max(500).safeParse(sections);
+  if (!parsed.success) return { error: "구간 형식이 올바르지 않습니다" };
+
+  const list = parsed.data;
+  const total = list.reduce((n, s) => n + s.text.length, 0);
+  if (total > MAX_SOURCE_TEXT)
+    return { error: "원문이 너무 깁니다(전체 최대 30만 자)" };
+
+  for (const s of list) {
+    const to = s.pageTo ?? s.pageFrom;
+    if (s.pageFrom !== null && to !== null && to < s.pageFrom)
+      return { error: "끝 페이지가 시작 페이지보다 앞선 구간이 있습니다" };
+    if (s.pageFrom === null && s.pageTo !== null)
+      return { error: "시작 페이지 없이 끝 페이지만 지정된 구간이 있습니다" };
+  }
+
+  // 실제 페이지 수를 넘어서는 지정은 오입력 — 저장 단계에서 막는다(어드민 UI도 경고).
+  const pageCount = await prisma.magazinePage.count({ where: { magazineId: id } });
+  if (pageCount > 0) {
+    for (const s of list) {
+      const to = s.pageTo ?? s.pageFrom;
+      if (to !== null && to > pageCount)
+        return { error: `이 매거진은 ${pageCount}쪽까지입니다 (${to}쪽 지정됨)` };
+    }
+  }
+
+  const kept = list.filter((s) => s.text.trim());
   const magazine = await prisma.magazine.update({
     where: { id },
     data: {
-      sourceText: text || null,
-      sourceTextUpdatedAt: text ? new Date() : null,
+      sourceSections: kept.length ? (kept as Prisma.InputJsonValue) : Prisma.DbNull,
+      sourceTextUpdatedAt: kept.length ? new Date() : null,
+      ...(rawText !== undefined ? { sourceText: rawText || null } : {}),
     },
     select: { status: true },
   });
@@ -128,7 +165,7 @@ export async function updateMagazineSourceText(id: string, sourceText: string) {
       await generateMagazineEmbeddings(id);
       indexed = true;
     } catch (err) {
-      console.error("[RAG] Magazine sourceText embedding failed:", err);
+      console.error("[RAG] Magazine sourceSections embedding failed:", err);
       revalidateMagazinePaths(id);
       return {
         success: true as const,
