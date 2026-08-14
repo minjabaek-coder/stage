@@ -60,8 +60,8 @@ export function MagazineForm({
                 defaultValue={defaultValues?.contentType ?? "image"}
                 className="block w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
-                <option value="image">이미지 업로드 (1~38호 방식)</option>
-                <option value="composed">구성형 — CMS 자유배치 (39호+)</option>
+                <option value="image">이미지 업로드</option>
+                <option value="composed">구성형 — CMS 자유배치</option>
               </select>
               <p className="text-xs text-gray-500">
                 생성 후에는 변경할 수 없습니다.

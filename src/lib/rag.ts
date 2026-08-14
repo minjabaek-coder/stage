@@ -3,6 +3,7 @@ import { chunkBlogContent } from "@/lib/chunker";
 import { embedDocuments, embedQuery } from "@/lib/embeddings";
 import sanitizeHtml from "sanitize-html";
 import { parsePageLayout, parseHtmlLayout } from "@/types/magazine-layout";
+import { parseSourceText } from "@/lib/magazine-source-text";
 
 export interface ChunkResult {
   id: string;
@@ -16,12 +17,13 @@ type SourceType = "article" | "magazine" | "culture";
 
 // 한 소스의 청크를 통째로 갈아끼운다(delete-then-insert). 색인 부적격이면 chunks=[]로
 // 호출해 기존 청크만 제거(발행취소·색인제외 반영).
+// chunk.href를 주면 그 청크만 다른 출처로 저장한다(매거진 원문 텍스트의 페이지 딥링크).
 async function replaceChunks(
   sourceType: SourceType,
   sourceId: string,
   href: string,
   title: string,
-  chunks: { chunkIndex: number; content: string; title: string }[],
+  chunks: { chunkIndex: number; content: string; title: string; href?: string }[],
 ): Promise<void> {
   await prisma.$queryRawUnsafe(
     `DELETE FROM "ContentChunk" WHERE "sourceType" = $1 AND "sourceId" = $2`,
@@ -42,7 +44,7 @@ async function replaceChunks(
       chunks[i].chunkIndex,
       chunks[i].title || title,
       chunks[i].content,
-      href,
+      chunks[i].href || href,
       vec,
     );
   }
@@ -88,8 +90,12 @@ function extractText(html: string): string {
 }
 
 // ── 매거진 ─────────────────────────────────────────────────────────────────
-// 발행 매거진의 구성형 텍스트 블록 + HTML 페이지 본문을 색인. 단, articleId 연결 페이지는
-// 기사 청크로 커버되므로 제외(중복 방지). 비발행/텍스트없음이면 청크 제거.
+// 발행 매거진의 텍스트를 두 갈래로 색인한다.
+//   ① 페이지 내장 텍스트 — 구성형 text 블록 + HTML 페이지 본문(합쳐서 매거진 단위 청크).
+//   ② 매거진 원문 텍스트(sourceText) — 이미지형처럼 페이지에 텍스트가 없는 경우의 코퍼스.
+//      `p.12` 마커 구간은 그 페이지 딥링크(`?page=12`)를 출처로 갖는다.
+// 두 갈래 모두 articleId 연결 페이지(기사가 발행+색인)는 기사 청크로 커버되므로 제외(중복 방지).
+// 비발행/텍스트없음이면 청크 제거.
 export async function generateMagazineEmbeddings(magazineId: string): Promise<void> {
   const m = await prisma.magazine.findUnique({
     where: { id: magazineId },
@@ -97,11 +103,13 @@ export async function generateMagazineEmbeddings(magazineId: string): Promise<vo
       id: true,
       title: true,
       status: true,
+      sourceText: true,
       pages: {
         orderBy: { sortOrder: "asc" },
         select: {
           kind: true,
           layout: true,
+          pageNumber: true,
           // 연결 기사가 "발행+색인"이면 그 텍스트는 기사 청크로 커버 → 매거진에서 제외(중복).
           // 그러나 draft/미색인 기사면 기사 청크에 없으므로 매거진 텍스트로 보존해야 누락이 없다.
           article: { select: { status: true, aiIndexable: true } },
@@ -111,12 +119,25 @@ export async function generateMagazineEmbeddings(magazineId: string): Promise<vo
   });
   if (!m) return;
 
-  let combined = "";
+  const baseHref = `/magazines/${m.id}`;
+  const collected: {
+    chunkIndex: number;
+    content: string;
+    title: string;
+    href?: string;
+  }[] = [];
+
   if (m.status === "published") {
+    // ① 페이지 내장 텍스트
+    let combined = "";
+    const coveredPages = new Set<number>(); // 기사 청크가 담당하는 페이지(원문 텍스트에서도 제외)
     for (const pg of m.pages) {
       const coveredByArticle =
         pg.article?.status === "published" && pg.article?.aiIndexable;
-      if (coveredByArticle) continue; // 기사 청크가 이미 담당
+      if (coveredByArticle) {
+        coveredPages.add(pg.pageNumber);
+        continue; // 기사 청크가 이미 담당
+      }
       if (pg.kind === "composed") {
         const layout = parsePageLayout(pg.layout);
         if (!layout) continue;
@@ -129,10 +150,24 @@ export async function generateMagazineEmbeddings(magazineId: string): Promise<vo
         if (text) combined += text + "\n\n";
       }
     }
+    if (combined.trim()) collected.push(...chunkBlogContent(combined, m.title));
+
+    // ② 매거진 원문 텍스트 — 마커 구간별로 제목·출처를 달리 부여
+    for (const seg of parseSourceText(m.sourceText)) {
+      if (seg.pageNumber !== null && coveredPages.has(seg.pageNumber)) continue;
+      const label =
+        seg.pageNumber !== null ? `${m.title} · ${seg.pageNumber}p` : m.title;
+      const href =
+        seg.pageNumber !== null ? `${baseHref}?page=${seg.pageNumber}` : baseHref;
+      for (const c of chunkBlogContent(seg.text, label)) {
+        collected.push({ ...c, href });
+      }
+    }
   }
 
-  const chunks = combined.trim() ? chunkBlogContent(combined, m.title) : [];
-  await replaceChunks("magazine", m.id, `/magazines/${m.id}`, m.title, chunks);
+  // chunkIndex는 소스 단위로 유일해야 하므로 두 갈래를 합친 뒤 다시 매긴다.
+  const chunks = collected.map((c, i) => ({ ...c, chunkIndex: i }));
+  await replaceChunks("magazine", m.id, baseHref, m.title, chunks);
 }
 
 // ── 문화예술 이벤트 ──────────────────────────────────────────────────────────

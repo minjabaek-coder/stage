@@ -9,6 +9,7 @@ import { revalidatePath } from "next/cache";
 import { parseContentStream } from "@/lib/magazine-autolayout/content-stream";
 import { planPages } from "@/lib/magazine-autolayout/plan";
 import { isAdmin } from "@/lib/auth";
+import { generateMagazineEmbeddings } from "@/lib/rag";
 import { parseHtmlLayout, parsePageLayout } from "@/types/magazine-layout";
 import { sanitizeMagazineHtml } from "@/lib/magazine-html";
 
@@ -272,6 +273,64 @@ export async function convertPageKind(
   revalidatePath(`/admin/magazines/${magazineId}/edit`);
   revalidatePath(`/magazines/${magazineId}`);
   return { success: true as const };
+}
+
+// 페이지↔기사 연동 설정. 구성형/HTML은 편집기 속성 패널에서 layout과 함께 저장하지만,
+// 이미지형 페이지는 저장할 layout이 없으므로 연동만 단독으로 바꾸는 경로가 필요하다.
+// 연동 변경은 RAG 중복 방지 판정(coveredByArticle)을 바꾸므로 발행본이면 재색인한다.
+async function reindexIfPublished(magazineId: string) {
+  const m = await prisma.magazine.findUnique({
+    where: { id: magazineId },
+    select: { status: true },
+  });
+  if (m?.status !== "published") return;
+  // 임베딩 왕복이 길어 연동 조작 UX를 막지 않도록 best-effort(발행 시 색인이 최종 보정).
+  generateMagazineEmbeddings(magazineId).catch((err) =>
+    console.error("[RAG] Magazine reindex after article link failed:", err),
+  );
+}
+
+export async function setPageArticle(
+  pageId: string,
+  magazineId: string,
+  articleId: string | null,
+) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" as const };
+  await prisma.magazinePage.update({
+    where: { id: pageId },
+    data: { articleId: articleId || null },
+  });
+  await reindexIfPublished(magazineId);
+  revalidatePath(`/admin/magazines/${magazineId}/edit`);
+  revalidatePath(`/magazines/${magazineId}`);
+  return { success: true as const };
+}
+
+// 연속 페이지 범위를 한 기사에 일괄 연동(해제는 articleId=null).
+// 기사가 여러 쪽에 걸쳐 실리는 이미지형 매거진에서 한 장씩 고르는 수고를 없앤다.
+export async function setPagesArticleRange(
+  magazineId: string,
+  startPage: number,
+  endPage: number,
+  articleId: string | null,
+) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" as const };
+  const from = Math.min(startPage, endPage);
+  const to = Math.max(startPage, endPage);
+  if (!Number.isInteger(from) || !Number.isInteger(to) || from < 1)
+    return { error: "페이지 범위가 올바르지 않습니다" as const };
+
+  const r = await prisma.magazinePage.updateMany({
+    where: { magazineId, pageNumber: { gte: from, lte: to } },
+    data: { articleId: articleId || null },
+  });
+  if (r.count === 0)
+    return { error: "해당 범위에 페이지가 없습니다" as const };
+
+  await reindexIfPublished(magazineId);
+  revalidatePath(`/admin/magazines/${magazineId}/edit`);
+  revalidatePath(`/magazines/${magazineId}`);
+  return { success: true as const, count: r.count };
 }
 
 // 페이지 순서를 orderedIds 순으로 재배치.

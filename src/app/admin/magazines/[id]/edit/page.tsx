@@ -6,6 +6,7 @@ import { MagazineForm } from "@/components/admin/magazine-form";
 import { PageUploadZone } from "@/components/admin/page-upload-zone";
 import { PageListSortable } from "@/components/admin/page-list-sortable";
 import { MagazineEditorShell } from "@/components/admin/magazine-editor-shell";
+import { MagazineSourceText } from "@/components/admin/magazine-source-text";
 import { EditorSettingsDialogs } from "@/components/admin/editor-settings-dialogs";
 import { StatusActions } from "@/components/admin/status-actions";
 import { StatusBadge } from "@/components/admin/status-badge";
@@ -173,6 +174,21 @@ export default async function EditMagazinePage({
               formId="magazine-edit-form"
             />
 
+            {/* 매거진 원문 텍스트 — 이미지 페이지는 비트맵이라 RAG 코퍼스가 비므로
+                매거진 단위 텍스트(+ p.N 마커)로 챗봇 답변·출처 딥링크를 가능케 한다. */}
+            {!isWeb && (
+              <MagazineSourceText
+                magazineId={magazine.id}
+                initialText={magazine.sourceText ?? ""}
+                updatedAt={
+                  magazine.sourceTextUpdatedAt
+                    ? magazine.sourceTextUpdatedAt.toISOString()
+                    : null
+                }
+                status={magazine.status}
+              />
+            )}
+
             {/* TOC editor only applies to image-based page magazines */}
             {!isWeb && (
               <Card>
@@ -196,7 +212,15 @@ export default async function EditMagazinePage({
             </CardHeader>
             <CardContent className="space-y-4">
               <PageUploadZone magazineId={magazine.id} />
-              <PageListSortable pages={magazine.pages} magazineId={magazine.id} />
+              <PageListSortable
+                pages={magazine.pages}
+                magazineId={magazine.id}
+                articles={articles.map((a) => ({
+                  ...a,
+                  publishedAt: a.publishedAt ? a.publishedAt.toISOString() : null,
+                }))}
+                showArticleLink={!isWeb}
+              />
             </CardContent>
           </Card>
         </div>

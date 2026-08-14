@@ -9,8 +9,8 @@ import { isAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-// 전체 재색인(backfill): 발행 기사 + 발행 매거진(구성형 페이지 텍스트) + 발행 문화예술.
-// Voyage 레이트 한도(3 RPM 가정)를 위해 각 항목 사이 지연.
+// 전체 재색인(backfill): 발행 기사 + 발행 매거진(페이지 텍스트 + 원문 텍스트) + 발행 문화예술.
+// 임베딩 API 레이트 한도(3 RPM 가정)를 위해 각 항목 사이 지연.
 export async function POST() {
   if (!(await isAdmin())) {
     return NextResponse.json({ error: "권한이 없습니다" }, { status: 403 });
@@ -38,7 +38,7 @@ export async function POST() {
     }
   }
 
-  // 2) 매거진 (발행 전체 — 비연결 구성형 페이지 텍스트)
+  // 2) 매거진 (발행 전체 — 비연결 페이지 텍스트 + sourceText 마커 구간)
   const magazines = await prisma.magazine.findMany({
     where: { status: "published" },
     select: { id: true, title: true },

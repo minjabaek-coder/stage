@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useId } from "react";
+import { useState, useEffect, useId, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   DndContext,
@@ -22,9 +22,20 @@ import { CSS } from "@dnd-kit/utilities";
 // Using native img to avoid Vercel Image Optimization limits
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { reorderPages, deletePage, renamePageFile } from "@/actions/page-actions";
+import {
+  reorderPages,
+  deletePage,
+  renamePageFile,
+  setPageArticle,
+  setPagesArticleRange,
+} from "@/actions/page-actions";
 import { toast } from "sonner";
 import type { MagazinePage } from "@/types/magazine";
+import {
+  ArticlePicker,
+  type ArticleOpt,
+  type Placement,
+} from "@/components/admin/article-picker";
 
 function getFilenameFromUrl(url: string): string {
   try {
@@ -80,11 +91,21 @@ function SortablePageItem({
   magazineId,
   onDelete,
   fileSize,
+  articles,
+  placements,
+  onLinkArticle,
+  linkDisabled,
+  showArticleLink,
 }: {
   page: MagazinePage;
   magazineId: string;
   onDelete: (id: string) => void;
   fileSize?: number;
+  articles: ArticleOpt[];
+  placements: Record<string, Placement>;
+  onLinkArticle: (pageId: string, articleId: string | null) => void;
+  linkDisabled: boolean;
+  showArticleLink: boolean;
 }) {
   const filename = getFilenameFromUrl(page.imageUrl ?? "");
   const baseName = getFilenameWithoutExt(filename);
@@ -175,6 +196,21 @@ function SortablePageItem({
           </p>
         )}
       </div>
+      {/* 페이지↔기사 연동 — 구성형 편집기와 같은 ArticlePicker. 연동하면 기사 상세의
+          "실린 곳" 딥링크·기사 목록 호수 배지·RAG 중복 방지가 이미지형에도 적용된다. */}
+      {showArticleLink && (
+        <div className="mt-1" onPointerDown={(e) => e.stopPropagation()}>
+          <ArticlePicker
+            articles={articles}
+            placements={placements}
+            value={page.articleId}
+            onChange={(id) => onLinkArticle(page.id, id)}
+            allowNone
+            placeholder="기사 연동"
+            disabled={linkDisabled}
+          />
+        </div>
+      )}
       <button
         onClick={() => onDelete(page.id)}
         className="absolute -right-2 -top-2 hidden h-6 w-6 items-center justify-center rounded-full bg-red-500 text-xs text-white group-hover:flex"
@@ -186,23 +222,164 @@ function SortablePageItem({
   );
 }
 
+// 연속 페이지 범위를 한 기사에 일괄 연동. 기사가 여러 쪽에 걸쳐 실리는 이미지형에서
+// 페이지를 한 장씩 고르는 수고를 없앤다(구성형의 "기사로 초안"에 대응하는 이미지형 도구).
+function ArticleRangeLinker({
+  magazineId,
+  articles,
+  placements,
+  totalPages,
+  disabled,
+  onDone,
+}: {
+  magazineId: string;
+  articles: ArticleOpt[];
+  placements: Record<string, Placement>;
+  totalPages: number;
+  disabled: boolean;
+  onDone: () => void;
+}) {
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [articleId, setArticleId] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+
+  const f = parseInt(from, 10);
+  const t = parseInt(to, 10);
+  const validRange =
+    Number.isInteger(f) && Number.isInteger(t) && f >= 1 && t >= 1 && f <= t;
+
+  function apply(target: string | null) {
+    if (!validRange) return;
+    start(async () => {
+      const r = await setPagesArticleRange(magazineId, f, t, target);
+      if ("error" in r) {
+        toast.error(r.error);
+        return;
+      }
+      onDone();
+      toast.success(
+        target
+          ? `P.${f}–${t} ${r.count}쪽을 기사에 연동했습니다`
+          : `P.${f}–${t} ${r.count}쪽의 연동을 해제했습니다`,
+      );
+    });
+  }
+
+  const busy = disabled || pending;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/40 p-2.5 text-xs">
+      <span className="font-medium text-gray-700">범위 일괄 연동</span>
+      <span className="text-gray-400">P.</span>
+      <Input
+        type="number"
+        min={1}
+        max={totalPages}
+        value={from}
+        onChange={(e) => setFrom(e.target.value)}
+        placeholder="시작"
+        className="h-8 w-16 text-xs"
+        disabled={busy}
+      />
+      <span className="text-gray-400">~</span>
+      <Input
+        type="number"
+        min={1}
+        max={totalPages}
+        value={to}
+        onChange={(e) => setTo(e.target.value)}
+        placeholder="끝"
+        className="h-8 w-16 text-xs"
+        disabled={busy}
+      />
+      <div className="w-[200px]">
+        <ArticlePicker
+          articles={articles}
+          placements={placements}
+          value={articleId}
+          onChange={setArticleId}
+          disabled={busy}
+          placeholder="연동할 기사…"
+        />
+      </div>
+      <Button
+        size="sm"
+        onClick={() => apply(articleId)}
+        disabled={busy || !validRange || !articleId}
+      >
+        {pending ? "적용 중..." : "적용"}
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => apply(null)}
+        disabled={busy || !validRange}
+        title="이 범위의 기사 연동을 해제합니다"
+      >
+        연동 해제
+      </Button>
+      {!validRange && (from || to) && (
+        <span className="text-red-500">시작 ≤ 끝 인 페이지 번호를 넣어주세요</span>
+      )}
+    </div>
+  );
+}
+
 export function PageListSortable({
   pages: serverPages,
   magazineId,
+  articles = [],
+  showArticleLink = false,
 }: {
   pages: MagazinePage[];
   magazineId: string;
+  articles?: ArticleOpt[];
+  showArticleLink?: boolean;
 }) {
   const [pages, setPages] = useState(serverPages);
   const [renaming, setRenaming] = useState(false);
   const router = useRouter();
   const dndId = useId();
   const fileSizes = useFileSizes(pages);
+  const [linking, startLink] = useTransition();
 
   // Sync with server props when they change (e.g. after upload + router.refresh)
   useEffect(() => {
     setPages(serverPages);
   }, [serverPages]);
+
+  // 이 매거진에서 각 기사가 차지한 연속 페이지 범위(선택기 배치 뱃지·미배치 필터용).
+  const placements = useMemo(() => {
+    const m: Record<string, Placement> = {};
+    for (const p of pages) {
+      if (!p.articleId) continue;
+      const cur = m[p.articleId];
+      m[p.articleId] = cur
+        ? {
+            start: Math.min(cur.start, p.pageNumber),
+            end: Math.max(cur.end, p.pageNumber),
+          }
+        : { start: p.pageNumber, end: p.pageNumber };
+    }
+    return m;
+  }, [pages]);
+
+  function linkArticle(pageId: string, articleId: string | null) {
+    setPages((prev) =>
+      prev.map((p) => (p.id === pageId ? { ...p, articleId } : p)),
+    );
+    startLink(async () => {
+      const r = await setPageArticle(pageId, magazineId, articleId);
+      if ("error" in r) {
+        toast.error(r.error);
+        setPages(serverPages); // 실패 시 서버 상태로 되돌림
+        return;
+      }
+      router.refresh();
+      toast.success(articleId ? "기사를 연동했습니다" : "기사 연동을 해제했습니다");
+    });
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -319,6 +496,17 @@ export function PageListSortable({
 
   return (
     <>
+      {showArticleLink && (
+        <ArticleRangeLinker
+          magazineId={magazineId}
+          articles={articles}
+          placements={placements}
+          totalPages={pages.length}
+          disabled={linking}
+          onDone={() => router.refresh()}
+        />
+      )}
+
       {/* Desktop: drag & drop grid */}
       <div className="hidden md:block">
         <DndContext
@@ -328,7 +516,14 @@ export function PageListSortable({
           onDragEnd={handleDragEnd}
         >
           <SortableContext items={pages} strategy={rectSortingStrategy}>
-            <div className="grid grid-cols-4 gap-4 lg:grid-cols-6">
+            {/* 기사 연동 선택기가 붙으면 카드 폭이 필요해 열 수를 줄인다 */}
+            <div
+              className={`grid gap-4 ${
+                showArticleLink
+                  ? "grid-cols-3 lg:grid-cols-4"
+                  : "grid-cols-4 lg:grid-cols-6"
+              }`}
+            >
               {pages.map((page) => (
                 <SortablePageItem
                   key={page.id}
@@ -336,6 +531,11 @@ export function PageListSortable({
                   magazineId={magazineId}
                   onDelete={handleDelete}
                   fileSize={fileSizes[page.id]}
+                  articles={articles}
+                  placements={placements}
+                  onLinkArticle={linkArticle}
+                  linkDisabled={linking}
+                  showArticleLink={showArticleLink}
                 />
               ))}
             </div>
@@ -365,6 +565,19 @@ export function PageListSortable({
               <p className="truncate text-[10px] text-gray-400">
                 {getFilenameFromUrl(page.imageUrl ?? "")}
               </p>
+              {showArticleLink && (
+                <div className="mt-1">
+                  <ArticlePicker
+                    articles={articles}
+                    placements={placements}
+                    value={page.articleId}
+                    onChange={(id) => linkArticle(page.id, id)}
+                    allowNone
+                    placeholder="기사 연동"
+                    disabled={linking}
+                  />
+                </div>
+              )}
             </div>
             <div className="ml-auto flex gap-1">
               <Button
