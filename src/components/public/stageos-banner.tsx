@@ -31,7 +31,12 @@ export function StageOsBanner() {
   if (dismissed || !config || !config.enabled) return null;
 
   return (
-    <div className="relative overflow-hidden border-b border-os-purple/20 bg-[linear-gradient(135deg,#0a0f1a_0%,#111827_50%,#0d1520_100%)]">
+    // data-site-chrome: 스티키는 아니지만 스크롤 최상단에서 헤더를 아래로 밀어내므로,
+    // 도슨트 팝업이 헤더를 가리지 않으려면 이 높이까지 비워둬야 한다(docent-chat.tsx).
+    <div
+      data-site-chrome="top"
+      className="relative overflow-hidden border-b border-os-purple/20 bg-[linear-gradient(135deg,#0a0f1a_0%,#111827_50%,#0d1520_100%)]"
+    >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_20%_50%,rgba(99,102,241,0.12)_0%,transparent_60%)]" />
       <div className="relative z-[1] mx-auto flex max-w-[1380px] items-center justify-between gap-3 px-3 py-2.5 sm:px-8">
         <div className="flex min-w-0 items-center gap-2.5">

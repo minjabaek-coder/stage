@@ -14,7 +14,10 @@ export function GenreSubNav() {
   const active = params.get("genre") ?? "전체";
 
   return (
-    <div className="sticky top-[58px] z-[99] border-b border-ink/10 bg-surface-warm/90 backdrop-blur-sm">
+    <div
+      data-site-chrome="top"
+      className="sticky top-[58px] z-[99] border-b border-ink/10 bg-surface-warm/90 backdrop-blur-sm"
+    >
       <nav className="mx-auto flex max-w-[1380px] overflow-x-auto px-3 sm:px-8 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {GENRES.map((g) => {
           const href =
