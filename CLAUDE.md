@@ -66,6 +66,8 @@ Copy `.env.local.sample` → `.env.local` (never committed — in .gitignore) an
 
 > ⚠️ **DB safety**: `DATABASE_URL` is the live production DB. **Never run `prisma migrate dev`, `migrate reset`, or `db push`** against it — use `prisma migrate deploy` only. `BlogPostChunk` (pgvector RAG table) is created by raw SQL in a migration and is **NOT** modeled in `schema.prisma`, so `db push` will DROP it. See `docs/db/` / memory for known schema drift.
 
+> 🔌 **Migrations need a session-mode connection.** `DATABASE_URL` points at the Supabase **Transaction Pooler (6543, pgbouncer)**, where `prisma migrate` cannot take an advisory lock and **hangs forever with no error**. `prisma.config.ts` handles this: it loads `.env.local` (not `.env`) and swaps `:6543` → `:5432` (session pooler), overridable via `DIRECT_URL`. So plain `npx prisma migrate deploy` works. Write every migration **idempotent** (`ADD COLUMN IF NOT EXISTS`, `ADD VALUE IF NOT EXISTS`, `CREATE TABLE IF NOT EXISTS`) — some past migrations were applied by hand in the Supabase SQL editor, so the `_prisma_migrations` ledger can lag behind the real schema and `migrate deploy` may re-run them.
+
 ## Architecture
 
 **STAGE** is a Korean-language digital magazine + blog platform. All UI text is in Korean.

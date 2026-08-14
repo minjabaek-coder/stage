@@ -19,7 +19,8 @@ enum MagazineContentType {
   composed
 }
 
-// 매거진 페이지 종류: image=완성 이미지 업로드(1~38호), composed=CMS 자유배치 구성(39호+)
+// 매거진 페이지 종류: image=완성 이미지 업로드, composed=CMS 자유배치 구성, html=페이지 전체 HTML
+// (호수로 방식이 갈리지 않는다 — 매거진 생성 시 contentType으로 선택)
 enum MagazinePageKind {
   image
   composed
@@ -38,6 +39,10 @@ model Magazine {
   updatedAt     DateTime            @updatedAt
   viewCount     Int                 @default(0)
   publishedAt   DateTime?
+  // 매거진 원문 텍스트 — 페이지에 텍스트가 없는 이미지형의 RAG 코퍼스.
+  // 본문 중 `p.12` 형태의 페이지 마커로 구간을 나누면 청크가 그 페이지로 귀속된다(src/lib/magazine-source-text.ts).
+  sourceText          String?   @db.Text
+  sourceTextUpdatedAt DateTime?
   pages         MagazinePage[]
   tocEntries    MagazineTocEntry[]
   assets        MagazineAsset[]
@@ -64,8 +69,8 @@ model MagazinePage {
   magazineId String
   pageNumber Int
   kind       MagazinePageKind @default(image)
-  imageUrl   String? // kind=image (1~38호 완성 이미지)
-  layout     Json? // kind=composed (39호+ 자유배치 레이아웃: { blocks: [...] })
+  imageUrl   String? // kind=image (완성 이미지)
+  layout     Json? // kind=composed (자유배치 레이아웃: { blocks: [...] }) | kind=html ({ html })
   articleId  String? // 이 페이지가 싣는 기사(선택) — 페이지↔Article 연동("실린 곳")
   sortOrder  Int
   createdAt  DateTime         @default(now())

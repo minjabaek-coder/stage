@@ -99,6 +99,50 @@ export async function updateMagazine(id: string, formData: FormData) {
   return { success: true };
 }
 
+// 매거진 원문 텍스트 저장 — 이미지형처럼 페이지에 텍스트가 없는 매거진의 RAG 코퍼스.
+// 본문의 `p.12` 마커로 구간을 나누면 청크가 그 페이지로 귀속된다(src/lib/magazine-source-text.ts).
+const MAX_SOURCE_TEXT = 300_000; // 매거진당 원문 상한(≈30만 자)
+
+export async function updateMagazineSourceText(id: string, sourceText: string) {
+  if (!(await isAdmin())) return { error: "권한이 없습니다" };
+  if (typeof sourceText !== "string")
+    return { error: "텍스트가 올바르지 않습니다" };
+  if (sourceText.length > MAX_SOURCE_TEXT)
+    return { error: "텍스트가 너무 깁니다(최대 30만 자)" };
+
+  const text = sourceText.trim();
+  const magazine = await prisma.magazine.update({
+    where: { id },
+    data: {
+      sourceText: text || null,
+      sourceTextUpdatedAt: text ? new Date() : null,
+    },
+    select: { status: true },
+  });
+
+  // 발행본은 저장 즉시 재색인해야 "저장했는데 챗봇이 모른다"가 생기지 않는다.
+  // 발행 전이면 색인 대상이 아니므로(비공개 유출 방지) 발행 시점에 색인된다.
+  let indexed = false;
+  if (magazine.status === "published") {
+    try {
+      await generateMagazineEmbeddings(id);
+      indexed = true;
+    } catch (err) {
+      console.error("[RAG] Magazine sourceText embedding failed:", err);
+      revalidateMagazinePaths(id);
+      return {
+        success: true as const,
+        indexed: false,
+        warning: "저장했지만 색인에 실패했습니다. 잠시 후 다시 저장해주세요.",
+      };
+    }
+  }
+
+  revalidateMagazinePaths(id);
+  revalidatePath(`/magazines/${id}`);
+  return { success: true as const, indexed };
+}
+
 export async function publishMagazine(id: string) {
   if (!(await isAdmin())) return { error: "권한이 없습니다" };
   const magazine = await prisma.magazine.findUnique({
