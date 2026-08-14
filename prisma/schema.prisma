@@ -39,10 +39,13 @@ model Magazine {
   updatedAt     DateTime            @updatedAt
   viewCount     Int                 @default(0)
   publishedAt   DateTime?
-  // 매거진 원문 텍스트 — 페이지에 텍스트가 없는 이미지형의 RAG 코퍼스.
-  // 본문 중 `p.12` 형태의 페이지 마커로 구간을 나누면 청크가 그 페이지로 귀속된다(src/lib/magazine-source-text.ts).
-  sourceText          String?   @db.Text
+  // 매거진 원문 — 페이지에 텍스트가 없는 이미지형의 RAG 코퍼스.
+  // 정본은 sourceSections(구간 구조: [{id,pageFrom,pageTo,title,text}], src/types/magazine-source.ts).
+  // 페이지 귀속을 본문 마커로 파싱하지 않는 이유는 docs/decisions/0007 참조.
+  sourceSections      Json?
   sourceTextUpdatedAt DateTime?
+  // ⚠️ deprecated — 마지막으로 임포트한 원문 아카이브(재임포트·감사용). **색인에서 읽지 않는다.**
+  sourceText          String?   @db.Text
   pages         MagazinePage[]
   tocEntries    MagazineTocEntry[]
   assets        MagazineAsset[]
@@ -227,6 +230,9 @@ model ContentChunk {
   title      String
   content    String                       @db.Text
   href       String // 출처 링크 (/articles/.. | /magazines/.. | /culture-events/..)
+  // 출처 위치 메타데이터 — href 문자열 파싱 없이 "몇 쪽/어느 꼭지"를 답하기 위한 것.
+  pageNumber   Int? // 매거진 구간의 시작 페이지
+  sectionTitle String? // 구간(꼭지) 제목 — 목차 항목 등
   embedding  Unsupported("vector(1024)")?
   createdAt  DateTime                     @default(now())
 

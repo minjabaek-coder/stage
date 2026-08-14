@@ -3,7 +3,11 @@ import { chunkBlogContent } from "@/lib/chunker";
 import { embedDocuments, embedQuery } from "@/lib/embeddings";
 import sanitizeHtml from "sanitize-html";
 import { parsePageLayout, parseHtmlLayout } from "@/types/magazine-layout";
-import { parseSourceText } from "@/lib/magazine-source-text";
+import {
+  parseSourceSections,
+  pageLabel,
+  sectionPages,
+} from "@/types/magazine-source";
 
 export interface ChunkResult {
   id: string;
@@ -11,19 +15,32 @@ export interface ChunkResult {
   content: string;
   similarity: number;
   href: string; // 출처 링크 (/articles/.. | /magazines/.. | /culture-events/..)
+  pageNumber: number | null; // 매거진 구간의 시작 페이지(없으면 null)
+  sectionTitle: string | null; // 구간(꼭지) 제목
 }
+
+// 색인 단위. href·pageNumber·sectionTitle은 소스 기본값을 덮어쓰는 청크별 메타데이터.
+type IndexChunk = {
+  chunkIndex: number;
+  content: string;
+  title: string;
+  href?: string;
+  pageNumber?: number | null;
+  sectionTitle?: string | null;
+};
 
 type SourceType = "article" | "magazine" | "culture";
 
 // 한 소스의 청크를 통째로 갈아끼운다(delete-then-insert). 색인 부적격이면 chunks=[]로
 // 호출해 기존 청크만 제거(발행취소·색인제외 반영).
-// chunk.href를 주면 그 청크만 다른 출처로 저장한다(매거진 원문 텍스트의 페이지 딥링크).
+// chunk.href/pageNumber/sectionTitle을 주면 그 청크만 다른 출처 메타데이터로 저장한다
+// (매거진 원문 구간의 페이지 딥링크·꼭지 제목).
 async function replaceChunks(
   sourceType: SourceType,
   sourceId: string,
   href: string,
   title: string,
-  chunks: { chunkIndex: number; content: string; title: string; href?: string }[],
+  chunks: IndexChunk[],
 ): Promise<void> {
   await prisma.$queryRawUnsafe(
     `DELETE FROM "ContentChunk" WHERE "sourceType" = $1 AND "sourceId" = $2`,
@@ -37,14 +54,17 @@ async function replaceChunks(
     const vec = `[${embeddings[i].join(",")}]`;
     await prisma.$queryRawUnsafe(
       `INSERT INTO "ContentChunk"
-         ("id", "sourceType", "sourceId", "chunkIndex", "title", "content", "href", "embedding")
-       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7::vector)`,
+         ("id", "sourceType", "sourceId", "chunkIndex", "title", "content", "href",
+          "pageNumber", "sectionTitle", "embedding")
+       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9::vector)`,
       sourceType,
       sourceId,
       chunks[i].chunkIndex,
       chunks[i].title || title,
       chunks[i].content,
       chunks[i].href || href,
+      chunks[i].pageNumber ?? null,
+      chunks[i].sectionTitle ?? null,
       vec,
     );
   }
@@ -92,8 +112,9 @@ function extractText(html: string): string {
 // ── 매거진 ─────────────────────────────────────────────────────────────────
 // 발행 매거진의 텍스트를 두 갈래로 색인한다.
 //   ① 페이지 내장 텍스트 — 구성형 text 블록 + HTML 페이지 본문(합쳐서 매거진 단위 청크).
-//   ② 매거진 원문 텍스트(sourceText) — 이미지형처럼 페이지에 텍스트가 없는 경우의 코퍼스.
-//      `p.12` 마커 구간은 그 페이지 딥링크(`?page=12`)를 출처로 갖는다.
+//   ② 원문 구간(sourceSections) — 이미지형처럼 지면에 텍스트가 없는 경우의 코퍼스.
+//      구간은 **구조**(페이지 범위·제목)라 본문을 파싱하지 않는다. 각 구간은 시작 페이지
+//      딥링크(`?page=N`)와 꼭지 제목을 청크 메타데이터로 갖는다.
 // 두 갈래 모두 articleId 연결 페이지(기사가 발행+색인)는 기사 청크로 커버되므로 제외(중복 방지).
 // 비발행/텍스트없음이면 청크 제거.
 export async function generateMagazineEmbeddings(magazineId: string): Promise<void> {
@@ -102,8 +123,9 @@ export async function generateMagazineEmbeddings(magazineId: string): Promise<vo
     select: {
       id: true,
       title: true,
+      issueNumber: true,
       status: true,
-      sourceText: true,
+      sourceSections: true,
       pages: {
         orderBy: { sortOrder: "asc" },
         select: {
@@ -120,17 +142,15 @@ export async function generateMagazineEmbeddings(magazineId: string): Promise<vo
   if (!m) return;
 
   const baseHref = `/magazines/${m.id}`;
-  const collected: {
-    chunkIndex: number;
-    content: string;
-    title: string;
-    href?: string;
-  }[] = [];
+  // 청크 제목은 출처칩 문구이자 본문 프리픽스(chunkBlogContent)라 검색 맥락도 겸한다.
+  // 호수를 넣어야 "12호에 뭐 실렸어?" 류 질의가 걸린다.
+  const baseTitle = `STAGE ${m.issueNumber}호 · ${m.title}`;
+  const collected: IndexChunk[] = [];
 
   if (m.status === "published") {
     // ① 페이지 내장 텍스트
     let combined = "";
-    const coveredPages = new Set<number>(); // 기사 청크가 담당하는 페이지(원문 텍스트에서도 제외)
+    const coveredPages = new Set<number>(); // 기사 청크가 담당하는 페이지(원문 구간에서도 제외)
     for (const pg of m.pages) {
       const coveredByArticle =
         pg.article?.status === "published" && pg.article?.aiIndexable;
@@ -150,24 +170,34 @@ export async function generateMagazineEmbeddings(magazineId: string): Promise<vo
         if (text) combined += text + "\n\n";
       }
     }
-    if (combined.trim()) collected.push(...chunkBlogContent(combined, m.title));
+    if (combined.trim()) collected.push(...chunkBlogContent(combined, baseTitle));
 
-    // ② 매거진 원문 텍스트 — 마커 구간별로 제목·출처를 달리 부여
-    for (const seg of parseSourceText(m.sourceText)) {
-      if (seg.pageNumber !== null && coveredPages.has(seg.pageNumber)) continue;
-      const label =
-        seg.pageNumber !== null ? `${m.title} · ${seg.pageNumber}p` : m.title;
+    // ② 원문 구간
+    for (const sec of parseSourceSections(m.sourceSections)) {
+      if (!sec.text.trim()) continue;
+      // 구간이 덮는 페이지가 **전부** 기사로 커버되면 기사 청크와 중복 → 제외.
+      // 일부만 겹치면 나머지 내용이 사라지므로 보존한다(누락 < 소폭 중복).
+      const pages = sectionPages(sec);
+      if (pages.length > 0 && pages.every((p) => coveredPages.has(p))) continue;
+
+      const pages_ = pageLabel(sec);
+      const label = [baseTitle, sec.title, pages_].filter(Boolean).join(" · ");
       const href =
-        seg.pageNumber !== null ? `${baseHref}?page=${seg.pageNumber}` : baseHref;
-      for (const c of chunkBlogContent(seg.text, label)) {
-        collected.push({ ...c, href });
+        sec.pageFrom !== null ? `${baseHref}?page=${sec.pageFrom}` : baseHref;
+      for (const c of chunkBlogContent(sec.text, label)) {
+        collected.push({
+          ...c,
+          href,
+          pageNumber: sec.pageFrom,
+          sectionTitle: sec.title,
+        });
       }
     }
   }
 
   // chunkIndex는 소스 단위로 유일해야 하므로 두 갈래를 합친 뒤 다시 매긴다.
   const chunks = collected.map((c, i) => ({ ...c, chunkIndex: i }));
-  await replaceChunks("magazine", m.id, baseHref, m.title, chunks);
+  await replaceChunks("magazine", m.id, baseHref, baseTitle, chunks);
 }
 
 // ── 문화예술 이벤트 ──────────────────────────────────────────────────────────
@@ -208,13 +238,7 @@ export async function generateCultureEventEmbeddings(eventId: string): Promise<v
 }
 
 // ── 검색 ───────────────────────────────────────────────────────────────────
-type RawChunk = {
-  id: string;
-  title: string;
-  content: string;
-  similarity: number;
-  href: string;
-};
+type RawChunk = ChunkResult;
 
 const SIMILARITY_FLOOR = 0.3; // 코사인 유사도 하한(노이즈 컷)
 
@@ -231,7 +255,7 @@ export async function searchChunks(
   // (이전엔 DB에서 topK개만 가져와 약한 매치가 섞이면 결과가 줄던 문제)
   const candidates = Math.max(20, topK * 4);
   const rows = await prisma.$queryRawUnsafe<RawChunk[]>(
-    `SELECT "id", "title", "content", "href",
+    `SELECT "id", "title", "content", "href", "pageNumber", "sectionTitle",
             1 - ("embedding" <=> $1::vector) AS similarity
      FROM "ContentChunk"
      WHERE "embedding" IS NOT NULL

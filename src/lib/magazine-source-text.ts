@@ -1,13 +1,14 @@
-// 매거진 원문 텍스트(Magazine.sourceText) 파서.
+// 붙여넣은 원문 텍스트 → 구간 초안(SourceSection[]) 변환기. **임포트 시 1회만** 쓴다.
 //
-// 이미지형 매거진은 페이지가 비트맵이라 RAG에 넣을 텍스트가 없다. 그렇다고 페이지마다
-// 텍스트를 따로 입력받으면 수십 쪽×수십 호를 일일이 다뤄야 한다. 그래서 매거진 단위로
-// 텍스트 한 덩어리를 받되, 본문 안의 "페이지 마커" 줄로 구간을 나눠 페이지 귀속을 얻는다.
-//   - 마커가 있는 구간 → 그 페이지 소속. 청크 출처가 `/magazines/{id}?page=N`으로 딥링크된다.
-//   - 마커가 없으면    → 매거진 전체 소속(단일 구간). 마커는 어디까지나 선택 사항.
+// ⚠️ 이 파서는 정본이 아니다. 본문 안의 `p.12` 같은 페이지 마커는 in-band signaling이라
+// "p. 45"(인용 출처)·"3쪽"(캡션)처럼 본문에 자연히 등장하는 줄과 원리적으로 구분되지 않는다.
+// 그래서 여기서 나온 결과는 **어드민이 미리보기로 확인·수정한 뒤 구조(Magazine.sourceSections)로
+// 저장**되고, 색인은 그 구조만 읽는다. 저장된 텍스트를 다시 파싱하는 경로는 없다
+// (같은 텍스트가 나중에 다르게 해석되는 일을 막기 위함). 상세 docs/decisions/0007.
 //
-// 서버(rag.ts 색인)와 클라이언트(어드민 카드의 마커 미리보기)가 함께 쓰므로
-// 외부 의존성 없는 순수 모듈로 유지한다.
+// 클라이언트(임포트 패널)에서만 쓰이지만 외부 의존성 없는 순수 모듈로 유지한다.
+
+import { newSectionId, type SourceSection } from "@/types/magazine-source";
 
 export type SourceSegment = {
   /** 이 구간이 속한 페이지 번호. 마커 앞(또는 마커 없음)이면 null = 매거진 전체 소속. */
@@ -76,4 +77,109 @@ export function summarizeSourceText(raw: string | null | undefined) {
     pages: [...new Set(pages)].sort((a, b) => a - b),
     hasUnmarkedIntro: segments.some((s) => s.pageNumber === null),
   };
+}
+
+// ── 구간 초안 생성 ───────────────────────────────────────────────────────────
+
+/**
+ * 나누는 기준. 어느 쪽도 "정답"이 아니므로 **어드민이 고르고 미리보기로 확인**한다.
+ *  - marker: `p.12` 형태의 페이지 표기 줄 (본문에도 나올 수 있음 → 확인 필요)
+ *  - number: 숫자만 있는 줄 (쪽번호만 적는 흔한 입력. 연도·수량과 헷갈릴 수 있음)
+ *  - blank : 빈 줄 2개 이상 = 구간 경계 (페이지는 미지정 → 사람이 채움)
+ *  - none  : 나누지 않고 통째로 한 구간
+ */
+export type SplitMode = "marker" | "number" | "blank" | "none";
+
+/** 줄 전체가 숫자(장식문자 허용)면 그 숫자. `- 12 -`·`12.`도 인정. */
+export function matchBareNumber(line: string): number | null {
+  const m = line.match(/^[-–—=*#·・~_[\]<>(){}\s]*(\d{1,4})\s*\.?[-–—=*#·・~_[\]<>(){}\s]*$/);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/**
+ * 원문 텍스트 → 구간 초안. 반환값은 **확정이 아니라 제안**이며, 어드민이 확인·수정한 뒤
+ * 구조로 저장된다. maxPage를 주면 그보다 큰 페이지 번호는 마커로 보지 않는다
+ * (40쪽짜리 매거진의 `p.300`은 본문일 가능성이 압도적).
+ */
+export function toDraftSections(
+  raw: string,
+  opts: { mode: SplitMode; maxPage?: number } = { mode: "marker" },
+): SourceSection[] {
+  const text = raw ?? "";
+  if (!text.trim()) return [];
+
+  const inRange = (n: number) => !opts.maxPage || n <= opts.maxPage;
+  const detect = (line: string): number | null => {
+    if (opts.mode === "marker") {
+      const n = matchPageMarker(line);
+      return n !== null && inRange(n) ? n : null;
+    }
+    if (opts.mode === "number") {
+      const n = matchBareNumber(line);
+      return n !== null && inRange(n) ? n : null;
+    }
+    return null;
+  };
+
+  if (opts.mode === "none") {
+    return [
+      { id: newSectionId(), pageFrom: null, pageTo: null, title: null, text: text.trim() },
+    ];
+  }
+
+  if (opts.mode === "blank") {
+    return text
+      .split(/\n\s*\n\s*\n+/) // 빈 줄 2개 이상
+      .map((t) => t.trim())
+      .filter(Boolean)
+      .map((t) => ({
+        id: newSectionId(),
+        pageFrom: null,
+        pageTo: null,
+        title: null,
+        text: t,
+      }));
+  }
+
+  const sections: SourceSection[] = [];
+  let pageFrom: number | null = null;
+  let buf: string[] = [];
+  const flush = () => {
+    const t = buf.join("\n").trim();
+    if (t)
+      sections.push({ id: newSectionId(), pageFrom, pageTo: pageFrom, title: null, text: t });
+    buf = [];
+  };
+  for (const line of text.split(/\r?\n/)) {
+    const n = detect(line);
+    if (n !== null) {
+      flush();
+      pageFrom = n;
+    } else {
+      buf.push(line);
+    }
+  }
+  flush();
+  return sections;
+}
+
+/** 목차(TocEntry)로 구간 골격 만들기 — 제목·페이지 범위가 이미 확정된 구조라 애매성이 없다. */
+export function sectionsFromToc(
+  toc: { title: string; pageNumber: number }[],
+  pageCount: number,
+): SourceSection[] {
+  const sorted = [...toc].sort((a, b) => a.pageNumber - b.pageNumber);
+  return sorted.map((entry, i) => {
+    const next = sorted[i + 1];
+    const end = next ? Math.max(entry.pageNumber, next.pageNumber - 1) : pageCount || entry.pageNumber;
+    return {
+      id: newSectionId(),
+      pageFrom: entry.pageNumber,
+      pageTo: end,
+      title: entry.title,
+      text: "",
+    };
+  });
 }
