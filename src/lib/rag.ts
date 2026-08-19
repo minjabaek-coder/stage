@@ -7,6 +7,7 @@ import {
   parseSourceSections,
   pageLabel,
   sectionPages,
+  isIndexable,
 } from "@/types/magazine-source";
 
 export interface ChunkResult {
@@ -174,6 +175,8 @@ export async function generateMagazineEmbeddings(magazineId: string): Promise<vo
 
     // ② 원문 구간
     for (const sec of parseSourceSections(m.sourceSections)) {
+      // 관리자가 색인에서 뺀 구간(표지·광고면 등)은 제외 — 저장은 유지된다.
+      if (!isIndexable(sec)) continue;
       if (!sec.text.trim()) continue;
       // 구간이 덮는 페이지가 **전부** 기사로 커버되면 기사 청크와 중복 → 제외.
       // 일부만 겹치면 나머지 내용이 사라지므로 보존한다(누락 < 소폭 중복).

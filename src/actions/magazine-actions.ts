@@ -110,6 +110,8 @@ const sectionSchema = z.object({
   pageTo: z.number().int().positive().nullable(),
   title: z.string().max(200).nullable(),
   text: z.string(),
+  // 미지정 = 색인 대상(기존 데이터 호환). false만 의미를 갖는다.
+  indexable: z.boolean().optional(),
 });
 
 export async function updateMagazineSourceSections(

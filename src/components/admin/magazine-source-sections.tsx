@@ -12,6 +12,7 @@ import {
   pageLabel,
   validateSections,
   hasBlockingError,
+  isIndexable,
   type SourceSection,
   type SectionIssue,
 } from "@/types/magazine-source";
@@ -79,6 +80,7 @@ export function MagazineSourceSections({
   const blocked = hasBlockingError(issues);
   const dirty = JSON.stringify(sections) !== saved;
   const totalChars = sections.reduce((n, s) => n + s.text.length, 0);
+  const excludedCount = sections.filter((s) => !isIndexable(s)).length;
 
   function patch(id: string, next: Partial<SourceSection>) {
     setSections((prev) => prev.map((s) => (s.id === id ? { ...s, ...next } : s)));
@@ -236,6 +238,12 @@ export function MagazineSourceSections({
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-500">
           <span>구간 {sections.length}개</span>
+          {excludedCount > 0 && (
+            <>
+              <span>·</span>
+              <span className="text-gray-400">색인 제외 {excludedCount}개</span>
+            </>
+          )}
           <span>·</span>
           <span>{totalChars.toLocaleString()}자</span>
           {status !== "published" && (
@@ -316,7 +324,13 @@ function SectionRow({
 
   return (
     <div
-      className={`rounded-lg border p-2.5 ${hasError ? "border-red-400 bg-red-50/40" : "bg-card"}`}
+      className={`rounded-lg border p-2.5 ${
+        hasError
+          ? "border-red-400 bg-red-50/40"
+          : isIndexable(s)
+            ? "bg-card"
+            : "bg-muted/40" // 색인 제외 구간은 흐리게 — 한눈에 구분되도록
+      }`}
     >
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="font-mono text-[11px] text-muted-foreground">#{index + 1}</span>
@@ -417,6 +431,21 @@ function SectionRow({
         <span className="text-gray-400">
           {pageLabel(s) ?? "페이지 미지정"} · {s.text.length.toLocaleString()}자
         </span>
+        {/* 색인 제외 — 표지·광고면처럼 '내용'이 아닌 지면을 챗봇 답변·출처에서 빼기 위함.
+            길이로 자동 판별하면 안 된다(표지 61자 vs 정상 콘텐츠 222자). */}
+        <label
+          className="flex items-center gap-1 text-gray-500"
+          title="끄면 저장은 되지만 챗봇 검색·출처에 쓰이지 않습니다"
+        >
+          <input
+            type="checkbox"
+            checked={isIndexable(s)}
+            onChange={(e) => onPatch({ indexable: e.target.checked ? undefined : false })}
+            disabled={disabled}
+            className="h-3 w-3"
+          />
+          AI 색인
+        </label>
         {issues.map((it, k) => (
           <span
             key={k}

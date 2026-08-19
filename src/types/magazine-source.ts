@@ -19,7 +19,21 @@ export type SourceSection = {
   /** 구간 제목(목차 항목 등). 챗봇 출처칩에 쓰인다. */
   title: string | null;
   text: string;
+  /**
+   * AI 색인 대상 여부(기본 true). false면 저장은 하되 RAG에 넣지 않는다.
+   *
+   * 왜 관리자 판단인가: 표지·뒤표지처럼 짧고 일반적인 지면은 여러 질의에 걸려 출처칩을
+   * 어지럽히고, 광고·안내면은 챗봇이 광고 문구로 답하게 만든다. 그렇다고 길이로 거르면
+   * 안 된다 — 1호 실측에서 표지(61자)와 정상 콘텐츠인 오페라 산책(222자)이 같은 구간에
+   * 있었다. 무엇이 '내용'인지는 지면을 본 사람만 안다.
+   */
+  indexable?: boolean;
 };
+
+/** 색인 대상인가(미지정이면 대상). */
+export function isIndexable(s: Pick<SourceSection, "indexable">): boolean {
+  return s.indexable !== false;
+}
 
 export function newSectionId(): string {
   return "s" + Math.random().toString(36).slice(2, 10);
@@ -45,6 +59,8 @@ export function parseSourceSections(json: unknown): SourceSection[] {
       title:
         typeof o.title === "string" && o.title.trim() ? o.title.trim().slice(0, 200) : null,
       text: o.text,
+      // 미지정은 색인 대상(기존 데이터 호환) — false일 때만 제외한다.
+      ...(o.indexable === false ? { indexable: false } : {}),
     });
   }
   return out;
@@ -112,14 +128,17 @@ export function validateSections(
         message: "끝 페이지만 있고 시작 페이지가 없습니다",
       });
     }
-    if (!s.text.trim()) {
-      issues.push({ sectionId: s.id, level: "warn", message: "내용이 비어 색인되지 않습니다" });
-    } else if (s.text.trim().length < MIN_INDEXABLE_LENGTH) {
-      issues.push({
-        sectionId: s.id,
-        level: "warn",
-        message: `${MIN_INDEXABLE_LENGTH}자 미만이라 색인에서 제외됩니다`,
-      });
+    // 색인 제외 구간에는 길이 경고를 띄우지 않는다(어차피 색인 대상이 아니라 잡음).
+    if (isIndexable(s)) {
+      if (!s.text.trim()) {
+        issues.push({ sectionId: s.id, level: "warn", message: "내용이 비어 색인되지 않습니다" });
+      } else if (s.text.trim().length < MIN_INDEXABLE_LENGTH) {
+        issues.push({
+          sectionId: s.id,
+          level: "warn",
+          message: `${MIN_INDEXABLE_LENGTH}자 미만이라 색인에서 제외됩니다`,
+        });
+      }
     }
     for (const p of sectionPages(s)) {
       const prev = seen.get(p);
