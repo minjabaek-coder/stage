@@ -237,6 +237,9 @@ model ContentChunk {
   createdAt  DateTime                     @default(now())
 
   @@index([sourceType, sourceId])
+  // ⚠️ content에는 raw SQL 마이그레이션으로 만든 GIN 트라이그램 인덱스가 있다
+  // (ContentChunk_content_trgm_idx, 하이브리드 검색용). Prisma가 모르는 인덱스라
+  // 스키마 diff 계열 명령이 지우려 들 수 있다 — 그래서 db push·migrate dev는 차단돼 있다.
 }
 
 // 회원의 기사 북마크
