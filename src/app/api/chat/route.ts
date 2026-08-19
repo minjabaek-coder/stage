@@ -55,10 +55,34 @@ const SYSTEM_PROMPT = `당신은 STAGE(한국어 문화예술 디지털 매거�
 중요: "공연/전시 정보" 질문은 대개 매거진·기사에 실린 콘텐츠입니다(예: "2025년 10월 공연 소식"). 이런 질문엔 먼저 search_content를 사용하고, get_culture_events 결과에 해당 정보가 없으면 반드시 search_content로 한 번 더 확인한 뒤 답하세요.
 도구 결과에 근거해서만 정확히 답하고, 그래도 정보가 없을 때만 솔직히 모른다고 안내하세요. 추측하지 마세요.
 항상 한국어로 간결하게 답변하세요(기본 2-3문장).
-다만 목차·구성처럼 **나열이 필요한 질문**에는 항목을 빠짐없이 짧게 나열하세요 — 일부만 추리면 "무엇이 실렸나"에 대한 답이 되지 못합니다.`;
+다만 목차·구성처럼 **나열이 필요한 질문**에는 항목을 빠짐없이 짧게 나열하세요 — 일부만 추리면 "무엇이 실렸나"에 대한 답이 되지 못합니다.
+
+도구 결과의 각 자료에는 ref 번호가 있습니다. 답변 **맨 마지막 줄**에 실제로 근거로 삼은 자료 번호만 \`[출처: 1, 3]\` 형식으로 적으세요.
+- 읽어봤지만 답변에 쓰지 않은 자료는 넣지 마세요.
+- 도구 결과를 근거로 쓰지 않았다면 이 줄을 생략하세요.
+이 줄은 사용자에게 보이지 않고 출처 링크를 고르는 데만 쓰입니다.`;
 
 function* chunkText(s: string, size = 40): Generator<string> {
   for (let i = 0; i < s.length; i += size) yield s.slice(i, i + size);
+}
+
+// 답변 끝의 `[출처: 1, 3]` 줄을 떼어내고 인용된 자료 번호를 돌려준다.
+// 검색 순위와 '실제로 근거가 된 자료'는 다르다 — 실측에서 정답 청크가 3위였고
+// 1·2위는 답변에 쓰이지도 않은 무관한 지면이었다. 모델이 이미 옳게 골랐으므로
+// 그 판단을 출처칩에 반영한다.
+const CITATION_RE = /\[\s*출처\s*[:：]\s*([\d\s,]+)\]\s*$/;
+
+function extractCitations(text: string): { text: string; refs: number[] | null } {
+  const m = text.trimEnd().match(CITATION_RE);
+  if (!m) return { text, refs: null }; // 형식을 안 지켰으면 필터하지 않는다(출처 0개 방지)
+  const refs = m[1]
+    .split(",")
+    .map((s) => parseInt(s.trim(), 10))
+    .filter((n) => Number.isInteger(n) && n > 0);
+  return {
+    text: text.trimEnd().slice(0, m.index).trimEnd(),
+    refs: refs.length > 0 ? refs : null,
+  };
 }
 
 export async function POST(req: NextRequest) {
@@ -139,7 +163,11 @@ export async function POST(req: NextRequest) {
         }
       };
 
-      const sourceMap = new Map<string, ToolSource>();
+      // ref 번호로 관리한다(같은 href가 여러 ref를 가질 수 있음 — 한 페이지의 여러 청크).
+      const sourceMap = new Map<number, ToolSource>();
+      // 로그에는 '실제로 사용자에게 보인' 출처 수를 남긴다. 검색된 후보 수(sourceMap.size)를
+      // 쓰면 인용 필터 이후 화면과 어긋나 통계가 부풀려진다.
+      let shownSourceCount = 0;
 
       async function logCall(status: "success" | "error", error?: string) {
         try {
@@ -148,7 +176,7 @@ export async function POST(req: NextRequest) {
               model: MODEL,
               userMessage: lastUserMsg,
               response: fullResponse,
-              sourceCount: sourceMap.size,
+              sourceCount: shownSourceCount,
               tokensIn,
               tokensOut,
               durationMs: Date.now() - startTime,
@@ -204,9 +232,10 @@ export async function POST(req: NextRequest) {
           for (const fc of fcs) {
             const { result, sources } = await executeMaestroTool(
               fc.name ?? "",
-              (fc.args ?? {}) as Record<string, unknown>
+              (fc.args ?? {}) as Record<string, unknown>,
+              sourceMap.size // 도구를 여러 번 불러도 ref가 겹치지 않게 이어서 매긴다
             );
-            for (const s of sources) sourceMap.set(s.href, s);
+            for (const s of sources) sourceMap.set(s.ref, s);
             responseParts.push({
               functionResponse: { name: fc.name ?? "", response: { result } },
             });
@@ -217,10 +246,26 @@ export async function POST(req: NextRequest) {
         if (!finalText) {
           finalText = "죄송합니다, 지금은 답변을 생성하지 못했습니다.";
         }
+
+        // 인용 줄을 떼어내고, 모델이 실제로 쓴 자료만 출처로 남긴다.
+        const cited = extractCitations(finalText);
+        finalText = cited.text || finalText;
         fullResponse = finalText;
 
-        // 출처 먼저(클라이언트 계약), 이어서 답변을 청크로 스트리밍
-        const sources = [...sourceMap.values()];
+        // 출처 먼저(클라이언트 계약), 이어서 답변을 청크로 스트리밍.
+        // 인용이 없으면(형식 미준수) 종전대로 전부 노출 — 출처가 0개가 되는 편이 더 나쁘다.
+        const all = [...sourceMap.values()];
+        const picked = cited.refs
+          ? all.filter((s) => cited.refs!.includes(s.ref))
+          : all;
+        // 같은 페이지의 여러 청크가 각각 ref를 갖는다 → 칩은 href로 중복 제거.
+        const seenHref = new Set<string>();
+        const sources = (picked.length > 0 ? picked : all).filter((s) => {
+          if (seenHref.has(s.href)) return false;
+          seenHref.add(s.href);
+          return true;
+        });
+        shownSourceCount = sources.length;
         if (sources.length > 0) {
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({ sources })}\n\n`)
@@ -242,7 +287,7 @@ export async function POST(req: NextRequest) {
               sessionId: sessionId ?? null,
               question: lastUserMsg,
               answer: fullResponse,
-              sourceCount: sourceMap.size,
+              sourceCount: shownSourceCount,
               provider: "gemini",
             },
           });

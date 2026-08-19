@@ -5,6 +5,12 @@ import { parseSourceSections } from "@/types/magazine-source";
 export interface ToolSource {
   title: string;
   href: string;
+  /**
+   * 모델에게 보여줄 자료 번호. 답변에서 실제로 인용한 번호만 출처칩으로 남긴다
+   * (route.ts). 검색 순위와 '실제로 근거가 된 자료'는 다르다 — 실측에서 정답 청크가
+   * 3위였고 1·2위는 답변에 쓰이지도 않은 무관한 지면이었다.
+   */
+  ref: number;
 }
 
 // AI 마에스트로 도구 선언 (Gemini function calling). 읽기전용·파라미터화.
@@ -65,32 +71,28 @@ export const MAESTRO_TOOLS = [
   },
 ];
 
-function dedupe(sources: ToolSource[]): ToolSource[] {
-  const seen = new Set<string>();
-  return sources.filter((s) => {
-    if (seen.has(s.href)) return false;
-    seen.add(s.href);
-    return true;
-  });
-}
-
 // 도구 실행. result는 모델에 돌려줄 데이터, sources는 클라이언트 출처칩.
+// refOffset: 이번 호출에서 부여할 자료 번호의 시작점(도구를 여러 번 부르면 이어서 매긴다).
 export async function executeMaestroTool(
   name: string,
   args: Record<string, unknown>,
+  refOffset: number = 0,
 ): Promise<{ result: unknown; sources: ToolSource[] }> {
+  const nextRef = (i: number) => refOffset + i + 1;
+
   if (name === "search_content") {
     const chunks = await searchChunks(String(args.query ?? ""), 5);
     return {
-      // page·section을 모델에 함께 넘겨 "몇 쪽에 있나"·"어느 꼭지인가"에 답할 수 있게 한다.
-      // (기존엔 href 문자열에만 들어 있어 모델이 알 수 없었음)
-      result: chunks.map((c) => ({
+      // ref·page·section을 모델에 함께 넘긴다. ref는 인용용, page/section은
+      // "몇 쪽에 있나"·"어느 꼭지인가"에 답하기 위한 것(기존엔 href에만 있어 모델이 몰랐음).
+      result: chunks.map((c, i) => ({
+        ref: nextRef(i),
         title: c.title,
         content: c.content.slice(0, 600),
         ...(c.sectionTitle ? { section: c.sectionTitle } : {}),
         ...(c.pageNumber !== null ? { page: c.pageNumber } : {}),
       })),
-      sources: dedupe(chunks.map((c) => ({ title: c.title, href: c.href }))),
+      sources: chunks.map((c, i) => ({ ref: nextRef(i), title: c.title, href: c.href })),
     };
   }
 
@@ -183,6 +185,7 @@ export async function executeMaestroTool(
 
     return {
       result: {
+        ref: nextRef(0),
         issueNumber: mag.issueNumber,
         title: mag.title,
         publishedAt: mag.publishedAt ? mag.publishedAt.toISOString().slice(0, 10) : null,
@@ -192,7 +195,11 @@ export async function executeMaestroTool(
       },
       // 항목마다 칩을 만들면 10여 개가 쏟아진다 → 매거진 링크 1개만.
       sources: [
-        { title: `STAGE ${mag.issueNumber}호 · ${mag.title}`, href: `/magazines/${mag.id}` },
+        {
+          ref: nextRef(0),
+          title: `STAGE ${mag.issueNumber}호 · ${mag.title}`,
+          href: `/magazines/${mag.id}`,
+        },
       ],
     };
   }
@@ -216,7 +223,8 @@ export async function executeMaestroTool(
       },
     });
     return {
-      result: events.map((e) => ({
+      result: events.map((e, i) => ({
+        ref: nextRef(i),
         title: e.title,
         type: e.type,
         venue: e.venue,
@@ -225,7 +233,8 @@ export async function executeMaestroTool(
         ticketPrice: e.ticketPrice,
         memberDiscount: e.memberDiscount,
       })),
-      sources: events.map((e) => ({
+      sources: events.map((e, i) => ({
+        ref: nextRef(i),
         title: e.title,
         href: `/culture-events/${e.slug}`,
       })),
