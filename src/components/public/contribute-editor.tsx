@@ -4,7 +4,7 @@ import { useActionState, useEffect, useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
 import { RichTextEditor } from "@/components/admin/rich-text-editor";
-import { uploadBlogImage } from "@/lib/upload-client";
+import { uploadImage } from "@/lib/upload-client";
 import { contributeAction } from "@/actions/article-token-actions";
 import { ACCEPTED_IMAGE_TYPES, MAX_FILE_SIZE } from "@/lib/constants";
 
@@ -48,7 +48,7 @@ export function ContributeEditor({
     setUploading(true);
     try {
       // 기고자는 로그인하지 않으므로 토큰을 자격으로 넘긴다(없으면 서버가 403).
-      setThumbnailUrl(await uploadBlogImage(file, token));
+      setThumbnailUrl(await uploadImage(file, token));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "업로드 중 오류가 발생했습니다");
     }
@@ -194,7 +194,8 @@ export function ContributeEditor({
 
       <div className="space-y-2">
         <span className={labelClass}>본문</span>
-        <RichTextEditor content={content} onChange={setContent} />
+        {/* 기고자는 비로그인 → 본문 이미지 업로드에도 토큰이 필요하다 */}
+        <RichTextEditor content={content} onChange={setContent} token={token} />
       </div>
 
       <div className="flex gap-3 border-t border-ink/10 pt-6">

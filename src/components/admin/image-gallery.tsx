@@ -7,7 +7,7 @@ import {
   type NodeViewProps,
 } from "@tiptap/react";
 import { toast } from "sonner";
-import { uploadBlogImage } from "@/lib/upload-client";
+import { uploadImage } from "@/lib/upload-client";
 import { ACCEPTED_IMAGE_TYPES } from "@/lib/constants";
 
 type GalleryImage = { src: string; caption?: string };
@@ -45,7 +45,7 @@ function GalleryView({ node, updateAttributes, deleteNode, selected }: NodeViewP
     if (list.length === 0) return;
     const toastId = toast.loading("이미지 업로드 중…");
     try {
-      const urls = await Promise.all(list.map((f) => uploadBlogImage(f)));
+      const urls = await Promise.all(list.map((f) => uploadImage(f)));
       updateAttributes({
         images: [...images, ...urls.map((src) => ({ src, caption: "" }))],
       });
