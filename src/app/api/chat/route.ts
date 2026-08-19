@@ -12,6 +12,7 @@ import {
   clientIpFrom,
   hitClientCeiling,
 } from "@/lib/rate-limit";
+import { extractCitations } from "@/lib/citations";
 
 // 등급별 일일(24h) AI 질문 한도. Pro는 무제한.
 // 게스트 한도는 클라이언트가 보내는 sessionId 기준이라 지우면 초기화된다 →
@@ -66,24 +67,6 @@ function* chunkText(s: string, size = 40): Generator<string> {
   for (let i = 0; i < s.length; i += size) yield s.slice(i, i + size);
 }
 
-// 답변 끝의 `[출처: 1, 3]` 줄을 떼어내고 인용된 자료 번호를 돌려준다.
-// 검색 순위와 '실제로 근거가 된 자료'는 다르다 — 실측에서 정답 청크가 3위였고
-// 1·2위는 답변에 쓰이지도 않은 무관한 지면이었다. 모델이 이미 옳게 골랐으므로
-// 그 판단을 출처칩에 반영한다.
-const CITATION_RE = /\[\s*출처\s*[:：]\s*([\d\s,]+)\]\s*$/;
-
-function extractCitations(text: string): { text: string; refs: number[] | null } {
-  const m = text.trimEnd().match(CITATION_RE);
-  if (!m) return { text, refs: null }; // 형식을 안 지켰으면 필터하지 않는다(출처 0개 방지)
-  const refs = m[1]
-    .split(",")
-    .map((s) => parseInt(s.trim(), 10))
-    .filter((n) => Number.isInteger(n) && n > 0);
-  return {
-    text: text.trimEnd().slice(0, m.index).trimEnd(),
-    refs: refs.length > 0 ? refs : null,
-  };
-}
 
 export async function POST(req: NextRequest) {
   const { messages, sessionId, articleContext } = await req.json();

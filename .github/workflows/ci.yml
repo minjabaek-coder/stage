@@ -1,0 +1,41 @@
+name: CI
+
+# PR과 dev 푸시에서 정적 검사 + 단위 테스트를 돌린다(roadmap S1-12).
+# 그동안 검증이 전부 로컬 `.scratch` 스크립트라 git에 남지 않았고, 코드를 고칠 때마다
+# 이전 검증이 여전히 통과하는지 알 수 없었다.
+#
+# 여기서는 **비밀값이 필요 없는 것만** 돌린다. DB·Gemini가 필요한 검증은 `.scratch/`의
+# 수동 스크립트로 남긴다(운영 DB·유료 쿼터를 CI에서 건드리지 않기 위함).
+on:
+  pull_request:
+  push:
+    branches: [dev]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      # Prisma CLI는 prisma.config.ts에서 datasource.url을 요구한다. `prisma generate`는
+      # 실제 접속을 하지 않으므로 형식만 맞는 더미 값을 준다. **운영 DB를 가리키지 않는다.**
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # postinstall이 prisma generate를 돌린다 — 생성물(src/generated/prisma)은
+      # git 미추적이라 타입 검사 전에 반드시 필요하다.
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        run: npm test
