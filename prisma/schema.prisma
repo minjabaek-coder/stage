@@ -385,6 +385,21 @@ model User {
 }
 
 // AI 마에스트로 상호작용 로그 (회원/세션 단위)
+// 게스트 AI 질문 한도의 서버 측 카운터 (roadmap S0-2).
+// **대화 내용(AiInteraction)과 의도적으로 분리**한다 — 여기 남는 건 "어떤 익명 버킷이
+// 오늘 몇 번"이라는 숫자뿐이고 질문·답변과 연결되지 않는다.
+// keyHash = HMAC(날짜별 솔트, IP). 날짜가 바뀌면 같은 IP도 다른 값이 되어 추적이 끊긴다.
+// 지난 날짜 행은 기록 시 함께 삭제 → 보유기간이 구조적으로 '당일'.
+model AiRateLimit {
+  keyHash   String
+  day       String // YYYY-MM-DD (UTC)
+  count     Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@id([keyHash, day])
+  @@index([day])
+}
+
 model AiInteraction {
   id          String   @id @default(cuid())
   userId      String?

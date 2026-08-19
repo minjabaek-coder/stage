@@ -100,20 +100,30 @@ function guardBackup(): void {
   const dir = "backups";
   let newestAgeH = Infinity;
   let newest = "";
+  let entries: string[] = [];
   try {
-    for (const name of fs.readdirSync(dir)) {
+    entries = fs.readdirSync(dir);
+  } catch {
+    /* backups/ 없음 → 아래에서 안내 */
+  }
+  for (const name of entries) {
+    // 항목마다 개별로 감싼다. manifest 하나가 깨졌다고 **뒤에 있는 정상 백업까지
+    // 놓치면** 안 된다(실제로 그렇게 동작해 정상 백업을 못 찾은 적 있음).
+    try {
       const manifest = path.join(dir, name, "manifest.json");
       if (!fs.existsSync(manifest)) continue; // 완료되지 않은 백업은 무시
-      const m = JSON.parse(fs.readFileSync(manifest, "utf8"));
+      // BOM이 붙은 파일도 파싱되도록 제거(편집기·PowerShell이 붙이는 경우가 있다).
+      const raw = fs.readFileSync(manifest, "utf8").replace(/^﻿/, "");
+      const m = JSON.parse(raw);
       if (!m.verified) continue; // 검증 실패한 백업은 없는 것으로 본다
       const ageH = (Date.now() - new Date(m.takenAt).getTime()) / 36e5;
-      if (ageH < newestAgeH) {
+      if (Number.isFinite(ageH) && ageH < newestAgeH) {
         newestAgeH = ageH;
         newest = name;
       }
+    } catch {
+      continue; // 이 백업만 건너뛴다
     }
-  } catch {
-    /* backups/ 없음 → 아래에서 안내 */
   }
 
   if (newestAgeH <= BACKUP_MAX_AGE_H) {

@@ -7,10 +7,17 @@ import {
   executeMaestroTool,
   type ToolSource,
 } from "@/lib/maestro-tools";
+import {
+  SESSION_DAILY_LIMIT,
+  clientIpFrom,
+  hitClientCeiling,
+} from "@/lib/rate-limit";
 
 // 등급별 일일(24h) AI 질문 한도. Pro는 무제한.
+// 게스트 한도는 클라이언트가 보내는 sessionId 기준이라 지우면 초기화된다 →
+// 서버 측 축(IP 해시 일일 천장)을 별도로 겹쳐 우회를 막는다(src/lib/rate-limit.ts).
 const DAILY_LIMITS: Record<string, number> = {
-  guest: 5,
+  guest: SESSION_DAILY_LIMIT,
   member: 30,
   pro: Infinity,
 };
@@ -67,6 +74,18 @@ export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   const tier = user?.tier ?? "guest";
   const limit = DAILY_LIMITS[tier] ?? DAILY_LIMITS.guest;
+
+  // 서버 측 천장(게스트만) — sessionId를 갈아끼워도 넘을 수 없다.
+  // 회원은 userId로 이미 서버 측 식별이 되므로 적용하지 않는다.
+  if (!user) {
+    const { exceeded } = await hitClientCeiling(clientIpFrom(req.headers));
+    if (exceeded) {
+      return limitResponse(
+        "무료 질문 횟수를 모두 사용하셨습니다. 회원가입하시면 더 많은 질문을 이용하실 수 있어요.",
+      );
+    }
+  }
+
   if (limit !== Infinity) {
     try {
       const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
