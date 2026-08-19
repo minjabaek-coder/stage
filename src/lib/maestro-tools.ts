@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { searchChunks } from "@/lib/rag";
+import { parseSourceSections } from "@/types/magazine-source";
 
 export interface ToolSource {
   title: string;
@@ -27,6 +28,24 @@ export const MAESTRO_TOOLS = [
         description:
           "STAGE 매거진 발행 현황(가장 최신 발행 호 번호, 총 발행 호 수)을 반환한다. '최신호 몇 호', '몇 호까지 나왔어' 등 사실 질문에 사용.",
         parametersJsonSchema: { type: "object", properties: {} },
+      },
+      {
+        // 왜 get_magazine_facts를 확장하지 않고 도구를 나눴나:
+        // "1호에 뭐 실렸어?"가 search_content(topK=5)로 가면 55쪽짜리 호의 절반만 답한다.
+        // 이 문제의 본질은 **라우팅**이라, 설명을 날카롭게 분리하는 편이 정확하다.
+        // facts는 파라미터 없는 값싼 사실 조회로 남긴다.
+        name: "get_magazine_contents",
+        description:
+          "특정 호에 '무엇이 실렸는지'(목차 = 꼭지 제목과 실린 페이지 목록)를 반환한다. '1호에 뭐 실렸어', '이번 호 특집이 뭐야', '무슨 리뷰가 있어' 등 호의 구성·목차 질문에 사용. 호 번호를 말하지 않으면 최신 발행호. 특정 꼭지의 '내용'을 물으면 이 도구가 아니라 search_content를 사용한다.",
+        parametersJsonSchema: {
+          type: "object",
+          properties: {
+            issueNumber: {
+              type: "integer",
+              description: "조회할 호 번호(선택). 없으면 최신 발행호",
+            },
+          },
+        },
       },
       {
         name: "get_culture_events",
@@ -91,6 +110,90 @@ export async function executeMaestroTool(
         totalPublished: count,
       },
       sources: [],
+    };
+  }
+
+  if (name === "get_magazine_contents") {
+    const raw = args.issueNumber;
+    const n = typeof raw === "number" ? raw : parseInt(String(raw ?? ""), 10);
+    const wantIssue = Number.isInteger(n) && n > 0 ? n : null;
+
+    // 발행본만 — 비공개 호가 목차로 새어나가지 않게(RAG와 동일 원칙).
+    const mag = await prisma.magazine.findFirst({
+      where: { status: "published", ...(wantIssue ? { issueNumber: wantIssue } : {}) },
+      orderBy: { issueNumber: "desc" },
+      select: {
+        id: true,
+        issueNumber: true,
+        title: true,
+        publishedAt: true,
+        sourceSections: true,
+        tocEntries: {
+          orderBy: { sortOrder: "asc" },
+          select: { title: true, pageNumber: true },
+        },
+        pages: {
+          orderBy: { pageNumber: "asc" },
+          select: {
+            pageNumber: true,
+            article: { select: { title: true, status: true } },
+          },
+        },
+      },
+    });
+    if (!mag) {
+      return {
+        result: {
+          error: wantIssue
+            ? `${wantIssue}호는 발행된 매거진에서 찾을 수 없습니다`
+            : "발행된 매거진이 없습니다",
+        },
+        sources: [],
+      };
+    }
+
+    // 목차가 정본. 없으면 원문 구간 제목 → 연동 기사 제목 순으로 폴백한다.
+    let contents: { title: string; page: number }[] = mag.tocEntries.map((t) => ({
+      title: t.title,
+      page: t.pageNumber,
+    }));
+    let via = "toc";
+
+    if (contents.length === 0) {
+      const seen = new Map<string, number>(); // 제목 → 가장 앞 페이지
+      for (const s of parseSourceSections(mag.sourceSections)) {
+        if (!s.title || s.pageFrom === null) continue;
+        const prev = seen.get(s.title);
+        if (prev === undefined || s.pageFrom < prev) seen.set(s.title, s.pageFrom);
+      }
+      contents = [...seen].map(([title, page]) => ({ title, page }));
+      via = "sections";
+    }
+    if (contents.length === 0) {
+      const seen = new Map<string, number>();
+      for (const p of mag.pages) {
+        const t = p.article?.status === "published" ? p.article.title : null;
+        if (!t) continue;
+        if (!seen.has(t)) seen.set(t, p.pageNumber);
+      }
+      contents = [...seen].map(([title, page]) => ({ title, page }));
+      via = "articles";
+    }
+    contents.sort((a, b) => a.page - b.page);
+
+    return {
+      result: {
+        issueNumber: mag.issueNumber,
+        title: mag.title,
+        publishedAt: mag.publishedAt ? mag.publishedAt.toISOString().slice(0, 10) : null,
+        totalPages: mag.pages.length,
+        contents,
+        contentsFrom: via, // 목차가 없어 폴백했는지 모델이 알 수 있게
+      },
+      // 항목마다 칩을 만들면 10여 개가 쏟아진다 → 매거진 링크 1개만.
+      sources: [
+        { title: `STAGE ${mag.issueNumber}호 · ${mag.title}`, href: `/magazines/${mag.id}` },
+      ],
     };
   }
 
