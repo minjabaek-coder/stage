@@ -39,12 +39,22 @@ npm run dev          # Start dev server (Next.js 16 + Turbopack)
 npm run build        # prisma generate && next build
 npm run lint         # eslint
 npx tsc --noEmit     # Type-check without emitting
+npm test             # vitest run — pure-logic unit tests (no DB/network/API key)
+npm run test:watch   # vitest in watch mode
 
 # Database
 npx prisma migrate dev --name <name>   # Create and apply migration locally
 npx prisma migrate deploy              # Apply migrations to remote DB
 npx prisma generate                    # Regenerate Prisma client (output: src/generated/prisma/)
 ```
+
+## Testing
+
+`npm test` (vitest) covers **pure logic only** — no DB, network, or API key — so CI can run it without secrets and without touching the production DB or the paid Gemini quota. Tests live next to their module as `*.test.ts`.
+
+Anything needing the real DB or Gemini stays a **manual script in `.scratch/tmp/`** (magazine seeding, retrieval quality, browser layout checks). Those are deliberately not in CI: `DATABASE_URL` is production, and chat verification consumes the same Gemini quota as the live chatbot.
+
+CI (`.github/workflows/ci.yml`) runs lint → `tsc --noEmit` → `npm test` on PRs and `dev` pushes. It sets a **dummy `DATABASE_URL`** because `prisma.config.ts` requires one; `prisma generate` never connects.
 
 ## Environment Variables
 
