@@ -7,7 +7,9 @@
     "build": "prisma generate && next build",
     "postinstall": "prisma generate",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:backup": "node scripts/db-backup.mjs",
+    "db:deploy": "node scripts/db-backup.mjs && prisma migrate deploy"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.87.0",

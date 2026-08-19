@@ -1,5 +1,7 @@
 // Prisma CLI 설정(migrate·studio 전용). 앱 런타임은 이 파일을 쓰지 않는다 —
 // src/lib/prisma.ts가 PrismaPg 어댑터로 DATABASE_URL에 직접 붙는다.
+import fs from "node:fs";
+import path from "node:path";
 import { config as loadEnv } from "dotenv";
 import { defineConfig } from "prisma/config";
 
@@ -78,6 +80,73 @@ function guardDestructive(): void {
 }
 
 guardDestructive();
+
+// ── 마이그레이션 전 백업 확인 (roadmap S0-1b) ───────────────────────────────
+// Supabase **Free plan에는 project backup이 없다** → `scripts/db-backup.mjs` 덤프가
+// 유일한 복구 수단이다. `migrate deploy`는 되돌리기 어려운 작업이므로 최근 백업을 요구한다.
+//
+// 백업을 여기서 자동 실행하지는 않는다(매 배포마다 수십 초가 붙고, 백업 실패가 배포를
+// 막는다). 대신 **검사만** 하고 안내한다 — 강제력은 같으면서 기다림이 없다.
+const BACKUP_MAX_AGE_H = 24;
+
+function guardBackup(): void {
+  const argv = process.argv.slice(2).filter((a) => !a.startsWith("-"));
+  if (!(argv[0] === "migrate" && argv[1] === "deploy")) return;
+  if (process.env["SKIP_BACKUP_CHECK"] === "1") {
+    console.warn("\n⚠️  SKIP_BACKUP_CHECK=1 — 백업 확인을 건너뜁니다.\n");
+    return;
+  }
+
+  const dir = "backups";
+  let newestAgeH = Infinity;
+  let newest = "";
+  try {
+    for (const name of fs.readdirSync(dir)) {
+      const manifest = path.join(dir, name, "manifest.json");
+      if (!fs.existsSync(manifest)) continue; // 완료되지 않은 백업은 무시
+      const m = JSON.parse(fs.readFileSync(manifest, "utf8"));
+      if (!m.verified) continue; // 검증 실패한 백업은 없는 것으로 본다
+      const ageH = (Date.now() - new Date(m.takenAt).getTime()) / 36e5;
+      if (ageH < newestAgeH) {
+        newestAgeH = ageH;
+        newest = name;
+      }
+    }
+  } catch {
+    /* backups/ 없음 → 아래에서 안내 */
+  }
+
+  if (newestAgeH <= BACKUP_MAX_AGE_H) {
+    console.log(
+      `\n✔ 최근 백업 확인: backups/${newest} (${newestAgeH.toFixed(1)}시간 전)\n`,
+    );
+    return;
+  }
+
+  console.error(
+    [
+      "",
+      "╔══════════════════════════════════════════════════════════════════════╗",
+      "║  중단됨: 최근 백업이 없습니다                                          ║",
+      "╚══════════════════════════════════════════════════════════════════════╝",
+      `  migrate deploy 는 되돌리기 어렵고, 이 프로젝트의 Supabase 플랜에는`,
+      `  자동 백업이 없습니다. ${BACKUP_MAX_AGE_H}시간 이내의 검증된 백업이 필요합니다.`,
+      newest
+        ? `  가장 최근 백업: backups/${newest} (${newestAgeH.toFixed(1)}시간 전 — 너무 오래됨)`
+        : "  검증된 백업이 하나도 없습니다.",
+      "",
+      "  먼저 백업하세요:",
+      "    npm run db:backup",
+      "",
+      "  (백업까지 한 번에: npm run db:deploy)",
+      "  의도적으로 건너뛰려면: SKIP_BACKUP_CHECK=1 npx prisma migrate deploy",
+      "",
+    ].join("\n"),
+  );
+  process.exit(1);
+}
+
+guardBackup();
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
