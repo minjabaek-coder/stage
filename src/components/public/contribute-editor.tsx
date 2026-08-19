@@ -47,12 +47,13 @@ export function ContributeEditor({
     if (!file) return;
     setUploading(true);
     try {
-      setThumbnailUrl(await uploadBlogImage(file));
+      // 기고자는 로그인하지 않으므로 토큰을 자격으로 넘긴다(없으면 서버가 403).
+      setThumbnailUrl(await uploadBlogImage(file, token));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "업로드 중 오류가 발생했습니다");
     }
     setUploading(false);
-  }, []);
+  }, [token]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
