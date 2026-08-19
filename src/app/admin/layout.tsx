@@ -73,6 +73,12 @@ export default async function AdminLayout({
                 광고
               </Link>
               <Link
+                href="/admin/ai-index"
+                className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                AI 색인
+              </Link>
+              <Link
                 href="/admin/api-logs"
                 className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
               >
