@@ -254,10 +254,12 @@ export function ChatBody({ seedQuestion }: { seedQuestion?: string }) {
             return (
               <div key={i}>
                 <div
+                  // whitespace-pre-wrap 필수 — 없으면 줄바꿈이 접혀 목차 같은
+                  // 나열형 답변이 한 문단으로 뭉친다(S1-1이 공들인 답변이 직격탄).
                   className={
                     msg.role === "ai"
-                      ? "bg-surface-warm text-ink rounded-lg p-3 text-sm leading-relaxed max-w-[80%]"
-                      : "bg-ink text-white rounded-lg p-3 text-sm max-w-[80%] ml-auto"
+                      ? "bg-surface-warm text-ink rounded-lg p-3 text-sm leading-relaxed max-w-[80%] whitespace-pre-wrap break-words"
+                      : "bg-ink text-white rounded-lg p-3 text-sm max-w-[80%] ml-auto whitespace-pre-wrap break-words"
                   }
                 >
                   {isStreaming ? <TypingDots /> : msg.content}

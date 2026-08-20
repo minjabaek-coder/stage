@@ -13,6 +13,7 @@ import {
   hitClientCeiling,
 } from "@/lib/rate-limit";
 import { extractCitations } from "@/lib/citations";
+import { formatAnswerText, dropEmptySourcePromise } from "@/lib/answer-format";
 
 // 등급별 일일(24h) AI 질문 한도. Pro는 무제한.
 // 게스트 한도는 클라이언트가 보내는 sessionId 기준이라 지우면 초기화된다 →
@@ -62,6 +63,17 @@ const SYSTEM_PROMPT = `당신은 STAGE(한국어 문화예술 디지털 매거�
 확실하지 않으면 단정하지 말고 불확실하다고 밝히세요.
 항상 한국어로 간결하게 답변하세요(기본 2-3문장).
 다만 목차·구성처럼 **나열이 필요한 질문**에는 항목을 빠짐없이 짧게 나열하세요 — 일부만 추리면 "무엇이 실렸나"에 대한 답이 되지 못합니다.
+
+[표현 규칙]
+- 답변은 **평문**으로 쓰세요. \`**굵게**\`·\`* 불릿\`·\`# 제목\` 같은 마크다운 기호는 화면에 기호 그대로 보이므로 쓰지 마세요.
+- 나열할 때는 기호 없이 **항목마다 줄바꿈**만 하세요.
+
+[링크 요청]
+STAGE 웹사이트는 **외부 사이트가 아니라 당신이 안내하는 바로 그 사이트**입니다. "링크 줄래"·"어디서 봐"라는 요청을 "외부 URL은 만들 수 없다"며 거절하지 마세요.
+- 링크는 **출처를 만드는 도구를 호출해야만** 생깁니다: \`get_magazine_contents\`(매거진 호) · \`search_content\`(기사·본문) · \`get_culture_events\`(이벤트). **\`get_magazine_facts\`에는 링크가 없습니다** — 이것만 부르고 "아래 출처 링크"라고 안내하면 사용자에게는 빈 약속이 됩니다.
+- 그 도구 결과를 근거로 답하고 **인용 번호를 반드시 남기세요**. 그러면 답변 아래에 바로 열 수 있는 링크가 표시됩니다.
+- 인용할 자료가 하나도 없다면 "아래 출처 링크"라는 말을 쓰지 말고, 어디서 찾을 수 있는지 말로 안내하세요.
+- URL 주소를 직접 지어내지는 마세요.
 
 도구 결과의 각 자료에는 ref 번호가 있습니다. 답변 **맨 마지막 줄**에 실제로 근거로 삼은 자료 번호만 \`[출처: 1, 3]\` 형식으로 적으세요.
 - 읽어봤지만 답변에 쓰지 않은 자료는 넣지 마세요.
@@ -238,7 +250,8 @@ export async function POST(req: NextRequest) {
         // 인용 줄을 떼어내고, 모델이 실제로 쓴 자료만 출처로 남긴다.
         const cited = extractCitations(finalText);
         finalText = cited.text || finalText;
-        fullResponse = finalText;
+        // 말풍선은 마크다운을 렌더하지 않는다 → 기호를 여기서 걷어낸다(lib/answer-format).
+        finalText = formatAnswerText(finalText);
 
         // 출처 먼저(클라이언트 계약), 이어서 답변을 청크로 스트리밍.
         // 세 갈래를 구분한다:
@@ -264,6 +277,13 @@ export async function POST(req: NextRequest) {
           return true;
         });
         shownSourceCount = sources.length;
+
+        // 출처가 없는데 "아래 출처 링크에서 보세요"라고 안내했으면 그 문장을 걷어낸다.
+        // 출처 수가 정해진 뒤라야 판단할 수 있어 여기에 둔다.
+        const trimmed = dropEmptySourcePromise(finalText, sources.length > 0);
+        finalText = trimmed || finalText; // 전부 지워지면 원문 유지
+        fullResponse = finalText;
+
         if (sources.length > 0) {
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({ sources })}\n\n`)

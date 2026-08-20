@@ -32,7 +32,7 @@ export const MAESTRO_TOOLS = [
       {
         name: "get_magazine_facts",
         description:
-          "STAGE 매거진 발행 현황(가장 최신 발행 호 번호, 총 발행 호 수)을 반환한다. '최신호 몇 호', '몇 호까지 나왔어' 등 사실 질문에 사용.",
+          "STAGE 매거진 발행 현황을 반환한다 — 최신 발행 호 번호, **발행된 호 번호 전체 목록**, 발행 권수. '최신호 몇 호', '몇 호까지 나왔어', '○○호 있어?' 등 사실 질문에 사용. 호수는 연속되지 않을 수 있으므로 특정 호의 발행 여부는 반드시 목록으로 확인한다.",
         parametersJsonSchema: { type: "object", properties: {} },
       },
       {
@@ -97,19 +97,23 @@ export async function executeMaestroTool(
   }
 
   if (name === "get_magazine_facts") {
-    const [latest, count] = await Promise.all([
-      prisma.magazine.findFirst({
-        where: { status: "published" },
-        orderBy: { issueNumber: "desc" },
-        select: { issueNumber: true, title: true },
-      }),
-      prisma.magazine.count({ where: { status: "published" } }),
-    ]);
+    // 발행된 호 번호를 그대로 넘긴다. **호수는 연속되지 않는다** — 미발행 호가 중간에 있으면
+    // 최신 호수(40)와 발행 권수(39)가 어긋난다. 두 수만 주면 모델이 이를 혼동해
+    // "39호까지 발행되었으며 38호는 발행된 적이 없다"처럼 **양쪽 다 틀린** 답을 만든다(실측).
+    // 목록을 주면 "그 호가 있느냐"를 추론이 아니라 조회로 답할 수 있다.
+    const published = await prisma.magazine.findMany({
+      where: { status: "published" },
+      orderBy: { issueNumber: "desc" },
+      select: { issueNumber: true, title: true },
+    });
+    const latest = published[0];
     return {
       result: {
         latestIssueNumber: latest?.issueNumber ?? null,
         latestIssueTitle: latest?.title ?? null,
-        totalPublished: count,
+        publishedIssueNumbers: published.map((m) => m.issueNumber),
+        publishedMagazineCount: published.length,
+        note: "publishedIssueNumbers가 발행된 호의 전부입니다. 호수는 연속되지 않을 수 있으니, 어떤 호의 발행 여부는 이 목록으로만 판단하세요. publishedMagazineCount는 '권수'이지 '최신 호수'가 아닙니다.",
       },
       sources: [],
     };
