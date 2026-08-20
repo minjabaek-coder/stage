@@ -43,7 +43,11 @@ export async function uploadMagazineAsset(
  *
  * Throws an Error with a Korean message on rejection or a failed response.
  */
-export async function uploadBlogImage(file: File): Promise<string> {
+/**
+ * @param token 기고자 화면(/contribute/[token])에서만 넘긴다. 어드민은 세션으로 인증되므로
+ *   생략한다. 기고자는 로그인하지 않는 무계정 경로라 토큰이 없으면 서버가 403을 준다.
+ */
+export async function uploadImage(file: File, token?: string): Promise<string> {
   if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
     throw new Error("지원하지 않는 파일 형식입니다");
   }
@@ -54,8 +58,9 @@ export async function uploadBlogImage(file: File): Promise<string> {
   const compressed = await compressImage(file);
   const formData = new FormData();
   formData.append("file", compressed);
+  if (token) formData.append("token", token);
 
-  const res = await fetch("/api/admin/blog/upload", {
+  const res = await fetch("/api/uploads", {
     method: "POST",
     body: formData,
   });

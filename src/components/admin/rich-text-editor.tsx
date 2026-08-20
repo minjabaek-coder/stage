@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { ACCEPTED_IMAGE_TYPES, MAX_FILE_SIZE } from "@/lib/constants";
-import { uploadBlogImage as uploadImage } from "@/lib/upload-client";
+import { uploadImage } from "@/lib/upload-client";
 
 function ToolbarButton({
   onClick,
@@ -48,10 +48,12 @@ function ImageInsertDialog({
   open,
   onClose,
   onInsert,
+  token,
 }: {
   open: boolean;
   onClose: () => void;
   onInsert: (urls: string[]) => void;
+  token?: string;
 }) {
   const [uploading, setUploading] = useState(false);
   const [urlInput, setUrlInput] = useState("");
@@ -61,7 +63,7 @@ function ImageInsertDialog({
     if (files.length === 0) return;
     setUploading(true);
     try {
-      const urls = await Promise.all(files.map((f) => uploadImage(f)));
+      const urls = await Promise.all(files.map((f) => uploadImage(f, token)));
       onInsert(urls);
       setUrlInput("");
     } catch (e) {
@@ -187,9 +189,16 @@ function ImageInsertDialog({
 export function RichTextEditor({
   content,
   onChange,
+  token,
 }: {
   content: string;
   onChange: (html: string) => void;
+  /**
+   * 기고자 화면(/contribute/[token])에서만 넘긴다. 이 에디터는 어드민과 공개 기고자
+   * 양쪽에서 쓰이는데, 기고자는 로그인하지 않으므로 토큰이 없으면 본문 이미지 업로드가
+   * 403으로 막힌다(썸네일과 동일한 결함이 본문 쪽에도 있었다).
+   */
+  token?: string;
 }) {
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
 
@@ -211,7 +220,7 @@ export function RichTextEditor({
         if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) return false;
         event.preventDefault();
         const toastId = toast.loading("이미지 업로드 중...");
-        uploadImage(file)
+        uploadImage(file, token)
           .then((url) => {
             editor?.chain().focus().setImage({ src: url }).run();
             toast.success("이미지가 삽입되었습니다", { id: toastId });
@@ -231,7 +240,7 @@ export function RichTextEditor({
         if (!imageFile) return false;
         event.preventDefault();
         const toastId = toast.loading("이미지 업로드 중...");
-        uploadImage(imageFile)
+        uploadImage(imageFile, token)
           .then((url) => {
             editor?.chain().focus().setImage({ src: url }).run();
             toast.success("이미지가 삽입되었습니다", { id: toastId });
@@ -348,6 +357,7 @@ export function RichTextEditor({
         open={imageDialogOpen}
         onClose={() => setImageDialogOpen(false)}
         onInsert={handleImageInsert}
+        token={token}
       />
     </>
   );

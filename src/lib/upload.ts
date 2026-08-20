@@ -92,7 +92,17 @@ export async function saveMagazineAsset(
   return { url: getPublicUrl(storagePath), path: storagePath, filename };
 }
 
-export async function saveBlogThumbnail(file: File): Promise<string> {
+/**
+ * 어드민 전반 + 공개 기고자 화면의 **공용 이미지 업로드**.
+ * 기사 썸네일·본문 이미지, 문화예술·광고 이미지, 구성형 페이지 이미지가 모두 이 경로를 쓴다.
+ * (이전 이름 `saveBlogThumbnail` — 레거시 BlogPost 시절 명칭이라 실제와 어긋났다)
+ *
+ * ⚠️ 저장 경로는 `blog/`로 **의도적으로 유지**한다. 기존 파일 수천 개의 URL이
+ * `Article.thumbnailUrl`·기사 본문 HTML의 `<img src>`·`CultureEvent`·`Advertisement`·
+ * 구성형 `layout` JSON에 박혀 있어, 경로를 바꾸면 그 문자열을 전부 다시 써야 한다.
+ * 위험 대비 이득이 낮다(저장 경로는 사용자에게 보이지 않는다).
+ */
+export async function saveUploadedImage(file: File): Promise<string> {
   validateImageType(file);
 
   const filename = generateFilename(file, ".webp");

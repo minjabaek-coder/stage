@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RichTextEditor } from "./rich-text-editor";
 import { toast } from "sonner";
 import { ACCEPTED_IMAGE_TYPES, MAX_FILE_SIZE } from "@/lib/constants";
-import { uploadBlogImage } from "@/lib/upload-client";
+import { uploadImage } from "@/lib/upload-client";
 import {
   ARTICLE_GENRES,
   ARTICLE_SUBCATEGORIES,
@@ -80,7 +80,7 @@ export function ArticleForm({
 
     setUploading(true);
     try {
-      const url = await uploadBlogImage(file);
+      const url = await uploadImage(file);
       setThumbnailUrl(url);
       // 새 이미지 업로드 시 크롭 초기화
       setFocusX(50);

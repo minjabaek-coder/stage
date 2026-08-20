@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { ACCEPTED_IMAGE_TYPES, MAX_FILE_SIZE } from "@/lib/constants";
-import { uploadBlogImage } from "@/lib/upload-client";
+import { uploadImage } from "@/lib/upload-client";
 
 type FormState = { error?: string; success?: boolean } | undefined;
 
@@ -90,7 +90,7 @@ export function CultureEventForm({
     if (!file) return;
     setUploading(true);
     try {
-      setThumbnailUrl(await uploadBlogImage(file));
+      setThumbnailUrl(await uploadImage(file));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "업로드 중 오류가 발생했습니다");
     }

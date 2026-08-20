@@ -35,7 +35,7 @@ import {
   LAYOUT_BASE_WIDTH,
 } from "@/types/magazine-layout";
 import { updatePageLayout } from "@/actions/page-actions";
-import { uploadBlogImage } from "@/lib/upload-client";
+import { uploadImage } from "@/lib/upload-client";
 import {
   ArticlePicker,
   type ArticleOpt,
@@ -625,7 +625,7 @@ export function PageEditor({
     if (!file) return;
     setUploading(true);
     try {
-      const url = await uploadBlogImage(file);
+      const url = await uploadImage(file);
       patch(blockId, { src: url } as Partial<ImageBlock>);
       toast.success("이미지가 추가되었습니다");
     } catch (err) {
