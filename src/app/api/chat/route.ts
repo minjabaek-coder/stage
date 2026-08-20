@@ -54,13 +54,18 @@ const SYSTEM_PROMPT = `당신은 STAGE(한국어 문화예술 디지털 매거�
 - STAGE가 지금 티켓 예매·할인을 안내하는 '현재/예정 이벤트' 목록 → get_culture_events
 - 발행 호수·발행 현황 등 사실(예: "최신호 몇 호") → get_magazine_facts
 중요: "공연/전시 정보" 질문은 대개 매거진·기사에 실린 콘텐츠입니다(예: "2025년 10월 공연 소식"). 이런 질문엔 먼저 search_content를 사용하고, get_culture_events 결과에 해당 정보가 없으면 반드시 search_content로 한 번 더 확인한 뒤 답하세요.
-도구 결과에 근거해서만 정확히 답하고, 그래도 정보가 없을 때만 솔직히 모른다고 안내하세요. 추측하지 마세요.
+[답변 근거 원칙] — 순서를 반드시 지키세요.
+1. **무조건 도구로 먼저 찾아보세요.** 답을 이미 알고 있더라도 마찬가지입니다. 작품·인물·공연 이름이 나오면 STAGE가 그 주제를 이미 다뤘을 가능성이 높습니다(예: "피가로의 결혼은 어떤 작품이야?" → search_content).
+2. **도구가 자료를 찾았으면 그 자료를 근거로 답하세요.** 이때 "매거진에 실린 내용은 아니지만"이라고 말하면 **거짓말**이 됩니다 — 절대 쓰지 마세요. 매거진 밖 배경지식을 덧붙일 수는 있지만, 매거진에 실린 부분과 덧붙인 부분이 구분되게 쓰세요.
+3. **도구가 아무것도 찾지 못했을 때만** 세상의 일반 지식(작곡가의 생애, 작품 줄거리, 신화·역사, 예술 용어 등)으로 답하세요. 이때는 **반드시 "매거진에 실린 내용은 아니지만,"으로 답변을 시작**하고, 마지막 줄에 \`[출처: 없음]\`이라고 적으세요.
+4. **STAGE에 관한 사실은 도구 결과만이 진실입니다.** 발행 호수, 어느 호에 무엇이 실렸는지, 기사·공연의 존재 여부, 페이지 번호는 도구 결과에 없으면 **절대 지어내지 마세요**. 존재하지 않는 호수를 묻더라도 목차나 수록 내용을 만들어내면 안 됩니다. 이것은 3번의 예외가 아닙니다 — 일반 지식으로 메울 수 없는 영역입니다.
+확실하지 않으면 단정하지 말고 불확실하다고 밝히세요.
 항상 한국어로 간결하게 답변하세요(기본 2-3문장).
 다만 목차·구성처럼 **나열이 필요한 질문**에는 항목을 빠짐없이 짧게 나열하세요 — 일부만 추리면 "무엇이 실렸나"에 대한 답이 되지 못합니다.
 
 도구 결과의 각 자료에는 ref 번호가 있습니다. 답변 **맨 마지막 줄**에 실제로 근거로 삼은 자료 번호만 \`[출처: 1, 3]\` 형식으로 적으세요.
 - 읽어봤지만 답변에 쓰지 않은 자료는 넣지 마세요.
-- 도구 결과를 근거로 쓰지 않았다면 이 줄을 생략하세요.
+- 도구 결과를 근거로 쓰지 않았다면(위 3번) \`[출처: 없음]\`이라고 적으세요. 줄을 통째로 빠뜨리면 무관한 자료가 출처로 붙습니다.
 이 줄은 사용자에게 보이지 않고 출처 링크를 고르는 데만 쓰입니다.`;
 
 function* chunkText(s: string, size = 40): Generator<string> {
@@ -236,14 +241,24 @@ export async function POST(req: NextRequest) {
         fullResponse = finalText;
 
         // 출처 먼저(클라이언트 계약), 이어서 답변을 청크로 스트리밍.
-        // 인용이 없으면(형식 미준수) 종전대로 전부 노출 — 출처가 0개가 되는 편이 더 나쁘다.
+        // 세 갈래를 구분한다:
+        //   refs=null  형식 미준수(줄 자체가 없음) → 종전대로 전부 노출. 0개보다는 낫다.
+        //   refs=[]    "[출처: 없음]" — 매거진 근거 없이 답했다는 명시적 신고 → 칩 없음.
+        //              이 갈래가 없으면 일반 지식 답변에 무관한 검색 후보가 출처로 붙는다.
+        //   refs=[..]  인용된 것만.
         const all = [...sourceMap.values()];
-        const picked = cited.refs
-          ? all.filter((s) => cited.refs!.includes(s.ref))
-          : all;
+        let chosen: ToolSource[];
+        if (cited.refs === null) {
+          chosen = all;
+        } else if (cited.refs.length === 0) {
+          chosen = [];
+        } else {
+          const picked = all.filter((s) => cited.refs!.includes(s.ref));
+          chosen = picked.length > 0 ? picked : all;
+        }
         // 같은 페이지의 여러 청크가 각각 ref를 갖는다 → 칩은 href로 중복 제거.
         const seenHref = new Set<string>();
-        const sources = (picked.length > 0 ? picked : all).filter((s) => {
+        const sources = chosen.filter((s) => {
           if (seenHref.has(s.href)) return false;
           seenHref.add(s.href);
           return true;
@@ -279,8 +294,10 @@ export async function POST(req: NextRequest) {
         }
       } catch (err) {
         if (!closed) {
+          // 상류 오류 원문(서비스명·내부 구조)을 그대로 내보내지 않는다 — 상세는 로그에만.
+          // 클라이언트는 이 이벤트를 '실패' 신호로만 쓴다(docent-chat의 error 분기).
           controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ error: String(err) })}\n\n`)
+            encoder.encode(`data: ${JSON.stringify({ error: true })}\n\n`)
           );
         }
         safeClose();

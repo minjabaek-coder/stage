@@ -43,4 +43,25 @@ describe("extractCitations", () => {
   it("인용 줄만 있으면 본문은 빈 문자열이 된다(호출 측에서 원문 폴백)", () => {
     expect(extractCitations("[출처: 1]").text).toBe("");
   });
+
+  // 코퍼스 밖 질문을 허용한 뒤(decisions/0010) 생긴 구분.
+  // "줄이 없음"(=실수, 전부 노출)과 "근거가 없음"(=의도, 칩 0개)은 다르다.
+  describe("[출처: 없음] — 매거진 근거 없이 답했다는 명시적 신고", () => {
+    it("refs를 빈 배열로 돌려준다(null이 아니다)", () => {
+      const { text, refs } = extractCitations(
+        "매거진에 실린 내용은 아니지만, 베르디는 1813년생입니다.\n[출처: 없음]",
+      );
+      expect(text).toBe("매거진에 실린 내용은 아니지만, 베르디는 1813년생입니다.");
+      expect(refs).toEqual([]);
+    });
+
+    it("빈 배열과 null은 구분된다 — 호출 측 분기의 근거", () => {
+      expect(extractCitations("답변\n[출처: 없음]").refs).toEqual([]);
+      expect(extractCitations("답변").refs).toBeNull();
+    });
+
+    it("공백·전각 콜론이 섞여도 인식한다", () => {
+      expect(extractCitations("답변\n[ 출처 ： 없음 ]").refs).toEqual([]);
+    });
+  });
 });
