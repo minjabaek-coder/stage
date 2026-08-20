@@ -139,6 +139,24 @@ export function ChatBody({ seedQuestion }: { seedQuestion?: string }) {
 
           const parsed = JSON.parse(data);
 
+          // Handle error event — 서버가 스트림 안에서 오류를 알려온 경우.
+          // 이 분기가 없으면 상류 오류(예: Gemini 503 high demand) 때 빈 말풍선만 남는다.
+          if (parsed && typeof parsed === "object" && parsed.error) {
+            setMessages((prev) => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              // 이미 일부라도 답이 나왔으면 지우지 않고 뒤에 붙인다.
+              updated[updated.length - 1] = {
+                ...last,
+                content: last.content
+                  ? `${last.content}\n\n(답변이 중단되었습니다. 잠시 후 다시 시도해 주세요.)`
+                  : "지금은 답변을 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.",
+              };
+              return updated;
+            });
+            continue;
+          }
+
           // Handle sources event
           if (parsed && typeof parsed === "object" && parsed.sources) {
             setMessages((prev) => {
