@@ -448,6 +448,8 @@ export function DocentChatFAB() {
             </h3>
             <button
               onClick={() => setIsOpen(false)}
+              // 아이콘 전용 버튼 — axe는 패널이 닫혀 있어 못 잡았지만 FAB와 같은 결함이다.
+              aria-label="도슨트 닫기"
               className="text-ink/50 hover:text-ink transition-colors"
             >
               <svg
@@ -478,6 +480,9 @@ export function DocentChatFAB() {
             setSeed(undefined);
             setIsOpen(true);
           }}
+          // 아이콘만 있는 버튼이라 접근 가능한 이름이 없었다(axe button-name, critical).
+          // 스크린리더에는 "버튼"으로만 읽혀 무엇인지 알 수 없다.
+          aria-label="AI 도슨트 마에스트로 열기"
           className="fixed bottom-6 right-6 z-50 hidden h-14 w-14 items-center justify-center rounded-full bg-ink text-white shadow-lg transition-colors hover:bg-teal md:flex"
         >
           <svg
