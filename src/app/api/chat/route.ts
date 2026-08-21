@@ -13,7 +13,11 @@ import {
   hitClientCeiling,
 } from "@/lib/rate-limit";
 import { extractCitations } from "@/lib/citations";
-import { formatAnswerText, dropEmptySourcePromise } from "@/lib/answer-format";
+import {
+  formatAnswerFragment,
+  dropEmptySourcePromise,
+  splitEmittable,
+} from "@/lib/answer-format";
 
 // 등급별 일일(24h) AI 질문 한도. Pro는 무제한.
 // 게스트 한도는 클라이언트가 보내는 sessionId 기준이라 지우면 초기화된다 →
@@ -48,6 +52,19 @@ const MODEL = process.env.GEMINI_MODEL ?? "gemini-3.1-flash-lite";
 const MAX_OUTPUT_TOKENS = 500;
 const MAX_TOOL_ROUNDS = 4;
 
+// 도구를 부르는 동안 "무엇을 하는 중인지" 알린다.
+//
+// 실측상 지연의 대부분은 도구 실행(66~527ms)이 아니라 **모델 호출**(1.4~14초)이고,
+// 그마저 답을 정하는 라운드와 답을 쓰는 라운드로 두 번이다. 첫 라운드는 화면에
+// 내놓을 텍스트가 없어 사용자는 빈 점 세 개만 본다. 시간을 줄일 수 없다면 최소한
+// 무엇을 기다리는지는 보여준다.
+const TOOL_STATUS: Record<string, string> = {
+  search_content: "매거진·기사를 찾는 중",
+  get_magazine_contents: "목차를 확인하는 중",
+  get_magazine_facts: "발행 현황을 확인하는 중",
+  get_culture_events: "공연 정보를 확인하는 중",
+};
+
 const SYSTEM_PROMPT = `당신은 STAGE(한국어 문화예술 디지털 매거진)의 AI 도슨트 "마에스트로"입니다.
 사용자 질문에 답하기 위해 제공된 도구를 적극적으로 사용하세요:
 - 기사·매거진에 '실린 내용'(작품 해설·줄거리·작곡가·인터뷰·리뷰, 특정 시기 공연 소식 목록 등) → search_content
@@ -79,11 +96,6 @@ STAGE 웹사이트는 **외부 사이트가 아니라 당신이 안내하는 바
 - 읽어봤지만 답변에 쓰지 않은 자료는 넣지 마세요.
 - 도구 결과를 근거로 쓰지 않았다면(위 3번) \`[출처: 없음]\`이라고 적으세요. 줄을 통째로 빠뜨리면 무관한 자료가 출처로 붙습니다.
 이 줄은 사용자에게 보이지 않고 출처 링크를 고르는 데만 쓰입니다.`;
-
-function* chunkText(s: string, size = 40): Generator<string> {
-  for (let i = 0; i < s.length; i += size) yield s.slice(i, i + size);
-}
-
 
 export async function POST(req: NextRequest) {
   const { messages, sessionId, articleContext } = await req.json();
@@ -189,11 +201,28 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // 완결된 문장이 나오는 즉시 흘려보낸다. 보류분(hold)은 인용 줄·출처 약속일 수
+      // 있어 끝까지 봐야 판단할 수 있다(lib/answer-format의 splitEmittable).
+      let emitted = "";
+      let hold = "";
+      const flushSafe = (chunk: string) => {
+        hold += chunk;
+        const { emit, hold: rest } = splitEmittable(hold);
+        hold = rest;
+        if (!emit) return;
+        const out = formatAnswerFragment(emit);
+        emitted += out;
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(out)}\n\n`));
+      };
+
       try {
         // 에이전틱 루프: 모델이 도구를 호출하면 실행→결과 반환을 반복, 최종 텍스트 생성
         let finalText = "";
         for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-          const resp = await ai.models.generateContent({
+          // 스트리밍으로 받는다. 종전 generateContent는 답변을 **다 만든 뒤에야**
+          // 첫 글자를 내보내 체감 대기가 곧 생성 시간이었다(실측 TTFT = 총시간의 100%,
+          // 2.5~8.5초). 청크 단위로 흘리면 첫 글자가 1초 안쪽에 뜬다.
+          const stream = await ai.models.generateContentStream({
             model: MODEL,
             contents,
             config: {
@@ -203,21 +232,45 @@ export async function POST(req: NextRequest) {
             },
           });
 
-          if (resp.usageMetadata) {
-            tokensIn += resp.usageMetadata.promptTokenCount ?? 0;
-            tokensOut += resp.usageMetadata.candidatesTokenCount ?? 0;
+          const parts: Part[] = [];
+          const fcs: { name?: string; args?: Record<string, unknown> }[] = [];
+          let roundText = "";
+
+          for await (const ch of stream) {
+            if (ch.usageMetadata) {
+              tokensIn += ch.usageMetadata.promptTokenCount ?? 0;
+              tokensOut += ch.usageMetadata.candidatesTokenCount ?? 0;
+            }
+            // thoughtSignature는 part에 실려 온다 — 도구 루프에 그대로 되돌려줘야 하므로
+            // 청크마다 모아 모델 턴을 재구성한다(스트리밍에서도 보존되는 것을 실측 확인).
+            for (const p of ch.candidates?.[0]?.content?.parts ?? []) parts.push(p);
+            if (ch.functionCalls?.length) fcs.push(...ch.functionCalls);
+
+            const t = ch.text ?? "";
+            if (t && fcs.length === 0) {
+              roundText += t;
+              flushSafe(t);
+            } else if (t) {
+              roundText += t;
+            }
           }
 
-          const fcs = resp.functionCalls;
-          if (!fcs || fcs.length === 0) {
-            finalText = resp.text ?? "";
+          if (fcs.length === 0) {
+            finalText = roundText;
             break;
           }
 
+          // 도구 호출과 텍스트가 한 라운드에 섞여 나왔고 이미 내보낸 게 있으면,
+          // 그 텍스트는 최종 답변이 아니다 → 말풍선을 비우라고 알린다(실측상 드묾).
+          if (emitted) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ reset: true })}\n\n`));
+            emitted = "";
+          }
+          hold = "";
+
           // 모델의 도구 호출 턴을 그대로 대화에 추가(Gemini 3의 thoughtSignature 보존 필수)
-          const modelContent = resp.candidates?.[0]?.content;
-          if (modelContent) {
-            contents.push(modelContent);
+          if (parts.length > 0) {
+            contents.push({ role: "model", parts });
           } else {
             contents.push({
               role: "model",
@@ -225,6 +278,14 @@ export async function POST(req: NextRequest) {
                 functionCall: { name: fc.name, args: fc.args },
               })),
             });
+          }
+
+          // 무엇을 찾는 중인지 알린다(텍스트가 시작되면 클라이언트가 지운다).
+          const status = TOOL_STATUS[fcs[0]?.name ?? ""];
+          if (status) {
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ status })}\n\n`),
+            );
           }
 
           // 각 도구 실행 후 결과를 functionResponse로 반환
@@ -243,17 +304,15 @@ export async function POST(req: NextRequest) {
           contents.push({ role: "user", parts: responseParts });
         }
 
-        if (!finalText) {
+        if (!finalText && !emitted) {
           finalText = "죄송합니다, 지금은 답변을 생성하지 못했습니다.";
+          hold = finalText;
         }
 
         // 인용 줄을 떼어내고, 모델이 실제로 쓴 자료만 출처로 남긴다.
+        // 인용 줄은 답변 맨 끝이라 항상 보류분(hold)에 들어 있다.
         const cited = extractCitations(finalText);
-        finalText = cited.text || finalText;
-        // 말풍선은 마크다운을 렌더하지 않는다 → 기호를 여기서 걷어낸다(lib/answer-format).
-        finalText = formatAnswerText(finalText);
 
-        // 출처 먼저(클라이언트 계약), 이어서 답변을 청크로 스트리밍.
         // 세 갈래를 구분한다:
         //   refs=null  형식 미준수(줄 자체가 없음) → 종전대로 전부 노출. 0개보다는 낫다.
         //   refs=[]    "[출처: 없음]" — 매거진 근거 없이 답했다는 명시적 신고 → 칩 없음.
@@ -278,19 +337,24 @@ export async function POST(req: NextRequest) {
         });
         shownSourceCount = sources.length;
 
-        // 출처가 없는데 "아래 출처 링크에서 보세요"라고 안내했으면 그 문장을 걷어낸다.
-        // 출처 수가 정해진 뒤라야 판단할 수 있어 여기에 둔다.
-        const trimmed = dropEmptySourcePromise(finalText, sources.length > 0);
-        finalText = trimmed || finalText; // 전부 지워지면 원문 유지
-        fullResponse = finalText;
+        // 남은 보류분을 마무리한다 — 인용 줄 제거 → 마크다운 정리 →
+        // 출처가 없는데 "아래 출처 링크에서 보세요"라고 했으면 그 문장 제거.
+        // 출처 수가 정해진 뒤라야 마지막 판단이 가능해 여기서 처리한다.
+        let tail = extractCitations(hold).text;
+        tail = formatAnswerFragment(tail);
+        tail = dropEmptySourcePromise(tail, sources.length > 0);
+        if (tail.trim()) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(tail)}\n\n`));
+        }
 
+        fullResponse = (emitted + tail).trim();
+
+        // 출처칩은 인용 줄을 봐야 정해지므로 텍스트 뒤에 보낸다.
+        // 클라이언트는 도착 순서와 무관하게 마지막 메시지에 붙인다(docent-chat).
         if (sources.length > 0) {
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({ sources })}\n\n`)
           );
-        }
-        for (const piece of chunkText(finalText)) {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(piece)}\n\n`));
         }
 
         if (!closed) controller.enqueue(encoder.encode("data: [DONE]\n\n"));
