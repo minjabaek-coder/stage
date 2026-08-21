@@ -65,7 +65,10 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   viewportFit: "cover",
-  maximumScale: 1,
+  // maximumScale은 두지 않는다 — 확대를 막으면 저시력 사용자가 본문을 키울 수 없다
+  // (WCAG 1.4.4). axe가 전 페이지에서 meta-viewport 위반으로 잡던 지점.
+  // iOS가 작은 입력창에 포커스할 때 자동 확대하는 것을 막으려던 설정이었으나,
+  // 그건 입력창 글자를 16px 이상으로 두어 해결할 문제다.
 };
 
 export default function RootLayout({

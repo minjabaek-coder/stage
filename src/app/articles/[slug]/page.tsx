@@ -115,6 +115,16 @@ function sanitizeArticle(html: string): string {
       figure: ["class"],
       div: ["class"],
     },
+    transformTags: {
+      // alt가 없는 본문 이미지는 스크린리더가 **Supabase URL을 그대로 읽는다**.
+      // 대체텍스트를 지어낼 수는 없으므로 빈 alt(=장식용)로 표시해 건너뛰게 한다.
+      // 캡션이 있는 이미지는 figureizeCaptions·galleryizeCaptions가 이미 alt를 채운다.
+      // 근본 해결(작성 시 대체텍스트 입력받기)은 에디터 몫 — 백로그 BL-14.
+      img: (tagName, attribs) => ({
+        tagName,
+        attribs: { ...attribs, alt: attribs.alt ?? "" },
+      }),
+    },
   });
 }
 
