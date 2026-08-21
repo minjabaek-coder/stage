@@ -41,6 +41,7 @@ const getArticleMeta = cache(async (slug: string) => {
       heroAspect: true,
       isPremium: true,
       publishedAt: true,
+      status: true,
     },
   });
 });
@@ -171,14 +172,23 @@ export default async function ArticlePage({
   const article = await getArticleMeta(slug);
   if (!article) notFound();
 
+  // 관리자는 미발행 콘텐츠도 미리 볼 수 있다 → 아래에서 '미발행' 표시를 붙인다.
+  const admin = await isAdmin();
+
   // 실린 곳: 이 기사가 실린 매거진의 연속 페이지 범위(첫 매거진). 시작 페이지로 딥링크.
+  //
+  // ⚠️ 매거진의 발행 상태를 반드시 본다. 빼면 미발행 호로 가는 링크를 내보내게 되는데,
+  //    뷰어는 비admin에게 404라 **누르면 못 보는 링크**가 되고 미발행 호수도 새어 나간다.
   const placementPages = await prisma.magazinePage.findMany({
-    where: { articleId: article.id },
+    where: {
+      articleId: article.id,
+      ...(admin ? {} : { magazine: { status: "published" } }),
+    },
     orderBy: [{ magazine: { issueNumber: "asc" } }, { pageNumber: "asc" }],
     select: {
       pageNumber: true,
       magazineId: true,
-      magazine: { select: { issueNumber: true } },
+      magazine: { select: { issueNumber: true, status: true } },
     },
   });
   const placement =
@@ -191,6 +201,7 @@ export default async function ArticlePage({
           return {
             magazineId: first.magazineId,
             issueNumber: first.magazine.issueNumber,
+            draft: first.magazine.status !== "published",
             start: Math.min(...nums),
             end: Math.max(...nums),
           };
@@ -222,6 +233,16 @@ export default async function ArticlePage({
     <div className="min-h-screen bg-paper text-ink">
       <ViewTracker type="article" id={article.id} />
       <SiteHeader />
+
+      {/* 발행 전 기사를 공개 화면에서 보고 있다면 관리자 미리보기다. 표시가 없으면
+          이미 공개된 것으로 착각하기 쉬워 상태를 분명히 알린다.
+          (일반 이용자에게는 발행 전 기사가 아예 404라 이 띠가 보이지 않는다.) */}
+      {article.status !== "published" && (
+        <div className="border-b border-red-600/20 bg-red-600/5 px-6 py-2 text-center font-label text-xs font-semibold tracking-wide text-red-700">
+          {article.status === "submitted" ? "검토대기" : "초안"} · 관리자에게만 보이는
+          미리보기입니다
+        </div>
+      )}
 
       {article.thumbnailUrl && (
         // 기사 폭에 맞춰 가운데 정렬(PC에서 브라우저 전체 폭으로 커지지 않게). 모바일은 폭 100%.
@@ -305,6 +326,12 @@ export default async function ArticlePage({
               ? `${placement.start}페이지`
               : `${placement.start}–${placement.end}페이지`}
             에서 보기 →
+            {/* 관리자 미리보기에서만 나타난다 — 일반 이용자에게는 미발행 호가 아예 조회되지 않는다. */}
+            {placement.draft && (
+              <span className="ml-1.5 rounded bg-red-600/10 px-1.5 py-0.5 text-[10px] font-bold text-red-700">
+                미발행
+              </span>
+            )}
           </Link>
         )}
 

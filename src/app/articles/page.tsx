@@ -46,28 +46,50 @@ export default async function ArticlesPage({
       thumbnailFocusY: true,
       thumbnailZoom: true,
       isPremium: true,
+      status: true,
     },
   });
 
   // 실린 곳: 이 기사를 싣는 매거진 페이지가 있으면 호수 배지 부여(기사당 첫 호).
+  //
+  // ⚠️ 매거진의 발행 상태를 반드시 본다. 빼면 **아직 나오지도 않은 호수를 광고**하게 되고
+  //    (뷰어는 비admin에게 404라 눌러도 못 본다), 미발행 호의 존재·호수가 새어 나간다.
   const placements = articles.length
     ? await prisma.magazinePage.findMany({
-        where: { articleId: { in: articles.map((a) => a.id) } },
-        select: { articleId: true, magazine: { select: { issueNumber: true } } },
+        where: {
+          articleId: { in: articles.map((a) => a.id) },
+          ...(admin ? {} : { magazine: { status: "published" } }),
+        },
+        select: {
+          articleId: true,
+          magazine: { select: { issueNumber: true, status: true } },
+        },
       })
     : [];
-  const issueByArticle = new Map<string, number>();
+  const issueByArticle = new Map<string, { issue: number; draft: boolean }>();
   for (const p of placements) {
     if (p.articleId && !issueByArticle.has(p.articleId)) {
-      issueByArticle.set(p.articleId, p.magazine.issueNumber);
+      issueByArticle.set(p.articleId, {
+        issue: p.magazine.issueNumber,
+        draft: p.magazine.status !== "published",
+      });
     }
   }
 
   const cards = articles.map((a) => ({
     ...a,
-    issueLabel: issueByArticle.has(a.id)
-      ? `STAGE ${issueByArticle.get(a.id)}호`
-      : null,
+    // 초안이 목록에 보이는 것은 관리자 미리보기이기 때문이다. 표시가 없으면
+    // 이미 공개된 것으로 착각하기 쉬워, 라벨에 상태를 함께 적는다.
+    issueLabel: [
+      a.status !== "published" ? `${a.status === "submitted" ? "검토대기" : "초안"}` : null,
+      issueByArticle.has(a.id)
+        ? `STAGE ${issueByArticle.get(a.id)!.issue}호${
+            issueByArticle.get(a.id)!.draft ? "(미발행)" : ""
+          }`
+        : null,
+    ]
+      .filter(Boolean)
+      .join(" · ") || null,
   }));
 
   return (
