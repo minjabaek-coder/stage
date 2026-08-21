@@ -13,6 +13,8 @@ interface Message {
   role: "ai" | "user";
   content: string;
   sources?: SourceRef[];
+  /** 도구를 부르는 동안 보여줄 진행 문구(텍스트가 오면 지운다) */
+  status?: string;
 }
 
 const WELCOME_MESSAGE: Message = {
@@ -33,17 +35,21 @@ const STARTERS = [
   "성악·오페라 용어를 쉽게 설명해줘",
 ];
 
-// 스트리밍 대기 중 표시(점 3개 애니메이션)
-function TypingDots() {
+// 스트리밍 대기 중 표시(점 3개 애니메이션).
+// 지연의 대부분은 모델 호출이라 없앨 수 없다 → 무엇을 하는 중인지라도 함께 보여준다.
+function TypingDots({ status }: { status?: string }) {
   return (
-    <span className="inline-flex gap-1">
-      {[0, 1, 2].map((i) => (
-        <span
-          key={i}
-          className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal/60"
-          style={{ animationDelay: `${i * 0.15}s` }}
-        />
-      ))}
+    <span className="inline-flex items-center gap-2">
+      <span className="inline-flex gap-1">
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal/60"
+            style={{ animationDelay: `${i * 0.15}s` }}
+          />
+        ))}
+      </span>
+      {status && <span className="text-xs text-ink/65">{status}</span>}
     </span>
   );
 }
@@ -139,6 +145,29 @@ export function ChatBody({ seedQuestion }: { seedQuestion?: string }) {
 
           const parsed = JSON.parse(data);
 
+          // Handle status event — 도구 실행 중 진행 문구.
+          if (parsed && typeof parsed === "object" && parsed.status) {
+            setMessages((prev) => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              updated[updated.length - 1] = { ...last, status: parsed.status };
+              return updated;
+            });
+            continue;
+          }
+
+          // Handle reset event — 흘려보낸 텍스트가 최종 답변이 아니었을 때(도구 호출이
+          // 뒤따라 온 경우). 서버가 알려주면 말풍선을 비우고 다시 받는다.
+          if (parsed && typeof parsed === "object" && parsed.reset) {
+            setMessages((prev) => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              updated[updated.length - 1] = { ...last, content: "" };
+              return updated;
+            });
+            continue;
+          }
+
           // Handle error event — 서버가 스트림 안에서 오류를 알려온 경우.
           // 이 분기가 없으면 상류 오류(예: Gemini 503 high demand) 때 빈 말풍선만 남는다.
           if (parsed && typeof parsed === "object" && parsed.error) {
@@ -179,6 +208,7 @@ export function ChatBody({ seedQuestion }: { seedQuestion?: string }) {
               updated[updated.length - 1] = {
                 ...last,
                 content: last.content + parsed,
+                status: undefined,
               };
               return updated;
             });
@@ -262,7 +292,7 @@ export function ChatBody({ seedQuestion }: { seedQuestion?: string }) {
                       : "bg-ink text-white rounded-lg p-3 text-sm max-w-[80%] ml-auto whitespace-pre-wrap break-words"
                   }
                 >
-                  {isStreaming ? <TypingDots /> : msg.content}
+                  {isStreaming ? <TypingDots status={msg.status} /> : msg.content}
                 </div>
                 {msg.sources && msg.sources.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1.5 max-w-[80%]">
