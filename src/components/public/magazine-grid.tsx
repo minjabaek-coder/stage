@@ -68,12 +68,12 @@ export function MagazineGrid({ magazines }: MagazineGridProps) {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="호수 또는 제목 검색"
           aria-label="매거진 검색"
-          className="w-full max-w-xs border-b border-ink/20 bg-transparent px-1 py-1.5 text-sm text-ink placeholder:text-ink/40 focus:border-gold-deep focus:outline-none"
+          className="w-full max-w-xs border-b border-ink/20 bg-transparent px-1 py-1.5 text-sm text-ink placeholder:text-ink/65 focus:border-gold-deep focus:outline-none"
         />
         <DropdownMenu>
           <DropdownMenuTrigger className="inline-flex items-center gap-1.5 border-b border-ink/20 px-1 py-1.5 font-label text-xs uppercase tracking-wider text-ink transition-colors hover:text-gold-deep">
             {sortLabels[sortOrder]}
-            <ChevronDownIcon className="size-4 text-ink/40" />
+            <ChevronDownIcon className="size-4 text-ink/65" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuRadioGroup

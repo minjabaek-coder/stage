@@ -32,7 +32,7 @@ export function MaestroSection() {
           </span>
         </div>
 
-        <p className="mt-2.5 text-[11px] leading-relaxed text-white/35">
+        <p className="mt-2.5 text-[11px] leading-relaxed text-white/55">
           STAGE가 학습한 매거진·기사·공연 내용을 바탕으로 답합니다. 읽는 흐름을
           끊지 않고, 궁금한 순간 자연어로 물어보세요.
         </p>
@@ -43,7 +43,7 @@ export function MaestroSection() {
               key={q}
               type="button"
               onClick={openDocent}
-              className="rounded-full border border-white/10 px-3 py-1.5 text-[10px] text-white/50 transition-colors hover:border-gold/40 hover:text-white/80"
+              className="rounded-full border border-white/10 px-3 py-1.5 text-[10px] text-white/55 transition-colors hover:border-gold/40 hover:text-white/80"
             >
               {q}
             </button>
@@ -60,7 +60,7 @@ export function MaestroSection() {
           </button>
           <Link
             href="/ai-maestro"
-            className="font-label text-[11px] text-gold/70 transition-colors hover:text-gold"
+            className="font-label text-[11px] text-gold/85 transition-colors hover:text-gold"
           >
             전용 페이지
           </Link>

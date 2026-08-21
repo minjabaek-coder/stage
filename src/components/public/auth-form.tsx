@@ -85,7 +85,7 @@ export function AuthForm({
         </Link>
       </p>
 
-      <p className="mt-8 text-center font-label text-[10px] uppercase tracking-wider text-ink/40">
+      <p className="mt-8 text-center font-label text-[10px] uppercase tracking-wider text-ink/65">
         소셜 로그인(카카오·네이버·구글)은 준비 중입니다
       </p>
     </div>

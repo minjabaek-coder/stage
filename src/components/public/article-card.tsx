@@ -49,7 +49,7 @@ export function ArticleCard({ article }: { article: ArticleCardData }) {
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
-            <span className="font-headline text-lg font-black tracking-widest text-white/30">
+            <span className="font-headline text-lg font-black tracking-widest text-white/55">
               STAGE
             </span>
           </div>

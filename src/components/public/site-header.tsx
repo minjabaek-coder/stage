@@ -57,10 +57,10 @@ export function SiteHeader() {
               const tone = terra
                 ? active
                   ? "border-terra text-terra"
-                  : "border-transparent text-terra/80 hover:border-terra hover:text-terra"
+                  : "border-transparent text-terra hover:border-terra hover:text-terra"
                 : active
                   ? "border-gold text-ink"
-                  : "border-transparent text-ink/50 hover:border-gold hover:text-ink";
+                  : "border-transparent text-ink/65 hover:border-gold hover:text-ink";
               return (
                 <Link
                   key={item.href}

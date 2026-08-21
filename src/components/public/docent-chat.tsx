@@ -242,7 +242,7 @@ export function ChatBody({ seedQuestion }: { seedQuestion?: string }) {
             <p className="max-w-md text-sm leading-relaxed text-ink-muted">
               {WELCOME_MESSAGE.content}
             </p>
-            <p className="font-label text-[11px] uppercase tracking-[0.2em] text-ink-muted/70">
+            <p className="font-label text-[11px] uppercase tracking-[0.2em] text-ink-muted">
               {EMPTY_HINT}
             </p>
             {starterChips}
@@ -450,7 +450,7 @@ export function DocentChatFAB() {
               onClick={() => setIsOpen(false)}
               // 아이콘 전용 버튼 — axe는 패널이 닫혀 있어 못 잡았지만 FAB와 같은 결함이다.
               aria-label="도슨트 닫기"
-              className="text-ink/50 hover:text-ink transition-colors"
+              className="text-ink/65 hover:text-ink transition-colors"
             >
               <svg
                 width="20"

@@ -52,7 +52,7 @@ export function MagazineCover({
 
   return (
     <div className="flex h-full w-full items-center justify-center">
-      <span className={`font-headline font-black text-white/30 ${placeholderClass}`}>
+      <span className={`font-headline font-black text-white/55 ${placeholderClass}`}>
         STAGE
       </span>
     </div>

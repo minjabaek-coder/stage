@@ -421,7 +421,7 @@ export function TocFilmstrip({
         <button
           onClick={onClose}
           aria-label="목차 닫기"
-          className="flex h-6 w-6 items-center justify-center rounded text-white/50 transition-colors hover:bg-white/10 hover:text-white"
+          className="flex h-6 w-6 items-center justify-center rounded text-white/55 transition-colors hover:bg-white/10 hover:text-white"
         >
           ✕
         </button>
@@ -461,7 +461,7 @@ export function TocFilmstrip({
               </div>
               <span
                 className={`mt-1 block text-center font-label text-[9px] ${
-                  isActive ? "text-gold" : "text-white/45"
+                  isActive ? "text-gold" : "text-white/55"
                 }`}
               >
                 {entry.pageNumber}
@@ -829,7 +829,7 @@ export function MagazineViewer({
           <Link
             href="/magazines"
             aria-label="닫기"
-            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md text-lg text-white/50 transition-colors hover:bg-white/10 hover:text-white"
+            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md text-lg text-white/55 transition-colors hover:bg-white/10 hover:text-white"
           >
             ✕
           </Link>
@@ -849,7 +849,7 @@ export function MagazineViewer({
           className="flex flex-1 items-center justify-center overflow-hidden"
           style={{ background: dark ? undefined : "#f6f3f2" }}
         >
-        {!ready && <div className="font-label text-sm tracking-wide text-white/40">Loading…</div>}
+        {!ready && <div className="font-label text-sm tracking-wide text-white/55">Loading…</div>}
         {ready && (
           <div
             ref={zoomContainerRef}
@@ -1143,7 +1143,7 @@ export function MagazineViewer({
               >
                 ‹
               </button>
-              <span className="min-w-[92px] text-center font-label text-sm tracking-wide text-white/50">
+              <span className="min-w-[92px] text-center font-label text-sm tracking-wide text-white/55">
                 {displayPage} / {total}
               </span>
               <button
@@ -1166,7 +1166,7 @@ export function MagazineViewer({
                 className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 font-label text-[11px] uppercase tracking-wider transition-colors ${
                   flipEffect
                     ? "border-gold/40 bg-gold/15 text-gold"
-                    : "border-white/15 text-white/45 hover:text-white"
+                    : "border-white/15 text-white/55 hover:text-white"
                 }`}
               >
                 📖 넘김
@@ -1174,7 +1174,7 @@ export function MagazineViewer({
               {/* 줌 슬라이더(#5) — 휠/더블클릭/드래그도 동작 */}
               {canZoom && (
                 <div className="flex items-center gap-1.5">
-                  <span className="font-label text-[10px] text-white/40">🔍</span>
+                  <span className="font-label text-[10px] text-white/55">🔍</span>
                   <input
                     type="range"
                     min={100}
@@ -1184,7 +1184,7 @@ export function MagazineViewer({
                     className="w-24 accent-gold"
                     aria-label="확대"
                   />
-                  <span className="w-9 text-right font-label text-[10px] text-white/50">
+                  <span className="w-9 text-right font-label text-[10px] text-white/55">
                     {Math.round(deskScale * 100)}%
                   </span>
                 </div>

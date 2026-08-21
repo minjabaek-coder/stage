@@ -27,7 +27,7 @@ export function ArticleSubFilter() {
       <button
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="inline-flex items-center gap-1 font-label text-[11px] uppercase tracking-wider text-ink/60 transition-colors hover:text-gold-deep"
+        className="inline-flex items-center gap-1 font-label text-[11px] uppercase tracking-wider text-ink/65 transition-colors hover:text-gold-deep"
       >
         {activeSub ?? "유형"}
         <ChevronDownIcon
@@ -42,7 +42,7 @@ export function ArticleSubFilter() {
             className={`border px-2.5 py-1 font-label text-[11px] tracking-wide transition-colors ${
               !activeSub
                 ? "border-gold-deep bg-gold-deep text-white"
-                : "border-ink/15 text-ink/60 hover:border-gold-deep hover:text-gold-deep"
+                : "border-ink/15 text-ink/65 hover:border-gold-deep hover:text-gold-deep"
             }`}
           >
             전체
@@ -57,7 +57,7 @@ export function ArticleSubFilter() {
                 className={`border px-2.5 py-1 font-label text-[11px] tracking-wide transition-colors ${
                   isActive
                     ? "border-gold-deep bg-gold-deep text-white"
-                    : "border-ink/15 text-ink/60 hover:border-gold-deep hover:text-gold-deep"
+                    : "border-ink/15 text-ink/65 hover:border-gold-deep hover:text-gold-deep"
                 }`}
               >
                 {s}
