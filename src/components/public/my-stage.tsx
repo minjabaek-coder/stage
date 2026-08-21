@@ -27,7 +27,7 @@ export function MyStage({
   const t = TIER[tier] ?? TIER.guest;
   return (
     <div className="rounded-lg border border-ink/[0.06] bg-paper p-3.5">
-      <div className="mb-2 font-label text-[8px] uppercase tracking-[3px] text-ink/30">
+      <div className="mb-2 font-label text-[8px] uppercase tracking-[3px] text-ink/65">
         My STAGE
       </div>
       <span
@@ -56,7 +56,7 @@ export function MyStage({
 
       {interests.length > 0 && (
         <div className="mt-2">
-          <div className="mb-1.5 font-label text-[8px] uppercase tracking-[3px] text-ink/30">
+          <div className="mb-1.5 font-label text-[8px] uppercase tracking-[3px] text-ink/65">
             관심 장르
           </div>
           <div className="flex flex-wrap gap-1.5">

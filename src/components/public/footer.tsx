@@ -7,7 +7,7 @@ function FooterLink({ href, children }: { href: string; children: ReactNode }) {
   return (
     <Link
       href={href}
-      className="block py-1 font-body text-[13px] text-white/45 transition-colors hover:text-gold"
+      className="block py-1 font-body text-[13px] text-white/55 transition-colors hover:text-gold"
     >
       {children}
     </Link>
@@ -16,7 +16,7 @@ function FooterLink({ href, children }: { href: string; children: ReactNode }) {
 
 function FooterColHeading({ children }: { children: ReactNode }) {
   return (
-    <h3 className="mb-3 font-label text-[11px] font-semibold uppercase tracking-[0.2em] text-white/30">
+    <h3 className="mb-3 font-label text-[11px] font-semibold uppercase tracking-[0.2em] text-white/55">
       {children}
     </h3>
   );
@@ -46,7 +46,7 @@ export function Footer() {
           {/* Brand + company info */}
           <div className="col-span-2 space-y-4 text-[13px] leading-relaxed lg:col-span-1">
             <p className="text-white/70">문화예술 AI 매거진</p>
-            <div className="space-y-1.5 text-white/40">
+            <div className="space-y-1.5 text-white/55">
               <div>서울특별시 관악구 남부순환로 266길 21 B1</div>
               <div>
                 <a
@@ -63,10 +63,10 @@ export function Footer() {
                   010-5235-8025
                 </a>
               </div>
-              <div className="text-white/30">
+              <div className="text-white/55">
                 대표발행인 박경준 · 발행기획 아트컴퍼니본 · AI 기술 (주)카이로스팀
               </div>
-              <div className="text-white/25">사업자등록번호 116-81-95607</div>
+              <div className="text-white/55">사업자등록번호 116-81-95607</div>
             </div>
           </div>
 
@@ -96,10 +96,10 @@ export function Footer() {
 
         {/* Bottom bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 py-6">
-          <p className="font-label text-[11px] tracking-wide text-white/30">
+          <p className="font-label text-[11px] tracking-wide text-white/55">
             © 2026 STAGE. ALL RIGHTS RESERVED.
           </p>
-          <div className="flex gap-4 text-[12px] text-white/30">
+          <div className="flex gap-4 text-[12px] text-white/55">
             <span className="cursor-pointer transition-colors hover:text-white/60">
               이용약관
             </span>

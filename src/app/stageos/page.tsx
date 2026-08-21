@@ -79,7 +79,7 @@ export default function StageOSPage() {
                 도입·데모 문의
               </Link>
             </div>
-            <p className="mt-4 font-label text-[10px] uppercase tracking-wider text-white/40">
+            <p className="mt-4 font-label text-[10px] uppercase tracking-wider text-white/55">
               주식회사 카이로스팀
             </p>
           </div>

@@ -94,7 +94,7 @@ export async function RightSidebar({
                             회원 {t.memberDiscount}% 할인
                           </span>
                         ) : (
-                          <span className="mt-0.5 inline-block font-label text-[10px] text-ink/40">
+                          <span className="mt-0.5 inline-block font-label text-[10px] text-ink/65">
                             로그인 시 할인가
                           </span>
                         ))}
@@ -121,7 +121,7 @@ export async function RightSidebar({
           <p className="mt-2 font-headline text-base font-black tracking-tight text-white">
             Stage<span className="text-os-purple">OS</span>
           </p>
-          <p className="mt-1 text-[11px] leading-relaxed text-white/45">
+          <p className="mt-1 text-[11px] leading-relaxed text-white/55">
             공연·전시·축제 주최사를 위한 AI 운영 플랫폼. 정보 한 번 입력으로 모든 것을 자동화.
           </p>
           <ul className="mt-2.5 space-y-1 text-[11px] text-white/55">
@@ -197,7 +197,7 @@ function WidgetMore({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
-      className="mt-3 block border-t border-ink/[0.08] pt-2 font-label text-[10px] uppercase tracking-wider text-ink/40 hover:text-gold-deep"
+      className="mt-3 block border-t border-ink/[0.08] pt-2 font-label text-[10px] uppercase tracking-wider text-ink/65 hover:text-gold-deep"
     >
       {label} →
     </Link>

@@ -33,7 +33,7 @@ export function GenreSubNav() {
               className={`flex h-[38px] flex-shrink-0 items-center whitespace-nowrap border-b-2 px-3.5 font-body text-[11px] font-semibold transition-colors ${
                 isActive
                   ? "border-gold text-ink"
-                  : "border-transparent text-ink/45 hover:text-ink"
+                  : "border-transparent text-ink/65 hover:text-ink"
               }`}
             >
               {g}

@@ -20,7 +20,7 @@ export function ArchiveNav({ groups }: { groups: ArchiveGroup[] }) {
 
   return (
     <div className="rounded-lg border border-ink/[0.06] bg-paper p-3.5">
-      <div className="mb-2 font-label text-[8px] uppercase tracking-[3px] text-ink/30">
+      <div className="mb-2 font-label text-[8px] uppercase tracking-[3px] text-ink/65">
         아카이브
       </div>
       {groups.map((g) => {
@@ -34,7 +34,7 @@ export function ArchiveNav({ groups }: { groups: ArchiveGroup[] }) {
               className="flex w-full items-center justify-between rounded px-2 py-1.5 text-[12px] font-bold text-slate transition-colors hover:bg-black/[0.03]"
             >
               <span>{g.year > 0 ? `${g.year}년` : "기타"}</span>
-              <span className="text-[9px] text-ink/40">{isOpen ? "▼" : "▶"}</span>
+              <span className="text-[9px] text-ink/65">{isOpen ? "▼" : "▶"}</span>
             </button>
             {isOpen && (
               <div className="mb-1 pl-1.5">
@@ -42,7 +42,7 @@ export function ArchiveNav({ groups }: { groups: ArchiveGroup[] }) {
                   <Link
                     key={m.id}
                     href={`/magazines/${m.id}`}
-                    className="flex items-center gap-1.5 rounded px-2 py-1 text-[11px] text-ink/45 transition-colors hover:bg-gold/[0.06] hover:text-gold-deep"
+                    className="flex items-center gap-1.5 rounded px-2 py-1 text-[11px] text-ink/65 transition-colors hover:bg-gold/[0.06] hover:text-gold-deep"
                   >
                     <span className="h-1 w-1 flex-shrink-0 rounded-full bg-gold" />
                     {m.month > 0 ? `${m.month}월 ` : ""}Vol.

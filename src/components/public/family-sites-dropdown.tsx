@@ -70,11 +70,11 @@ export function FamilySitesDropdown() {
                   <span className="block text-[13px] font-bold text-white">
                     {s.name}
                   </span>
-                  <span className="block text-[11px] text-white/45">
+                  <span className="block text-[11px] text-white/55">
                     {s.desc}
                   </span>
                 </span>
-                <span className="text-white/30">↗</span>
+                <span className="text-white/55">↗</span>
               </span>
             );
             return s.external ? (

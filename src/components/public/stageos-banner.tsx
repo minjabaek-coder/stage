@@ -66,7 +66,7 @@ export function StageOsBanner() {
               sessionStorage.setItem(DISMISS_KEY, "1");
               setDismissed(true);
             }}
-            className="text-base leading-none text-white/30 transition-colors hover:text-white/60"
+            className="text-base leading-none text-white/55 transition-colors hover:text-white/60"
           >
             ✕
           </button>

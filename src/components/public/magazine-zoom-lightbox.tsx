@@ -226,7 +226,7 @@ export function MagazineZoomLightbox({
     <div className="fixed inset-0 z-[200] flex flex-col bg-black/95 backdrop-blur-sm">
       {/* 상단 컨트롤 */}
       <div className="flex flex-shrink-0 items-center justify-between px-4 py-3">
-        <span className="font-label text-xs tracking-wide text-white/50">
+        <span className="font-label text-xs tracking-wide text-white/55">
           {Math.round(scale * 100)}%
         </span>
         <div className="flex items-center gap-1.5">
@@ -287,7 +287,7 @@ export function MagazineZoomLightbox({
         </div>
       </div>
 
-      <p className="flex-shrink-0 pb-[max(env(safe-area-inset-bottom),12px)] pt-2 text-center text-[11px] text-white/35">
+      <p className="flex-shrink-0 pb-[max(env(safe-area-inset-bottom),12px)] pt-2 text-center text-[11px] text-white/55">
         스크롤·핀치로 확대 · 드래그로 이동 · 더블클릭/탭 · Esc 닫기
       </p>
     </div>

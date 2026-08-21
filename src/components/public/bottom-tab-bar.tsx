@@ -25,7 +25,7 @@ function isActive(pathname: string, href: string) {
 }
 
 function tabColor(active: boolean, accent?: "terra" | "teal") {
-  if (!active) return "text-ink/45";
+  if (!active) return "text-ink/65";
   if (accent === "terra") return "text-terra";
   if (accent === "teal") return "text-teal";
   return "text-gold-deep";
@@ -66,7 +66,7 @@ export function BottomTabBar() {
       <Link
         href={myHref}
         aria-current={myActive ? "page" : undefined}
-        className={`${TAB_CLASS} ${myActive ? "text-gold-deep" : "text-ink/45"}`}
+        className={`${TAB_CLASS} ${myActive ? "text-gold-deep" : "text-ink/65"}`}
       >
         <span className="text-base leading-none" aria-hidden>
           👤
