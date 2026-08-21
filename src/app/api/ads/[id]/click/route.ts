@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { AD_CLICK_DAILY_LIMIT, clientIpFrom, hitLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -17,9 +18,18 @@ export async function GET(
 
   if (!ad) return NextResponse.redirect(new URL("/", req.url));
 
-  await prisma.advertisement
-    .update({ where: { id }, data: { clicks: { increment: 1 } } })
-    .catch(() => {});
+  // 클릭 집계도 광고주 보고 수치다 → 같은 IP·같은 광고 일일 상한.
+  // 넘어도 **리다이렉트는 정상 수행한다** — 이용자 이동을 막을 이유가 없다.
+  const { exceeded } = await hitLimit(
+    `adclick:${id}`,
+    clientIpFrom(req.headers),
+    AD_CLICK_DAILY_LIMIT,
+  );
+  if (!exceeded) {
+    await prisma.advertisement
+      .update({ where: { id }, data: { clicks: { increment: 1 } } })
+      .catch(() => {});
+  }
 
   return NextResponse.redirect(ad.linkUrl, 302);
 }
