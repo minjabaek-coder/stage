@@ -393,7 +393,11 @@ model User {
 // 오늘 몇 번"이라는 숫자뿐이고 질문·답변과 연결되지 않는다.
 // keyHash = HMAC(날짜별 솔트, IP). 날짜가 바뀌면 같은 IP도 다른 값이 되어 추적이 끊긴다.
 // 지난 날짜 행은 기록 시 함께 삭제 → 보유기간이 구조적으로 '당일'.
-model AiRateLimit {
+/// 요청 한도·중복 방지 버킷. AI 질문뿐 아니라 조회수·광고 추적·공개 폼에도 쓴다.
+/// keyHash = HMAC(날짜별 솔트, 용도 + IP) — IP 원본은 저장하지 않고, 날짜가 바뀌면
+/// 어제 해시와 연결할 수 없다(decisions/0009).
+/// 테이블명은 `AiRateLimit` 그대로 둔다 — 이름만 넓히고 마이그레이션은 하지 않는다.
+model RequestLimit {
   keyHash   String
   day       String // YYYY-MM-DD (UTC)
   count     Int      @default(0)
@@ -401,6 +405,7 @@ model AiRateLimit {
 
   @@id([keyHash, day])
   @@index([day])
+  @@map("AiRateLimit")
 }
 
 model AiInteraction {

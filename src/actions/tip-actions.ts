@@ -3,6 +3,11 @@
 import { z } from "zod/v4";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import {
+  PUBLIC_FORM_DAILY_LIMIT,
+  clientIp,
+  hitLimit,
+} from "@/lib/rate-limit";
 import { isAdmin } from "@/lib/auth";
 
 const tipSchema = z.object({
@@ -19,6 +24,16 @@ export async function submitTip(
   _prev: unknown,
   formData: FormData,
 ): Promise<{ error?: string; success?: boolean }> {
+  // 공개 폼이라 인증이 없다 → 스크립트로 DB를 채우는 것을 막는다(일일 IP 한도).
+  const { exceeded } = await hitLimit(
+    "form",
+    await clientIp(),
+    PUBLIC_FORM_DAILY_LIMIT,
+  );
+  if (exceeded) {
+    return { error: "오늘 접수 가능한 횟수를 초과했습니다. 내일 다시 시도해주세요." };
+  }
+
   const parsed = tipSchema.safeParse({
     name: (formData.get("name") ?? "").toString(),
     email: (formData.get("email") ?? "").toString(),

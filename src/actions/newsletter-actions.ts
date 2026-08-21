@@ -1,6 +1,11 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import {
+  PUBLIC_FORM_DAILY_LIMIT,
+  clientIp,
+  hitLimit,
+} from "@/lib/rate-limit";
 import { z } from "zod/v4";
 
 const ALLOWED_SOURCES = ["home", "footer", "pro-waitlist", "sidebar"];
@@ -10,6 +15,16 @@ const schema = z.object({
 });
 
 export async function subscribeNewsletter(_prev: unknown, formData: FormData) {
+  // 공개 폼이라 인증이 없다 → 스크립트로 DB를 채우는 것을 막는다(일일 IP 한도).
+  const { exceeded } = await hitLimit(
+    "form",
+    await clientIp(),
+    PUBLIC_FORM_DAILY_LIMIT,
+  );
+  if (exceeded) {
+    return { error: "오늘 접수 가능한 횟수를 초과했습니다. 내일 다시 시도해주세요." };
+  }
+
   const parsed = schema.safeParse({ email: formData.get("email") });
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message };
