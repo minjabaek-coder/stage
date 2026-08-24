@@ -169,10 +169,14 @@ export async function updateMagazineSourceSections(
     } catch (err) {
       console.error("[RAG] Magazine sourceSections embedding failed:", err);
       revalidateMagazinePaths(id);
+      // "잠시 후 다시 저장"은 거짓 안내였다. 무료 임베딩 한도가 **분당 100건**이라
+      // 청크가 100개를 넘는 호(≈70쪽 이상)는 요청 시간 안에 절대 끝나지 않는다 —
+      // 몇 번을 눌러도 실패한다. 실제로 되는 방법을 알려준다.
       return {
         success: true as const,
         indexed: false,
-        warning: "저장했지만 색인에 실패했습니다. 잠시 후 다시 저장해주세요.",
+        warning:
+          "저장은 되었지만 색인에 실패했습니다. 분량이 많은 호는 임베딩 한도(분당 100건) 때문에 화면에서 색인할 수 없습니다 — 터미널에서 `npm run reindex -- <호수>`를 실행해주세요.",
       };
     }
   }
