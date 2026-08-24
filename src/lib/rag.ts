@@ -43,14 +43,25 @@ async function replaceChunks(
   title: string,
   chunks: IndexChunk[],
 ): Promise<void> {
+  if (chunks.length === 0) {
+    await prisma.$queryRawUnsafe(
+      `DELETE FROM "ContentChunk" WHERE "sourceType" = $1 AND "sourceId" = $2`,
+      sourceType,
+      sourceId,
+    );
+    return;
+  }
+
+  // **임베딩을 먼저 받고 나서 지운다.** 순서를 뒤집으면 임베딩이 실패했을 때
+  // 기존 청크가 이미 사라진 뒤라, "저장했지만 색인 실패" 한 번에 그 콘텐츠가
+  // 챗봇에서 통째로 증발한다(재색인 실패 = 데이터 삭제).
+  const embeddings = await embedDocuments(chunks.map((c) => c.content));
+
   await prisma.$queryRawUnsafe(
     `DELETE FROM "ContentChunk" WHERE "sourceType" = $1 AND "sourceId" = $2`,
     sourceType,
     sourceId,
   );
-  if (chunks.length === 0) return;
-
-  const embeddings = await embedDocuments(chunks.map((c) => c.content));
   for (let i = 0; i < chunks.length; i++) {
     const vec = `[${embeddings[i].join(",")}]`;
     await prisma.$queryRawUnsafe(

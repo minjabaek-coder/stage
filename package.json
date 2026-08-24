@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "db:backup": "node scripts/db-backup.mjs",
     "db:deploy": "node scripts/db-backup.mjs && prisma migrate deploy",
-    "audit:gating": "node scripts/audit-gating.mjs"
+    "audit:gating": "node scripts/audit-gating.mjs",
+    "reindex": "node scripts/reindex-magazine.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.87.0",

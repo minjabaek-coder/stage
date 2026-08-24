@@ -64,4 +64,37 @@ describe("extractCitations", () => {
       expect(extractCitations("답변\n[ 출처 ： 없음 ]").refs).toEqual([]);
     });
   });
+
+  // 운영 실측: 모델이 `[출처: 38호 목차]`처럼 자유 문구를 쓰면 종전 정규식(숫자만)에
+  // 걸리지 않아 그 줄이 사용자 화면에 그대로 노출됐다.
+  describe("형식을 벗어난 인용 줄", () => {
+    it("자유 문구여도 줄은 반드시 걷어낸다", () => {
+      const { text, refs } = extractCitations(
+        "태승진 대표는 부천아트센터 초대 대표입니다.\n[출처: 38호 목차]",
+      );
+      expect(text).toBe("태승진 대표는 부천아트센터 초대 대표입니다.");
+      // 번호를 못 읽었으니 필터하지 않는다(출처 0개가 더 나쁘다).
+      expect(refs).toBeNull();
+    });
+
+    it("호수를 자료 번호로 오인하지 않는다", () => {
+      // "38호"를 parseInt로 읽으면 38이 되어 엉뚱한 칩을 고른다 → 순수 숫자만 인정.
+      expect(extractCitations("답변\n[출처: 38호 목차 3]").refs).toBeNull();
+      expect(extractCitations("답변\n[출처: 38호]").refs).toBeNull();
+    });
+
+    it("순수 숫자 목록은 그대로 인정한다", () => {
+      expect(extractCitations("답변\n[출처: 1, 3]").refs).toEqual([1, 3]);
+    });
+
+    it("본문 중간의 대괄호는 여전히 건드리지 않는다", () => {
+      const t = "리뷰[1]에 따르면 그렇습니다.";
+      expect(extractCitations(t).text).toBe(t);
+    });
+
+    it("줄바꿈이 들어간 대괄호는 인용 줄로 보지 않는다", () => {
+      const t = "답변\n[출처:\n여러 줄]";
+      expect(extractCitations(t).text).toBe(t);
+    });
+  });
 });
