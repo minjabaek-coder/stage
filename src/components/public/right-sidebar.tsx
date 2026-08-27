@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { kstTodayStartUtc } from "@/lib/culture-event";
 import { getCurrentUser } from "@/lib/auth";
 import { formatKSTDate } from "@/lib/format";
 import { NewsletterForm } from "@/components/public/newsletter-form";
@@ -14,6 +15,7 @@ export async function RightSidebar({
   hideRecent?: boolean;
 } = {}) {
   const now = new Date();
+  const todayStart = kstTodayStartUtc(now);
   const [user, ads, tickets, recentArticles] = await Promise.all([
     getCurrentUser(),
     prisma.advertisement.findMany({
@@ -32,8 +34,13 @@ export async function RightSidebar({
     prisma.cultureEvent.findMany({
       where: {
         status: "published",
-        startDate: { gte: now },
-        OR: [{ sidebarFeatured: true }, { memberDiscount: { gt: 0 } }],
+        // "아직 안 끝난 것" — `startDate >= now`로 거르면 **진행 중인 공연이 사라진다**
+        // (어제 시작해 다음 주까지 하는 공연이 가장 관련성 높은데도 빠졌다).
+        OR: [
+          { endDate: { gte: todayStart } },
+          { endDate: null, startDate: { gte: todayStart } },
+        ],
+        AND: [{ OR: [{ sidebarFeatured: true }, { memberDiscount: { gt: 0 } }] }],
       },
       orderBy: [{ sidebarFeatured: "desc" }, { startDate: "asc" }],
       take: 3,
