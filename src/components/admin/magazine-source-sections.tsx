@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
 import { updateMagazineSourceSections } from "@/actions/magazine-actions";
+import { indexMagazineSlice } from "@/actions/embedding-actions";
 import {
   newSectionId,
   pageLabel,
@@ -67,6 +68,14 @@ export function MagazineSourceSections({
   const [saved, setSaved] = useState<string>(() => JSON.stringify(initialSections));
   const [pending, start] = useTransition();
   const [importOpen, setImportOpen] = useState(false);
+  // 저장 후 "색인이 최신이 아님" 표시. 저장은 더 이상 색인하지 않는다(별도 버튼).
+  const [indexStale, setIndexStale] = useState(false);
+  // 색인 진행 상태. waiting=true면 분당 한도가 풀리기를 기다리는 중.
+  const [indexing, setIndexing] = useState<{
+    done: number;
+    total: number;
+    waiting?: boolean;
+  } | null>(null);
 
   const issues = useMemo(
     () => validateSections(sections, pageCount),
@@ -130,6 +139,47 @@ export function MagazineSourceSections({
     toast.success(`목차에서 ${skeleton.length}개 구간을 만들었습니다`);
   }
 
+  /**
+   * AI 색인 — 조각으로 나눠 반복 호출한다.
+   *
+   * 무료 임베딩 한도가 **분당 100건**이라 청크 100개를 넘는 호(발행분의 33%)는
+   * 한 번의 요청으로 끝낼 수 없다. 서버가 `next`를 돌려주면 이어서 요청하고,
+   * 한도에 걸리면 잠시 기다렸다 같은 지점부터 다시 시도한다.
+   */
+  async function runIndex() {
+    setIndexing({ done: 0, total: 0 });
+    let offset = 0;
+    for (let guard = 0; guard < 200; guard++) {
+      const r = await indexMagazineSlice(magazineId, offset);
+      if ("error" in r) {
+        const msg = String(r.error ?? "색인에 실패했습니다");
+        // 분당 한도면 기다렸다 같은 지점부터 다시 — 진행분은 이미 저장돼 있다.
+        if (/429|RESOURCE_EXHAUSTED|quota/i.test(msg)) {
+          setIndexing({ done: offset, total: 0, waiting: true });
+          await new Promise((res) => setTimeout(res, 61_000));
+          continue;
+        }
+        setIndexing(null);
+        toast.error(msg);
+        return;
+      }
+      setIndexing({ done: r.done, total: r.total });
+      if (r.next === null) {
+        setIndexing(null);
+        setIndexStale(false);
+        toast.success(
+          r.total === 0
+            ? "색인할 내용이 없어 기존 색인을 정리했습니다"
+            : `AI 색인 완료 — ${r.total}개 조각`,
+        );
+        return;
+      }
+      offset = r.next;
+    }
+    setIndexing(null);
+    toast.error("색인이 예상보다 오래 걸립니다. 다시 시도해주세요.");
+  }
+
   function save() {
     start(async () => {
       const r = await updateMagazineSourceSections(magazineId, sections);
@@ -138,9 +188,12 @@ export function MagazineSourceSections({
         return;
       }
       setSaved(JSON.stringify(sections));
-      if ("warning" in r) toast.warning(r.warning);
-      else if (r.indexed) toast.success("저장하고 AI 색인을 갱신했습니다");
-      else toast.success("저장했습니다 — 발행 시 AI 색인에 반영됩니다");
+      setIndexStale(r.needsIndex);
+      toast.success(
+        r.needsIndex
+          ? "저장했습니다 — 챗봇에 반영하려면 [AI 색인]을 눌러주세요"
+          : "저장했습니다 — 발행 시 AI 색인에 반영됩니다",
+      );
     });
   }
 
@@ -273,6 +326,37 @@ export function MagazineSourceSections({
             >
               되돌리기
             </Button>
+          )}
+          {/* 색인은 저장과 분리돼 있다 — 무료 임베딩 한도(분당 100건) 때문에 큰 호는
+              한 요청에서 끝나지 않아, 나눠 처리하며 진행률을 보여줘야 한다. */}
+          {status === "published" && (
+            <Button
+              type="button"
+              variant={indexStale ? "default" : "outline"}
+              onClick={runIndex}
+              disabled={pending || indexing !== null || dirty}
+              title={
+                dirty
+                  ? "먼저 저장해주세요"
+                  : "원문을 챗봇 검색에 반영합니다(분량에 따라 몇 분 걸릴 수 있습니다)"
+              }
+            >
+              {indexing ? "색인 중..." : "AI 색인"}
+            </Button>
+          )}
+          {indexing && (
+            <span className="text-xs text-gray-600">
+              {indexing.waiting
+                ? `무료 한도 대기 중… (${indexing.done}개까지 완료, 약 1분)`
+                : indexing.total
+                  ? `${indexing.done} / ${indexing.total} 조각`
+                  : "준비 중…"}
+            </span>
+          )}
+          {indexStale && !indexing && !dirty && (
+            <span className="text-xs text-amber-600">
+              저장된 원문이 아직 챗봇에 반영되지 않았습니다
+            </span>
           )}
           {blocked && (
             <span className="text-xs text-red-600">

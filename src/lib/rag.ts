@@ -83,6 +83,57 @@ async function replaceChunks(
   console.log(`[RAG] ${sourceType} "${title}" → ${chunks.length} chunks`);
 }
 
+/**
+ * 청크를 **조각으로 나눠** 색인한다. 어드민 색인 버튼이 여러 번 호출한다.
+ *
+ * 무료 임베딩 한도는 **분당 100건**이라 청크가 100개를 넘는 호(발행분의 33%)는
+ * 한 요청에서 끝낼 수 없다. 조각마다 요청을 나누면 개별 요청은 짧게 유지되고,
+ * 화면은 진행률을 보여줄 수 있다.
+ *
+ * `offset === 0`일 때만 기존 청크를 지운다 — 이어지는 조각은 덧붙인다.
+ * 중간에 실패하면 그 지점까지만 색인된 상태로 남고, 다시 처음부터 돌리면 복구된다.
+ */
+export async function indexChunkSlice(
+  sourceType: SourceType,
+  sourceId: string,
+  href: string,
+  title: string,
+  chunks: IndexChunk[],
+  offset: number,
+  size: number,
+): Promise<{ next: number | null; total: number }> {
+  if (offset === 0) {
+    await prisma.$queryRawUnsafe(
+      `DELETE FROM "ContentChunk" WHERE "sourceType" = $1 AND "sourceId" = $2`,
+      sourceType,
+      sourceId,
+    );
+  }
+  const slice = chunks.slice(offset, offset + size);
+  if (slice.length === 0) return { next: null, total: chunks.length };
+
+  const embeddings = await embedDocuments(slice.map((c) => c.content));
+  for (let i = 0; i < slice.length; i++) {
+    await prisma.$queryRawUnsafe(
+      `INSERT INTO "ContentChunk"
+         ("id", "sourceType", "sourceId", "chunkIndex", "title", "content", "href",
+          "pageNumber", "sectionTitle", "embedding")
+       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, $9::vector)`,
+      sourceType,
+      sourceId,
+      slice[i].chunkIndex,
+      slice[i].title || title,
+      slice[i].content,
+      slice[i].href || href,
+      slice[i].pageNumber ?? null,
+      slice[i].sectionTitle ?? null,
+      `[${embeddings[i].join(",")}]`,
+    );
+  }
+  const done = offset + slice.length;
+  return { next: done < chunks.length ? done : null, total: chunks.length };
+}
+
 // 소스 삭제 시 청크 정리(ContentChunk는 FK 없는 독립 테이블 → 명시적 삭제 필요).
 export async function deleteContentChunks(
   sourceType: SourceType,
@@ -129,7 +180,18 @@ function extractText(html: string): string {
 //      딥링크(`?page=N`)와 꼭지 제목을 청크 메타데이터로 갖는다.
 // 두 갈래 모두 articleId 연결 페이지(기사가 발행+색인)는 기사 청크로 커버되므로 제외(중복 방지).
 // 비발행/텍스트없음이면 청크 제거.
-export async function generateMagazineEmbeddings(magazineId: string): Promise<void> {
+/**
+ * 색인 대상 청크만 계산한다(임베딩·쓰기 없음).
+ *
+ * 임베딩과 분리한 이유: 무료 티어 한도가 **분당 100건**이라 큰 호는 한 번의 요청에서
+ * 끝낼 수 없다. 어드민 화면이 나눠서 요청하려면 "전체가 몇 개인지"와 "그중 어디까지
+ * 했는지"를 알아야 하고, 그러려면 청크 계산이 임베딩과 분리돼 있어야 한다.
+ */
+export async function buildMagazineChunks(magazineId: string): Promise<{
+  chunks: IndexChunk[];
+  baseHref: string;
+  baseTitle: string;
+} | null> {
   const m = await prisma.magazine.findUnique({
     where: { id: magazineId },
     select: {
@@ -151,7 +213,7 @@ export async function generateMagazineEmbeddings(magazineId: string): Promise<vo
       },
     },
   });
-  if (!m) return;
+  if (!m) return null;
 
   const baseHref = `/magazines/${m.id}`;
   // 청크 제목은 출처칩 문구이자 본문 프리픽스(chunkBlogContent)라 검색 맥락도 겸한다.
@@ -211,7 +273,14 @@ export async function generateMagazineEmbeddings(magazineId: string): Promise<vo
 
   // chunkIndex는 소스 단위로 유일해야 하므로 두 갈래를 합친 뒤 다시 매긴다.
   const chunks = collected.map((c, i) => ({ ...c, chunkIndex: i }));
-  await replaceChunks("magazine", m.id, baseHref, baseTitle, chunks);
+  return { chunks, baseHref, baseTitle };
+}
+
+/** 한 번에 전부 색인. 청크가 무료 한도(분당 100건) 아래인 호에서만 성공한다. */
+export async function generateMagazineEmbeddings(magazineId: string): Promise<void> {
+  const built = await buildMagazineChunks(magazineId);
+  if (!built) return;
+  await replaceChunks("magazine", magazineId, built.baseHref, built.baseTitle, built.chunks);
 }
 
 // ── 문화예술 이벤트 ──────────────────────────────────────────────────────────
