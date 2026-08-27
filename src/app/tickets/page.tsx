@@ -7,6 +7,7 @@ import { SiteHeader } from "@/components/public/site-header";
 import { Footer } from "@/components/public/footer";
 import { CultureEventCard } from "@/components/public/culture-event-card";
 import { getCurrentUser } from "@/lib/auth";
+import { isPastEvent } from "@/lib/culture-event";
 
 export const metadata: Metadata = {
   title: "회원 티켓 할인 | STAGE",
@@ -33,6 +34,13 @@ export default async function TicketsPage() {
       },
     }),
   ]);
+
+  // 예정/지난을 나눈다. 정렬은 각각 자연스러운 방향으로 — 예정은 임박한 순,
+  // 지난 것은 최근에 끝난 순.
+  const upcoming = events
+    .filter((e) => !isPastEvent(e.startDate, e.endDate))
+    .sort((a, b) => (a.startDate?.getTime() ?? 0) - (b.startDate?.getTime() ?? 0));
+  const past = events.filter((e) => isPastEvent(e.startDate, e.endDate));
 
   return (
     <div className="min-h-screen bg-paper text-ink">
@@ -81,16 +89,35 @@ export default async function TicketsPage() {
           )}
         </div>
 
-        {events.length === 0 ? (
+        {/* 끝난 공연을 "지금 받을 수 있는 혜택"으로 내보내지 않는다.
+            날짜 조건이 없어 7월에 끝난 공연을 8월 말까지 노출하고 있었다. */}
+        {upcoming.length === 0 ? (
           <div className="mt-24 text-center text-taupe">
-            현재 진행 중인 할인 혜택이 없습니다.
+            {past.length > 0
+              ? "예정된 할인 공연이 없습니다. 새로운 소식을 준비 중입니다."
+              : "현재 진행 중인 할인 혜택이 없습니다."}
           </div>
         ) : (
           <div className="mt-10 grid grid-cols-1 gap-x-6 gap-y-9 sm:grid-cols-2 lg:grid-cols-3">
-            {events.map((event) => (
+            {upcoming.map((event) => (
               <CultureEventCard key={event.id} event={event} />
             ))}
           </div>
+        )}
+
+        {/* 지난 공연은 감추되 없애지는 않는다 — 어떤 공연을 다뤄왔는지가 신뢰의 근거고,
+            링크가 갑자기 죽으면 곤란하다. 다만 '지난'임을 분명히 한다. */}
+        {past.length > 0 && (
+          <section className="mt-16 border-t border-ink/10 pt-8">
+            <h2 className="font-label text-[11px] font-bold uppercase tracking-[0.2em] text-taupe">
+              지난 공연
+            </h2>
+            <div className="mt-6 grid grid-cols-1 gap-x-6 gap-y-9 opacity-70 sm:grid-cols-2 lg:grid-cols-3">
+              {past.map((event) => (
+                <CultureEventCard key={event.id} event={event} ended />
+              ))}
+            </div>
+          </section>
         )}
       </main>
 

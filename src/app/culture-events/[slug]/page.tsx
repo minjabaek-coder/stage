@@ -7,6 +7,7 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { SiteHeader } from "@/components/public/site-header";
 import { Footer } from "@/components/public/footer";
+import { isPastEvent } from "@/lib/culture-event";
 
 const getEvent = cache(async (slug: string) => {
   return prisma.cultureEvent.findFirst({
@@ -68,6 +69,8 @@ export default async function CultureEventPage({
 
   const isEdu = event.type === "교육";
   const ctaUrl = isEdu ? event.applyUrl : event.ticketUrl;
+  // 끝난 공연은 예매로 보내지 않는다 — 7월에 끝난 공연에서 [예매하기]가 눌리고 있었다.
+  const ended = isPastEvent(event.startDate, event.endDate);
 
   return (
     <div className="min-h-screen bg-paper text-ink">
@@ -108,6 +111,13 @@ export default async function CultureEventPage({
         <h1 className="font-headline mt-3 text-[28px] font-bold leading-[1.25] tracking-tight text-ink md:text-[40px] md:leading-[1.2]">
           {event.title}
         </h1>
+
+        {/* 지난 공연에 직접 들어온 경우 — 날짜만 보고는 알아채기 어렵다. */}
+        {ended && (
+          <p className="mt-3 inline-block border border-ink/15 bg-ink/5 px-3 py-1 font-label text-[11px] font-bold uppercase tracking-wider text-taupe">
+            이미 종료된 일정입니다
+          </p>
+        )}
 
         {/* 핵심 정보 */}
         <dl className="mt-6 space-y-2.5 text-sm">
@@ -187,15 +197,22 @@ export default async function CultureEventPage({
             </dl>
           )}
 
-          {ctaUrl && (
-            <a
-              href={ctaUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-5 inline-block bg-ink px-8 py-3 font-label text-[11px] font-bold uppercase tracking-widest text-white transition-colors hover:bg-terra"
-            >
-              {isEdu ? "신청하기" : "예매하기"}
-            </a>
+          {ended ? (
+            // 링크를 살려두면 이미 끝난 공연의 예매처로 보내게 된다.
+            <p className="mt-5 inline-block border border-ink/15 bg-ink/5 px-8 py-3 font-label text-[11px] font-bold uppercase tracking-widest text-taupe">
+              {isEdu ? "종료된 교육" : "종료된 공연"}
+            </p>
+          ) : (
+            ctaUrl && (
+              <a
+                href={ctaUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-5 inline-block bg-ink px-8 py-3 font-label text-[11px] font-bold uppercase tracking-widest text-white transition-colors hover:bg-terra"
+              >
+                {isEdu ? "신청하기" : "예매하기"}
+              </a>
+            )
           )}
         </div>
 
