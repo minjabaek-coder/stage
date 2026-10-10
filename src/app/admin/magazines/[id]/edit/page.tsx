@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { MagazineForm } from "@/components/admin/magazine-form";
 import { PageUploadZone } from "@/components/admin/page-upload-zone";
+import { PageImageReplaceZone } from "@/components/admin/page-image-replace-zone";
 import { PageListSortable } from "@/components/admin/page-list-sortable";
 import { MagazineEditorShell } from "@/components/admin/magazine-editor-shell";
 import { MagazineSourceSections } from "@/components/admin/magazine-source-sections";
@@ -219,6 +220,20 @@ export default async function EditMagazinePage({
             </CardHeader>
             <CardContent className="space-y-4">
               <PageUploadZone magazineId={magazine.id} />
+              {/* 기존 페이지 이미지 교체 (DR-C) — 페이지가 이미 있을 때만 의미가 있다.
+                  Storage 유실 복구처럼 "구조는 그대로, 이미지만" 다시 올릴 때 쓴다. */}
+              {magazine.pages.some((p) => p.kind === "image") && (
+                <PageImageReplaceZone
+                  magazineId={magazine.id}
+                  pages={magazine.pages
+                    .filter((p) => p.kind === "image")
+                    .map((p) => ({
+                      id: p.id,
+                      pageNumber: p.pageNumber,
+                      sortOrder: p.sortOrder,
+                    }))}
+                />
+              )}
               <PageListSortable
                 pages={magazine.pages}
                 magazineId={magazine.id}
