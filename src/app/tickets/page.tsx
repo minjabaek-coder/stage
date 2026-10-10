@@ -3,10 +3,12 @@ export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { safeRead } from "@/lib/db-safe";
 import { SiteHeader } from "@/components/public/site-header";
 import { Footer } from "@/components/public/footer";
 import { CultureEventCard } from "@/components/public/culture-event-card";
-import { getCurrentUser } from "@/lib/auth";
+import { DbUnavailableNotice } from "@/components/public/db-unavailable-notice";
+import { tryGetCurrentUser } from "@/lib/auth";
 import { isPastEvent } from "@/lib/culture-event";
 
 export const metadata: Metadata = {
@@ -15,9 +17,9 @@ export const metadata: Metadata = {
 };
 
 export default async function TicketsPage() {
-  const [user, events] = await Promise.all([
-    getCurrentUser(),
-    prisma.cultureEvent.findMany({
+  const [user, eventsRead] = await Promise.all([
+    tryGetCurrentUser(),
+    safeRead(() => prisma.cultureEvent.findMany({
       where: { status: "published", memberDiscount: { gt: 0 } },
       orderBy: { startDate: "desc" },
       select: {
@@ -32,8 +34,10 @@ export default async function TicketsPage() {
         thumbnailUrl: true,
         memberDiscount: true,
       },
-    }),
+    }), [], "tickets:events"),
   ]);
+
+  const events = eventsRead.data;
 
   // 예정/지난을 나눈다. 정렬은 각각 자연스러운 방향으로 — 예정은 임박한 순,
   // 지난 것은 최근에 끝난 순.
@@ -91,7 +95,9 @@ export default async function TicketsPage() {
 
         {/* 끝난 공연을 "지금 받을 수 있는 혜택"으로 내보내지 않는다.
             날짜 조건이 없어 7월에 끝난 공연을 8월 말까지 노출하고 있었다. */}
-        {upcoming.length === 0 ? (
+        {!eventsRead.ok ? (
+          <DbUnavailableNotice what="할인 공연 목록" className="mt-10" />
+        ) : upcoming.length === 0 ? (
           <div className="mt-24 text-center text-taupe">
             {past.length > 0
               ? "예정된 할인 공연이 없습니다. 새로운 소식을 준비 중입니다."

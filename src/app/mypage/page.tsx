@@ -6,7 +6,8 @@ import { Footer } from "@/components/public/footer";
 import { ProfileForm } from "@/components/public/profile-form";
 import { ArticleCard } from "@/components/public/article-card";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth";
+import { safeRead } from "@/lib/db-safe";
+import { tryGetCurrentUser } from "@/lib/auth";
 import { signOut } from "@/actions/auth-actions";
 import { formatKSTDate } from "@/lib/format";
 
@@ -54,11 +55,13 @@ const NAV = [
 ];
 
 export default async function MyPage() {
-  const user = await getCurrentUser();
+  // DB 장애 시 user는 null이 되어 로그인 화면으로 보낸다. 마이페이지는 개인 데이터가
+  // 전부라 "빈 마이페이지"를 보여주는 것보다 그 편이 덜 혼란스럽다.
+  const user = await tryGetCurrentUser();
   if (!user) redirect("/auth/login");
 
-  const [bookmarks, recentAi, aiTodayRows, aiTotal] = await Promise.all([
-    prisma.bookmark.findMany({
+  const [bookmarksRead, recentAiRead, aiTodayRead, aiTotalRead] = await Promise.all([
+    safeRead(() => prisma.bookmark.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: "desc" },
       select: {
@@ -81,23 +84,26 @@ export default async function MyPage() {
           },
         },
       },
-    }),
-    prisma.aiInteraction.findMany({
+    }), [], "mypage:bookmarks"),
+    safeRead(() => prisma.aiInteraction.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: "desc" },
       take: 5,
       select: { id: true, question: true, createdAt: true, sourceCount: true },
-    }),
+    }), [], "mypage:recentAi"),
     // 오늘(24h) 사용량 — DB now()로 시간 계산(서버 컴포넌트 렌더 순수성 유지)
-    prisma.$queryRawUnsafe<{ n: number }[]>(
+    safeRead(() => prisma.$queryRawUnsafe<{ n: number }[]>(
       `SELECT count(*)::int AS n FROM "AiInteraction"
        WHERE "userId" = $1 AND "createdAt" >= now() - interval '24 hours'`,
       user.id,
-    ),
-    prisma.aiInteraction.count({ where: { userId: user.id } }),
+    ), [], "mypage:aiToday"),
+    safeRead(() => prisma.aiInteraction.count({ where: { userId: user.id } }), 0, "mypage:aiTotal"),
   ]);
 
-  const aiToday = aiTodayRows[0]?.n ?? 0;
+  const bookmarks = bookmarksRead.data;
+  const recentAi = recentAiRead.data;
+  const aiTotal = aiTotalRead.data;
+  const aiToday = aiTodayRead.data[0]?.n ?? 0;
   const tier = user.tier;
   const limit = AI_DAILY_LIMIT[tier] ?? AI_DAILY_LIMIT.member;
   const initial = (user.name || user.email || "S").trim().charAt(0).toUpperCase();

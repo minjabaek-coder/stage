@@ -2,10 +2,12 @@ export const dynamic = "force-dynamic";
 
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
-import { isAdmin } from "@/lib/auth";
+import { safeRead } from "@/lib/db-safe";
+import { tryIsAdmin } from "@/lib/auth";
 import { MainLayout } from "@/components/layouts/main-layout";
 import { ArticleCard } from "@/components/public/article-card";
 import { ArticleSubFilter } from "@/components/public/article-sub-filter";
+import { DbUnavailableNotice } from "@/components/public/db-unavailable-notice";
 import { AdSlot } from "@/components/public/ad-slot";
 
 export const metadata: Metadata = {
@@ -20,11 +22,13 @@ export default async function ArticlesPage({
 }) {
   const { genre, sub } = await searchParams;
   // 발행 전 기사는 관리자만 목록에 노출(환경 무관). 비admin은 발행본만.
-  const admin = await isAdmin();
+  // DB 장애 시에는 비admin으로 떨어진다 — 권한을 확인할 수 없을 때 더 많이 보여주는
+  // 쪽으로 기울면 안 된다.
+  const admin = await tryIsAdmin();
 
   // 단일 Article 모델(단독기사 + 매거진에서 이전된 기사 모두). 매거진 소속은
   // MagazinePage.articleId 역조회로 "실린 곳" 배지를 부여한다.
-  const articles = await prisma.article.findMany({
+  const articlesRead = await safeRead(() => prisma.article.findMany({
     where: {
       ...(admin ? {} : { status: "published" }),
       ...(genre ? { genre } : {}),
@@ -48,23 +52,26 @@ export default async function ArticlesPage({
       isPremium: true,
       status: true,
     },
-  });
+  }), [], "articles:list");
+  const articles = articlesRead.data;
 
   // 실린 곳: 이 기사를 싣는 매거진 페이지가 있으면 호수 배지 부여(기사당 첫 호).
   //
   // ⚠️ 매거진의 발행 상태를 반드시 본다. 빼면 **아직 나오지도 않은 호수를 광고**하게 되고
   //    (뷰어는 비admin에게 404라 눌러도 못 본다), 미발행 호의 존재·호수가 새어 나간다.
   const placements = articles.length
-    ? await prisma.magazinePage.findMany({
-        where: {
-          articleId: { in: articles.map((a) => a.id) },
-          ...(admin ? {} : { magazine: { status: "published" } }),
-        },
-        select: {
-          articleId: true,
-          magazine: { select: { issueNumber: true, status: true } },
-        },
-      })
+    ? (
+        await safeRead(() => prisma.magazinePage.findMany({
+          where: {
+            articleId: { in: articles.map((a) => a.id) },
+            ...(admin ? {} : { magazine: { status: "published" } }),
+          },
+          select: {
+            articleId: true,
+            magazine: { select: { issueNumber: true, status: true } },
+          },
+        }), [], "articles:placements")
+      ).data
     : [];
   const issueByArticle = new Map<string, { issue: number; draft: boolean }>();
   for (const p of placements) {
@@ -109,7 +116,9 @@ export default async function ArticlesPage({
         <ArticleSubFilter />
       </div>
 
-      {cards.length === 0 ? (
+      {!articlesRead.ok ? (
+        <DbUnavailableNotice what="기사 목록" className="mt-10" />
+      ) : cards.length === 0 ? (
         <div className="mt-24 text-center text-taupe">
           {genre || sub
             ? `해당 분류의 기사가 없습니다.`

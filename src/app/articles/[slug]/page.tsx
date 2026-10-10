@@ -8,7 +8,9 @@ import sanitizeHtml from "sanitize-html";
 import { prisma } from "@/lib/prisma";
 import { SiteHeader } from "@/components/public/site-header";
 import { Footer } from "@/components/public/footer";
-import { getCurrentUser, isAdmin } from "@/lib/auth";
+import { tryGetCurrentUser, tryIsAdmin } from "@/lib/auth";
+import { safeRead } from "@/lib/db-safe";
+import { DbUnavailableNotice } from "@/components/public/db-unavailable-notice";
 import { BookmarkButton } from "@/components/public/bookmark-button";
 import { ViewTracker } from "@/components/public/view-tracker";
 import { ArticleMaestroWidget } from "@/components/public/article-maestro-widget";
@@ -19,9 +21,12 @@ import { heroAspectRatio } from "@/lib/article-taxonomy";
 // 발행 전(draft/submitted) 기사는 관리자만 열람. 비admin은 발행본만(환경 무관).
 // 본문(content)은 절대 포함하지 않는다 — 프리미엄 잠김 시 content가 서버 컴포넌트
 // 스코프/ RSC 페이로드에 존재하지 못하게(누수 방지) 메타 필드만 조회.
+//
+// DB 장애를 "기사 없음(404)"과 구분하기 위해 `DbRead`를 그대로 돌려준다 —
+// 404로 보여주면 기사가 삭제된 것처럼 읽히고, 크롤러에게도 그렇게 알려진다.
 const getArticleMeta = cache(async (slug: string) => {
-  const admin = await isAdmin();
-  return prisma.article.findFirst({
+  const admin = await tryIsAdmin();
+  return safeRead(() => prisma.article.findFirst({
     where: { slug, ...(admin ? {} : { status: "published" }) },
     select: {
       id: true,
@@ -43,15 +48,16 @@ const getArticleMeta = cache(async (slug: string) => {
       publishedAt: true,
       status: true,
     },
-  });
+  }), null, "article:meta");
 });
 
 // 권한이 확인된 경우에만 본문을 별도 조회.
 async function getArticleContent(id: string): Promise<string> {
-  const row = await prisma.article.findUnique({
-    where: { id },
-    select: { content: true },
-  });
+  const { data: row } = await safeRead(
+    () => prisma.article.findUnique({ where: { id }, select: { content: true } }),
+    null,
+    "article:content"
+  );
   return row?.content ?? "";
 }
 
@@ -135,7 +141,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const article = await getArticleMeta(slug);
+  const { data: article } = await getArticleMeta(slug);
   if (!article) return { title: "Not Found" };
 
   // 메타에는 본문을 쓰지 않음(요약/제목만) — 누수 방지 겸 단순화
@@ -169,17 +175,29 @@ export default async function ArticlePage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const article = await getArticleMeta(slug);
+  const metaRead = await getArticleMeta(slug);
+  if (!metaRead.ok) {
+    return (
+      <div className="min-h-screen bg-paper text-ink">
+        <SiteHeader />
+        <main className="mx-auto max-w-2xl px-6 py-20">
+          <DbUnavailableNotice what="기사" />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+  const article = metaRead.data;
   if (!article) notFound();
 
   // 관리자는 미발행 콘텐츠도 미리 볼 수 있다 → 아래에서 '미발행' 표시를 붙인다.
-  const admin = await isAdmin();
+  const admin = await tryIsAdmin();
 
   // 실린 곳: 이 기사가 실린 매거진의 연속 페이지 범위(첫 매거진). 시작 페이지로 딥링크.
   //
   // ⚠️ 매거진의 발행 상태를 반드시 본다. 빼면 미발행 호로 가는 링크를 내보내게 되는데,
   //    뷰어는 비admin에게 404라 **누르면 못 보는 링크**가 되고 미발행 호수도 새어 나간다.
-  const placementPages = await prisma.magazinePage.findMany({
+  const { data: placementPages } = await safeRead(() => prisma.magazinePage.findMany({
     where: {
       articleId: article.id,
       ...(admin ? {} : { magazine: { status: "published" } }),
@@ -190,7 +208,7 @@ export default async function ArticlePage({
       magazineId: true,
       magazine: { select: { issueNumber: true, status: true } },
     },
-  });
+  }), [], "article:placements");
   const placement =
     placementPages.length > 0
       ? (() => {
@@ -208,7 +226,7 @@ export default async function ArticlePage({
         })()
       : null;
 
-  const user = await getCurrentUser();
+  const user = await tryGetCurrentUser();
   // 프리미엄 기사는 로그인 회원만 본문 열람. 비회원(미로그인)은 미리보기.
   const locked = article.isPremium && !user;
   // 잠김이면 content를 아예 조회하지 않는다 → 페이로드에 존재 불가(RSC 누수 방지).
@@ -217,11 +235,18 @@ export default async function ArticlePage({
     : sanitizeArticle(await getArticleContent(article.id));
 
   const bookmarked = user
-    ? !!(await prisma.bookmark.findUnique({
-        where: {
-          userId_articleId: { userId: user.id, articleId: article.id },
-        },
-      }))
+    ? !!(
+        await safeRead(
+          () =>
+            prisma.bookmark.findUnique({
+              where: {
+                userId_articleId: { userId: user.id, articleId: article.id },
+              },
+            }),
+          null,
+          "article:bookmark"
+        )
+      ).data
     : false;
 
   // 키커: 장르(없으면 유형, 그래도 없으면 레거시 category)를 주 라벨로,

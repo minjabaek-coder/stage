@@ -1,5 +1,6 @@
-import { getCurrentUser } from "@/lib/auth";
+import { tryGetCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { safeRead } from "@/lib/db-safe";
 import type { UserTier } from "@/generated/prisma/client";
 import { MyStage } from "./my-stage";
 import { ArchiveNav, type ArchiveGroup } from "./archive-nav";
@@ -19,24 +20,35 @@ type Mag = {
 
 // 홈 좌측 레일(page-home §A): My STAGE(로그인 시) + 아카이브(항상).
 export async function LeftRail({ magazines }: { magazines: Mag[] }) {
-  const user = await getCurrentUser();
+  // 공용 셸의 일부 — 여기서 throw하면 **본문과 무관하게 페이지 전체가 500**이 된다.
+  // DB 장애 시에는 비로그인 상태로 보이게 두고(레일은 아카이브만) 페이지를 살린다.
+  const user = await tryGetCurrentUser();
 
   let myStage = null;
   if (user) {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
     const [bookmarkCount, aiUsed] = await Promise.all([
-      prisma.bookmark.count({ where: { userId: user.id } }),
-      prisma.aiInteraction.count({
-        where: { userId: user.id, createdAt: { gte: startOfDay } },
-      }),
+      safeRead(
+        () => prisma.bookmark.count({ where: { userId: user.id } }),
+        0,
+        "leftRail:bookmarkCount"
+      ),
+      safeRead(
+        () =>
+          prisma.aiInteraction.count({
+            where: { userId: user.id, createdAt: { gte: startOfDay } },
+          }),
+        0,
+        "leftRail:aiUsed"
+      ),
     ]);
     myStage = (
       <MyStage
         name={user.name}
         tier={user.tier}
-        bookmarkCount={bookmarkCount}
-        aiUsed={aiUsed}
+        bookmarkCount={bookmarkCount.data}
+        aiUsed={aiUsed.data}
         aiLimit={AI_LIMIT[user.tier]}
         interests={user.interests}
       />
