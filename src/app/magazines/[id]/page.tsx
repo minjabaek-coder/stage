@@ -1,8 +1,10 @@
 export const dynamic = "force-dynamic";
 
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { isAdmin } from "@/lib/auth";
+import { safeRead } from "@/lib/db-safe";
+import { tryIsAdmin } from "@/lib/auth";
 import { MagazineReader } from "@/components/public/magazine-reader";
 import { ViewTracker } from "@/components/public/view-tracker";
 import type { Metadata } from "next";
@@ -17,9 +19,14 @@ type Props = {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
-  const magazine = await prisma.magazine.findUnique({ where: { id } });
+  // generateMetadata에서 throw하면 본문이 멀쩡해도 라우트 전체가 500이 된다.
+  const { data: magazine } = await safeRead(
+    () => prisma.magazine.findUnique({ where: { id } }),
+    null,
+    "magazineViewer:metadata"
+  );
 
-  if (!magazine || (magazine.status !== "published" && !(await isAdmin()))) {
+  if (!magazine || (magazine.status !== "published" && !(await tryIsAdmin()))) {
     return { title: "Not Found" };
   }
 
@@ -48,20 +55,52 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
+// 뷰어는 전체화면 라우트(공용 셸 없음)라 안내도 자체적으로 그린다.
+function MagazineUnavailable() {
+  return (
+    <div className="flex h-dvh flex-col items-center justify-center gap-3 bg-ink-deep px-6 text-center">
+      <p className="font-label text-[10px] font-bold uppercase tracking-[0.25em] text-gold">
+        Temporarily Unavailable
+      </p>
+      <h1 className="font-headline text-xl font-bold text-white">
+        지금 이 호를 열 수 없습니다
+      </h1>
+      <p className="max-w-sm text-[13px] leading-relaxed text-white/60">
+        일시적인 문제로 매거진 데이터를 읽지 못했습니다. 잠시 후 다시 시도해주세요.
+      </p>
+      <Link
+        href="/"
+        className="mt-3 border border-white/30 px-5 py-2.5 font-label text-[10px] font-bold uppercase tracking-widest text-white transition-colors hover:border-gold hover:text-gold"
+      >
+        홈으로
+      </Link>
+    </div>
+  );
+}
+
 export default async function MagazineViewerPage({ params, searchParams }: Props) {
   const { id } = await params;
   const { page: pageParam } = (await searchParams) ?? {};
   const initialPage = Math.max(1, Number(pageParam) || 1);
 
-  const magazine = await prisma.magazine.findUnique({
-    where: { id },
-    include: {
-      pages: { orderBy: { sortOrder: "asc" } },
-      tocEntries: { orderBy: { sortOrder: "asc" } },
-    },
-  });
+  const read = await safeRead(
+    () =>
+      prisma.magazine.findUnique({
+        where: { id },
+        include: {
+          pages: { orderBy: { sortOrder: "asc" } },
+          tocEntries: { orderBy: { sortOrder: "asc" } },
+        },
+      }),
+    null,
+    "magazineViewer:load"
+  );
 
-  if (!magazine || (magazine.status !== "published" && !(await isAdmin()))) {
+  // DB 장애를 404로 보여주면 "이 호는 없다"는 **틀린 말**이 된다. 구분해서 알린다.
+  if (!read.ok) return <MagazineUnavailable />;
+
+  const magazine = read.data;
+  if (!magazine || (magazine.status !== "published" && !(await tryIsAdmin()))) {
     notFound();
   }
 

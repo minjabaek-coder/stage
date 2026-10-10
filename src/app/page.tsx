@@ -1,6 +1,8 @@
 export const dynamic = "force-dynamic";
 
 import { prisma } from "@/lib/prisma";
+import { safeRead } from "@/lib/db-safe";
+import { DbUnavailableNotice } from "@/components/public/db-unavailable-notice";
 import Link from "next/link";
 import { MainLayout } from "@/components/layouts/main-layout";
 import { PastMagazines } from "@/components/public/past-magazines";
@@ -39,16 +41,19 @@ function SectionHead({
 }
 
 export default async function HomePage() {
-  const [publishedMagazines, recentArticles] = await Promise.all([
-    prisma.magazine.findMany({
+  // 홈은 **DB가 죽어도 열려야 한다.** 2026-10-10 Supabase 프로젝트 소멸 당시 이 두
+  // 쿼리가 throw해 홈이 500이 되었고, DB를 안 쓰는 페이지는 정상인데도 사이트
+  // 전체가 접속 불가로 보였다. 이제는 빈 상태 + 안내로 떨어진다.
+  const [magazinesRead, articlesRead] = await Promise.all([
+    safeRead(() => prisma.magazine.findMany({
       where: { status: "published" },
       orderBy: { issueNumber: "desc" },
       // 구성형 표지 폴백용 — 첫 페이지 layout (비트맵 coverImageUrl 없을 때 ComposedPage 렌더)
       include: {
         pages: { orderBy: { sortOrder: "asc" }, take: 1, select: { layout: true } },
       },
-    }),
-    prisma.article.findMany({
+    }), [], "home:magazines"),
+    safeRead(() => prisma.article.findMany({
       where: { status: "published" },
       orderBy: { publishedAt: "desc" },
       take: 3,
@@ -68,8 +73,12 @@ export default async function HomePage() {
         thumbnailZoom: true,
         isPremium: true,
       },
-    }),
+    }), [], "home:articles"),
   ]);
+
+  const publishedMagazines = magazinesRead.data;
+  const recentArticles = articlesRead.data;
+  const dbUnavailable = !magazinesRead.ok || !articlesRead.ok;
 
   const [latestMagazine, ...previousMagazines] = publishedMagazines;
 
@@ -79,6 +88,9 @@ export default async function HomePage() {
       sidebarHideRecent
       leftRail={<LeftRail magazines={publishedMagazines} />}
     >
+      {/* DB 장애 시: 텅 빈 홈이 아니라 "지금 못 읽음"임을 알린다 */}
+      {dbUnavailable && <DbUnavailableNotice what="매거진과 기사" className="mb-10" />}
+
       {/* Hero: 최신호 (v2 §C) */}
       {latestMagazine && (
         <section className="grid grid-cols-1 gap-6 sm:grid-cols-[clamp(180px,34%,260px)_1fr] sm:items-start">

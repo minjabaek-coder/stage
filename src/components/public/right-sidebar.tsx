@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { safeRead } from "@/lib/db-safe";
 import { kstTodayStartUtc } from "@/lib/culture-event";
-import { getCurrentUser } from "@/lib/auth";
+import { tryGetCurrentUser } from "@/lib/auth";
 import { formatKSTDate } from "@/lib/format";
 import { NewsletterForm } from "@/components/public/newsletter-form";
 import { SidebarAd } from "@/components/public/sidebar-ad";
@@ -16,9 +17,11 @@ export async function RightSidebar({
 } = {}) {
   const now = new Date();
   const todayStart = kstTodayStartUtc(now);
-  const [user, ads, tickets, recentArticles] = await Promise.all([
-    getCurrentUser(),
-    prisma.advertisement.findMany({
+  // 공용 셸의 일부 — 여기서 throw하면 본문이 멀쩡해도 페이지가 500이 된다.
+  // 위젯 4종은 각자 독립적으로 비어도 사이드바가 성립하므로 개별 폴백을 둔다.
+  const [user, adsRead, ticketsRead, recentArticlesRead] = await Promise.all([
+    tryGetCurrentUser(),
+    safeRead(() => prisma.advertisement.findMany({
       where: {
         isActive: true,
         placement: { has: "sidebar" },
@@ -30,8 +33,8 @@ export async function RightSidebar({
       orderBy: { createdAt: "desc" },
       take: 5,
       select: { id: true, sponsor: true, title: true, imageUrl: true },
-    }),
-    prisma.cultureEvent.findMany({
+    }), [], "sidebar:ads"),
+    safeRead(() => prisma.cultureEvent.findMany({
       where: {
         status: "published",
         // "아직 안 끝난 것" — `startDate >= now`로 거르면 **진행 중인 공연이 사라진다**
@@ -52,14 +55,18 @@ export async function RightSidebar({
         memberDiscount: true,
         thumbnailUrl: true,
       },
-    }),
-    prisma.article.findMany({
+    }), [], "sidebar:tickets"),
+    safeRead(() => prisma.article.findMany({
       where: { status: "published" },
       orderBy: { publishedAt: "desc" },
       take: 5,
       select: { id: true, slug: true, title: true },
-    }),
+    }), [], "sidebar:recentArticles"),
   ]);
+
+  const ads = adsRead.data;
+  const tickets = ticketsRead.data;
+  const recentArticles = recentArticlesRead.data;
 
   const isMember = !!user; // member·pro 모두 할인 노출
 

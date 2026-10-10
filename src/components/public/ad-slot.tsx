@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { safeRead } from "@/lib/db-safe";
 import { AdImpression } from "@/components/public/ad-impression";
 
 // 공개 광고 슬롯. placement·isActive·노출기간(start/end)에 맞는 활성 광고 1건을 렌더.
@@ -12,7 +13,8 @@ export async function AdSlot({
   className?: string;
 }) {
   const now = new Date();
-  const ad = await prisma.advertisement.findFirst({
+  // 광고는 없어도 페이지가 성립한다 — 장애 시 슬롯만 비운다.
+  const { data: ad } = await safeRead(() => prisma.advertisement.findFirst({
     where: {
       isActive: true,
       placement: { has: placement },
@@ -23,7 +25,7 @@ export async function AdSlot({
       ],
     },
     orderBy: { createdAt: "desc" },
-  });
+  }), null, `adSlot:${placement}`);
 
   if (!ad || !ad.imageUrl) return null;
 

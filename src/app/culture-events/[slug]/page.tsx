@@ -5,14 +5,19 @@ import { cache } from "react";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
+import { safeRead } from "@/lib/db-safe";
 import { SiteHeader } from "@/components/public/site-header";
 import { Footer } from "@/components/public/footer";
+import { DbUnavailableNotice } from "@/components/public/db-unavailable-notice";
 import { isPastEvent } from "@/lib/culture-event";
 
+// DB 장애를 404("이 공연은 없다")로 보여주지 않기 위해 DbRead를 그대로 돌려준다.
 const getEvent = cache(async (slug: string) => {
-  return prisma.cultureEvent.findFirst({
-    where: { slug, status: "published" },
-  });
+  return safeRead(
+    () => prisma.cultureEvent.findFirst({ where: { slug, status: "published" } }),
+    null,
+    "cultureEvent:detail"
+  );
 });
 
 function fmtDateTime(d: Date): string {
@@ -32,7 +37,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const event = await getEvent(slug);
+  const { data: event } = await getEvent(slug);
   if (!event) return { title: "Not Found" };
 
   const description =
@@ -64,7 +69,19 @@ export default async function CultureEventPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const event = await getEvent(slug);
+  const read = await getEvent(slug);
+  if (!read.ok) {
+    return (
+      <div className="min-h-screen bg-paper text-ink">
+        <SiteHeader />
+        <main className="mx-auto max-w-2xl px-6 py-20">
+          <DbUnavailableNotice what="공연·전시 정보" />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+  const event = read.data;
   if (!event) notFound();
 
   const isEdu = event.type === "교육";
