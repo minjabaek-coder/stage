@@ -130,6 +130,19 @@ export async function saveUploadedImage(file: File): Promise<string> {
 export async function deleteUploadedFile(imageUrl: string): Promise<void> {
   try {
     const url = new URL(imageUrl);
+
+    // **다른 Supabase 프로젝트의 URL이면 건드리지 않는다.** 2026-10-10 사고 이후
+    // DB에는 사라진 구 프로젝트를 가리키는 URL이 수천 개 남아 있다. 호스트를 보지 않고
+    // 경로만 떼어 현재 버킷에서 remove()하면, 경로가 우연히 겹칠 때 **살아 있는 새 파일을
+    // 지운다.** 지울 수 없는 파일을 지우려 하는 것보다 이게 훨씬 위험하다.
+    const projectUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (projectUrl && url.host !== new URL(projectUrl).host) {
+      console.warn(
+        `[upload] 다른 프로젝트의 파일이라 삭제를 건너뜁니다: ${url.host}${url.pathname}`
+      );
+      return;
+    }
+
     const pathParts = url.pathname.split(`/storage/v1/object/public/${STORAGE_BUCKET}/`);
     if (pathParts.length < 2) return;
 

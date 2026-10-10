@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:backup": "node scripts/db-backup.mjs",
+    "db:restore": "node scripts/db-restore.mjs",
     "db:deploy": "node scripts/db-backup.mjs && prisma migrate deploy",
     "audit:gating": "node scripts/audit-gating.mjs",
     "reindex": "node scripts/reindex-magazine.mjs"
